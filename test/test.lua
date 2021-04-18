@@ -41,6 +41,12 @@ function TestMsg:TestArray()
    lu.assert_equals(ret, args)
 end
 
+function TestMsg:TestArrayOfArray()
+   local args = { {1,2,3}, {4,5,6}, {6,7,8} }
+   local ret = b:testmsg("aai", args)
+   lu.assert_equals(ret, args)
+end
+
 function TestMsg:TestsComplexMsg()
    local ret = { b:testmsg("sais", "banana", {1,2,3,4}, "kiwi") }
    lu.assert_equals(ret, { "banana", {1,2,3,4}, "kiwi" })
@@ -70,6 +76,32 @@ function TestMsg:TestDictStr()
    lu.assert_equals(ret, dict)
 end
 
+function TestMsg:TestsVeryComplexMsg()
+   local msg = {
+      "banana",
+      {1,2,3,4},
+      "kiwi",
+      {
+	 { "fimp", "fomp", "fump" },
+	 { "bimp", "bomp", "bunk" },
+	 { "king", "kong", "kang" }
+      }
+   }
+   local ret = { b:testmsg("saisaas", unpack(msg)) }
+   lu.assert_equals(ret, msg)
+end
+
+function TestMsg:TestVariant()
+   local s = "sumpi"
+   local ret = b:testmsg("v", "s", s)
+   lu.assert_equals(ret, s)
+end
+
+function TestMsg:TestVariantArrayOfInts()
+   local arg = { 11, 22, 33, 44, 55, 66 }
+   local ret = b:testmsg("vai", arg)
+   lu.assert_equals(ret, arg)
+end
 
 
 os.exit( lu.LuaUnit.run() )

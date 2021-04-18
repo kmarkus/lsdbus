@@ -519,6 +519,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 				if (r<0) {
 					return r;
 				}
+				stpos =	lua_absindex(L,	-r);
 			}
 
                         break;
@@ -539,7 +540,7 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
 {
 	dbg("%c", ctype);
 
-	int r, cnt_basic=0;
+	int r, cnt=0;
 
         for (;;) {
                 /* _cleanup_free_ char *prefix = NULL; */
@@ -571,6 +572,7 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
                         if (r < 0)
 				luaL_error(L, "msg_tolua: failed to exit container: %s", strerror(-r));
 
+			dbg("container exit");
                         return 0;
                 }
 
@@ -582,9 +584,14 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
 			if (type != SD_BUS_TYPE_DICT_ENTRY) {
 				dbg("newtable");
 				lua_newtable(L);
+				cnt++;
 			}
 			__msg_tolua(L, m, type);
-                        continue;
+
+			if (type != SD_BUS_TYPE_DICT_ENTRY)
+				goto table_update;
+			else
+				continue;
                 }
 
                 r = sd_bus_message_read_basic(m, type, &basic);
@@ -641,19 +648,24 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
                         luaL_error(L, "msg_tolua: unknown basic type: %c", type);
                 }
 
-		dbg("pushbasic t=%c, ct=%c (#%i)", type, ctype, cnt_basic);
+	table_update:
 
-		if (ctype == SD_BUS_TYPE_ARRAY)
+		if (ctype == SD_BUS_TYPE_ARRAY) {
+			dbg("rawseti t=%c, ct=%c (#%i)", type, ctype, cnt);
 			lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
-		else if (ctype == SD_BUS_TYPE_VARIANT)
+		} else if (ctype == SD_BUS_TYPE_VARIANT) {
+			dbg("rawseti t=%c, ct=%c (#%i)", type, ctype, cnt);
 			lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
-		else if (ctype == SD_BUS_TYPE_STRUCT)
+		} else if (ctype == SD_BUS_TYPE_STRUCT) {
+			dbg("rawseti t=%c, ct=%c (#%i)", type, ctype, cnt);
 			lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
-		else if (ctype == SD_BUS_TYPE_DICT_ENTRY) {
-			if (cnt_basic%2)
+		} else if (ctype == SD_BUS_TYPE_DICT_ENTRY) {
+			if (cnt%2) {
+				dbg("rawset t=%c, ct=%c (#%i)", type, ctype, cnt);
 				lua_rawset(L, -3);
+			}
 		}
-		cnt_basic++;
+		cnt++;
         }
 
         return 0;
