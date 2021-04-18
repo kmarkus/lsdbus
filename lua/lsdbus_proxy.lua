@@ -57,7 +57,7 @@ function proxy:call(m, ...)
       error(fmt("call: no method %s", m))
    end
    local its = met2its(mtab)
-   self:xcall(self.intf.name, m, its, ...)
+   return self:xcall(self.intf.name, m, its, ...)
 end
 
 function proxy:__call(m, ...) return self:call(m, ...) end
