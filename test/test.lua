@@ -103,6 +103,14 @@ function TestMsg:TestVariantArrayOfInts()
    lu.assert_equals(ret, arg)
 end
 
+-- TODO:
+--   - test huge data sets
+--
+
+--
+-- Test errnoneous input
+--
+
 function TestMsg:TestInvalidArg()
    local function invalid_msg()
       return b:testmsg("s", false)
@@ -132,6 +140,38 @@ function TestMsg:TestInvalidTooFewArgs()
       return b:testmsg("siq", "grunk", -4711)
    end
    local exp_err = "(number expected, got no value)"
+   lu.assert_error_msg_contains(exp_err, invalid_msg)
+end
+
+function TestMsg:TestInvalidNoArgs()
+   local function invalid_msg()
+      return b:testmsg("(siq)")
+   end
+   local exp_err = "not a table but no value"
+   lu.assert_error_msg_contains(exp_err, invalid_msg)
+end
+
+function TestMsg:TestInvalidMissingStructClose()
+   local function invalid_msg()
+      return b:testmsg("(siq", "str", 23, 2)
+   end
+   local exp_err = "asd"
+   lu.assert_error_msg_contains(exp_err, invalid_msg)
+end
+
+function TestMsg:TestInvalidMissingStructClose()
+   local function invalid_msg()
+      return b:testmsg("(siq", "str", 23, 2)
+   end
+   local exp_err = "invalid struct type string (siq"
+   lu.assert_error_msg_contains(exp_err, invalid_msg)
+end
+
+function TestMsg:TestInvalidMissingDictClose()
+   local function invalid_msg()
+      return b:testmsg("{uqi", "str")
+   end
+   local exp_err = "invalid dict type string {uqi"
    lu.assert_error_msg_contains(exp_err, invalid_msg)
 end
 

@@ -37,6 +37,14 @@ static int lsdbus_open(lua_State *L)
 
 /**
  * table_explode - unpack the table at src onto the top of the stack
+ *
+ * @param L
+ * @pos relative or absolute stack position of table to unpack
+ * @ctx	context to print in case of error
+ * @return number of elements unpacked or -1 in case of error.
+
+ * The table is removed from the given stackpos. In the error case, a
+ * string with the error message is pushed on top of the stack.
  */
 static int table_explode(lua_State *L, int pos, const char *ctx)
 {
@@ -65,8 +73,14 @@ static int table_explode(lua_State *L, int pos, const char *ctx)
 	return len;
 }
 
-/* explode the all key, value pairs of the table at pos onto the top
- * of stack. Drop the table afterwards */
+/**
+ * dict_explode - unpack the table at src onto the top of the stack
+ *
+ * this function is identical to the one above except that the table
+ * is traversed as a dictionary (pairs) instead of as an array
+ * (ipairs). The function returns the sum of keys and values pushed
+ * onto the stack.
+ */
 static int dict_explode(lua_State *L, int pos, const char *ctx)
 {
 	int len=0, type;
@@ -81,15 +95,11 @@ static int dict_explode(lua_State *L, int pos, const char *ctx)
 		return -1;
 	}
 
-	/* table is in the stack at index 't' */
 	lua_pushnil(L);  /* first key */
 	while (lua_next(L, pos) != 0) {
-		/* puts 'key' (at index -2) and 'value' (at index -1) */
 		dbg("%s - %s", lua_typename(L, lua_type(L, -2)), lua_typename(L, lua_type(L, -1)));
-		/* removes 'value'; keeps 'key' for next iteration */
 		/* duplicate key to top for next iteration */
 		lua_pushvalue(L, -2);
-		/* lua_pop(L, 1); */
 		len++;
 	}
 
@@ -113,7 +123,6 @@ int luaL_checkboolean (lua_State *L, int index)
  * Copied from lsdbus v248-rc2-173-g275334c562
  */
 #define BUS_CONTAINER_DEPTH 128
-
 
 #include <stdbool.h>
 
@@ -306,6 +315,19 @@ int signature_element_length(const char *s, size_t *l) {
         return signature_element_length_internal(s, true, 0, 0, l);
 }
 
+/**
+ * msg_fromlua
+ *
+ * @param L
+ * @param m message to fill with Lua data
+ * @types dbus type string
+ * @stpos stack position where message data starts
+ *
+ * All arguments are popped from the stack.
+ *
+ * @return 0 if OK, <0 if not. In case of error, an error message is
+ * pushed to the top of the stack.
+ */
 int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 {
         unsigned n_array, n_struct;
@@ -334,9 +356,11 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                                 break;
 
                         r = sd_bus_message_close_container(m);
-			dbg("close container");
-                        if (r < 0)
+			dbg("sd_bus_message_close_container");
+                        if (r < 0) {
+				lua_pushfstring(L, "failed to close container %s", strerror(-r));
                                 return r;
+			}
 
                         continue;
                 }
@@ -423,16 +447,21 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                         size_t k;
 
                         r = signature_element_length(t + 1, &k);
-                        if (r < 0)
+                        if (r < 0) {
+				lua_pushfstring(L, "invalid array type string %s", t);
                                 return r;
+			}
                         {
                                 char s[k + 1];
                                 memcpy(s, t + 1, k);
                                 s[k] = 0;
 
                                 r = sd_bus_message_open_container(m, SD_BUS_TYPE_ARRAY, s);
-                                if (r < 0)
+                                if (r < 0) {
+					lua_pushfstring(L, "failed to open array container for %s: %s",
+							t, strerror(-r));
                                         return r;
+				}
                         }
 
                         if (n_array == (unsigned) -1) {
@@ -441,8 +470,10 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                         }
 
                         r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array, stpos);
-                        if (r < 0)
+                        if (r < 0) {
+				lua_pushfstring(L, "container depth %u exceeded", BUS_CONTAINER_DEPTH);
                                 return r;
+			}
 
                         types = t + 1;
                         n_struct = k;
@@ -458,8 +489,9 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 				r = table_explode(L, stpos, types-1);
 				n_array = r;
 			}
+
 			if (r<0)
-				return r;
+				return r; /* error msg pushed by _explode function */
 
 			dbg("appending container %c of size %u", t[1], n_array);
 
@@ -472,12 +504,17 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 			lua_remove(L, stpos);
 
                         r = sd_bus_message_open_container(m, SD_BUS_TYPE_VARIANT, s);
-                        if (r < 0)
+                        if (r < 0) {
+				lua_pushfstring(L, "failed to open variant container for %s: %s",
+						t, strerror(-r));
                                 return r;
+			}
 
                         r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array, stpos);
-                        if (r < 0)
+                        if (r < 0) {
+				lua_pushfstring(L, "container depth %u exceeded", BUS_CONTAINER_DEPTH);
                                 return r;
+			}
 
                         types = s;
                         n_struct = strlen(s);
@@ -492,8 +529,11 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                         size_t k;
 
                         r = signature_element_length(t, &k);
-                        if (r < 0)
+                        if (r < 0) {
+				lua_pushfstring(L, "invalid %s type string %s",
+						*t == SD_BUS_TYPE_STRUCT_BEGIN ? "struct" : "dict", t);
                                 return r;
+			}
 
                         {
                                 char s[k - 1];
@@ -502,8 +542,13 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                                 s[k - 2] = 0;
 
                                 r = sd_bus_message_open_container(m, *t == SD_BUS_TYPE_STRUCT_BEGIN ? SD_BUS_TYPE_STRUCT : SD_BUS_TYPE_DICT_ENTRY, s);
-                                if (r < 0)
+                                if (r < 0) {
+					lua_pushfstring(L, "failed to open %s container for %s: %s",
+							*t == SD_BUS_TYPE_STRUCT_BEGIN ? "struct" : "dict",
+							t, strerror(-r));
+
                                         return r;
+				}
                         }
 
                         if (n_array == (unsigned) -1) {
@@ -512,8 +557,10 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                         }
 
                         r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array, stpos);
-                        if (r < 0)
+                        if (r < 0) {
+				lua_pushfstring(L, "container depth %u exceeded", BUS_CONTAINER_DEPTH);
                                 return r;
+			}
 
                         types = t + 1;
                         n_struct = k - 2;
@@ -709,11 +756,12 @@ static int lsdbus_bus_call(lua_State *L)
 		luaL_error(L, "%s: failed to create call message: %s",
 			   __func__, strerror(-ret));
 
-	if (types!= NULL)
+	if (types != NULL) {
 		ret = msg_fromlua(L, m, types, 7);
 
-	if (ret<0)
-		goto out;
+		if (ret<0)
+			goto out;
+	}
 
 	sd_bus_message_seal(m, 2, 1000*1000);
 
@@ -735,13 +783,15 @@ static int lsdbus_bus_call(lua_State *L)
 	lua_pushboolean(L, 1);
 	ret = msg_tolua(L, reply);
 
-	if (ret<0)
-		lua_error(L);
-	ret++;
+	if (ret >= 0)
+		ret++;
 out:
 	sd_bus_error_free(&error);
 	sd_bus_message_unref(reply);
 	sd_bus_message_unref(m);
+
+	if (ret<0)
+		lua_error(L);
 
 	return ret;
 }
