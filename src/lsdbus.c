@@ -737,6 +737,7 @@ static int lsdbus_bus_call(lua_State *L)
 
 	if (ret<0)
 		lua_error(L);
+	ret++;
 out:
 	sd_bus_error_free(&error);
 	sd_bus_message_unref(reply);
