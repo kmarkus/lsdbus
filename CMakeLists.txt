@@ -11,7 +11,7 @@ pkg_check_modules(SYSTEMD libsystemd>=236)
 set(LSDBUS_SRC_DIR ${CMAKE_SOURCE_DIR}/src/)
 
 set(LSDBUS_SRCS
-  ${LSDBUS_SRC_DIR}/sdbus.c
+  ${LSDBUS_SRC_DIR}/lsdbus.c
 )
 
 set(LSDBUS_INST_DIR

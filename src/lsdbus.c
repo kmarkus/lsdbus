@@ -27,100 +27,137 @@ static int lsdbus_open(lua_State *L)
 	return 1;
 }
 
-/* message */
-static int msg_fromlua(lua_State *L,
-		       sd_bus_message* m,
-		       const char *types,
-		       int startpos)
+/**
+ * append Lua values conforming to the given types string to a message
+ *
+ * @L Lua state
+ * @m message
+ * @t type string
+ * @stpos stack index with next Lua value to append to m
+ * @tpos index into t with next argument to be pushed on the stack
+ *
+ * @return 0 if OK, <0 in case of error. In that case, an error
+ * message is pushed to the top of the stack.
+ */
+static int __msg_append(lua_State *L,
+			sd_bus_message* m,
+			char *t,
+			int stpos,
+			int stend,
+			int tpos)
 {
-	const char* t;
-	int ret;
-	int pos = startpos;
-	int endpos = lua_gettop(L) + 1;
-	printf("types=%s, pos=%i, endpos=%i\n",	types, pos, endpos);
+	int ret = 0;
+	char ttmp[strlen(t)];
 
-	for (t = types; *t != '\0' && pos<endpos; t++, pos++) {
-		switch(*t) {
+	printf("t=%s, stpos=%i\n", t, stpos);
+
+	for (;t[tpos] != '\0'; tpos++, stpos++) {
+		switch(t[tpos]) {
 		case SD_BUS_TYPE_BOOLEAN:
 		case SD_BUS_TYPE_INT32:
 		case SD_BUS_TYPE_UINT32:
 		case SD_BUS_TYPE_UNIX_FD: {
 			uint32_t x;
 			static_assert(sizeof(int32_t) == sizeof(int));
-			x = luaL_checkinteger(L, pos);
+			x = luaL_checkinteger(L, stpos);
 			ret = sd_bus_message_append_basic(m, *t, &x);
 			break;
 		}
                 case SD_BUS_TYPE_BYTE: {
 			uint8_t x;
-			x = luaL_checkinteger(L, pos);
+			x = luaL_checkinteger(L, stpos);
 			ret = sd_bus_message_append_basic(m, *t, &x);
 			break;
 		}
                 case SD_BUS_TYPE_INT16:
                 case SD_BUS_TYPE_UINT16: {
                         uint16_t x;
-			x = luaL_checkinteger(L, pos);
+			x = luaL_checkinteger(L, stpos);
                         ret = sd_bus_message_append_basic(m, *t, &x);
                         break;
                 }
                 case SD_BUS_TYPE_INT64:
                 case SD_BUS_TYPE_UINT64: {
                         uint64_t x;
-			x = luaL_checkinteger(L, pos);
+			x = luaL_checkinteger(L, stpos);
                         ret = sd_bus_message_append_basic(m, *t, &x);
                         break;
                 }
                 case SD_BUS_TYPE_DOUBLE: {
                         double x;
-			x = luaL_checknumber(L, pos);
+			x = luaL_checknumber(L, stpos);
                         ret = sd_bus_message_append_basic(m, *t, &x);
                         break;
                 }
                 case SD_BUS_TYPE_STRING:
                 case SD_BUS_TYPE_OBJECT_PATH:
                 case SD_BUS_TYPE_SIGNATURE: {
-                        const char *x =	luaL_checkstring(L, pos);
+                        const char *x =	luaL_checkstring(L, stpos);
                         ret = sd_bus_message_append_basic(m, *t, x);
                         break;
                 }
                 case SD_BUS_TYPE_VARIANT: {
+			ret = -ENOTSUP;
+			break;
 		}
                 case SD_BUS_TYPE_ARRAY: {
+			luaL_checktype(L, stpos, LUA_TTABLE);
+			/* extract container_substring */
+			int top;
+			/* tbd. int len = cont_type(t[tpos+1], ttmp); */
+
+			ret = sd_bus_message_open_container(m, 'a', ttmp);
+
+			if (ret < 0)
+				return ret;
+
+			lua_pushnil(L);
+			top = lua_gettop(L);
+			while (lua_next(L, stpos) != 0) {
+				__msg_append(L, m, ttmp, top, top+1);
+				lua_pop(L, 1);
+			}
+
+			tpos+=len-1;
+
+			ret = sd_bus_message_close_container(m);
+			break;
+
 		}
                 case SD_BUS_TYPE_STRUCT_BEGIN:
                 case SD_BUS_TYPE_DICT_ENTRY_BEGIN: {
+			/* ret = sd_bus_message_open_container( */
+			/* 	m, SD_BUS_TYPE_STRUCT_BEGIN ? SD_BUS_TYPE_STRUCT */
+			/* 	: SD_BUS_TYPE_DICT_ENTRY, s); */
+			/* if (ret < 0) */
+			/* 	break; */
+			ret = -ENOTSUP;
+			break
 		}
 		default:
-			return -EINVAL;
+			ret = -EINVAL;
 		}
 
-		if (ret != 0) {
-			sd_bus_message_unref(m);
-			luaL_error(L, "failed to append %c", *t);
-		}
+		if (ret != 0)
+			break; /* loop */
 	};
 
-	if (*t == '\0' && pos != endpos) {
-		sd_bus_message_unref(m);
-		luaL_error(L, "too many message args, got %I, expected %I",
-			   endpos - startpos, pos - startpos);
+	if (*t == '\0' && stpos != endpos) {
+		lua_pushstring(L, "too many arguments provided");
+		ret = -EINVAL;
 	}
 
-	if (*t != '\0' && pos == endpos) {
-		sd_bus_message_unref(m);
-		luaL_error(L, "too few message args, got %I, expected %I",
-			   endpos - startpos, pos - startpos);
+	if (*t != '\0' && stpos == endpos) {
+		lua_pushstring(L, "missing arg for arg %c at pos %d", ...);
+		ret = -EINVAL;
 	}
 
-	return 0;
+	return ret;
 }
 
-static int msg_tolua(lua_State *L, sd_bus_message *m)
+static int msg_append(lua_State *L, sd_bus_message* m, char *t, int stpos)
 {
-	sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
-	lua_pushboolean(L, 1);
-	return 0;
+	return __msg_append(L, m, t, stpos, lua_gettop(L) + 1);
 }
 
 /* bus methods */
