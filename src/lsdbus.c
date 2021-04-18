@@ -636,6 +636,38 @@ static int lsdbus_bus_call(lua_State *L)
 	return 1;
 }
 
+static int lsdbus_testmsg_dump(lua_State *L)
+{
+	int ret;
+	sd_bus_message *m = NULL;
+	const char *dest, *path, *intf, *memb, *types;
+
+	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+
+	dest = luaL_checkstring(L, 2);
+	path = luaL_checkstring(L, 3);
+	intf = luaL_checkstring(L, 4);
+	memb = luaL_checkstring(L, 5);
+	types = luaL_optstring(L, 6, NULL);
+
+	ret = sd_bus_message_new_method_call(b, &m, dest, path, intf, memb);
+
+	if (ret < 0)
+		luaL_error(L, "%s: failed to create call message: %s",
+			   __func__, strerror(-ret));
+
+	if (types!= NULL)
+		ret = msg_fromlua(L, m, types, 7);
+
+	if (ret<0)
+		return -1;
+
+
+	sd_bus_message_seal(m, 2, 1000*1000);
+	sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
+	sd_bus_message_unref(m);
+	return 0;
+}
 
 static int lsdbus_bus_tostring(lua_State *L)
 {
@@ -664,11 +696,13 @@ static int lsdbus_bus_gc(lua_State *L)
 
 static const luaL_Reg lsdbus_f [] = {
 	{ "open", lsdbus_open },
+	/* { "testmsg_tolua", lsdbus_testmsg_tolua }, */
 	{ NULL, NULL },
 };
 
 static const luaL_Reg lsdbus_bus_m [] = {
 	{ "call", lsdbus_bus_call },
+	{ "testmsg_dump", lsdbus_testmsg_dump },
 	{ "__tostring", lsdbus_bus_tostring },
 	{ "__gc", lsdbus_bus_gc },
 	{ NULL, NULL },
