@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <systemd/sd-bus.h>
 #include <assert.h>
@@ -470,7 +469,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
         return 1;
 }
 
-static int __msg_tolua(lua_State *L, sd_bus_message* m, int level, char ctype)
+static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
 {
 	int r, cnt_basic=0;
 
@@ -497,8 +496,6 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, int level, char ctype)
                         luaL_error(L, "msg_tolua: peek_type failed: %s", strerror(-r));
 
                 if (r == 0) {
-                        /* if (level <= 1) */
-                        /*         break; */
 			if(ctype==0)
 				return 0;
 
@@ -506,7 +503,6 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, int level, char ctype)
                         if (r < 0)
 				luaL_error(L, "msg_tolua: failed to exit container: %s", strerror(-r));
 
-			/* level--; */
                         return 0;
                 }
 
@@ -515,11 +511,8 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, int level, char ctype)
                         if (r < 0)
 				luaL_error(L, "msg_tolua: failed to enter container: %s", strerror(-r));
 
-
-                        level++;
 			lua_newtable(L);
-			dbg("newtable %i", level);
-			__msg_tolua(L, m, level, type);
+			__msg_tolua(L, m, type);
                         continue;
                 }
 
@@ -529,10 +522,7 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, int level, char ctype)
 
                 assert(r > 0);
 
-		dbg("level: %u, cnt_basic: %i", level, cnt_basic);
-
                 switch (type) {
-
                 case SD_BUS_TYPE_BYTE:
 			lua_pushinteger(L, basic.u8);
                         break;
@@ -589,7 +579,7 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, int level, char ctype)
 static int msg_tolua(lua_State *L, sd_bus_message* m)
 {
 	int nargs = lua_gettop(L);
-	__msg_tolua(L, m, 1, 0);
+	__msg_tolua(L, m, 0);
 	return lua_gettop(L) - nargs;
 }
 
