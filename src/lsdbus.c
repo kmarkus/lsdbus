@@ -119,6 +119,18 @@ int luaL_checkboolean (lua_State *L, int index)
 	return lua_toboolean(L, index);
 }
 
+int push_sd_bus_error(lua_State* L, const sd_bus_error* err)
+{
+	if (!err)
+		return -1;
+	lua_newtable(L);
+	lua_pushstring(L, err->name);
+	lua_rawseti(L, -2, 1);
+	lua_pushstring(L, err->message);
+	lua_rawseti(L, -2, 2);
+	return 1;
+}
+
 /*
  * Copied from lsdbus v248-rc2-173-g275334c562
  */
@@ -770,9 +782,8 @@ static int lsdbus_bus_call(lua_State *L)
 	if (ret<0) {
 		lua_pushboolean(L, 0);
 		if(sd_bus_error_is_set(&error)) {
-			lua_pushstring(L, error.name);
-			lua_pushstring(L, error.message);
-			ret = 3;
+			push_sd_bus_error(L, &error);
+			ret = 2;
 		} else {
 			luaL_error(L, "call failed: %s", strerror(-ret));
 		}
