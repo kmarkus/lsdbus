@@ -17,7 +17,7 @@ static int lsdbus_open(lua_State *L)
 
 	b = (sd_bus**) lua_newuserdata(L, sizeof(sd_bus*));
 
-	ret = sd_bus_default_system(b);
+	ret = sd_bus_default(b);
 	if (ret<0)
 		luaL_error(L, "%s: failed to connect to bus: %s",
 			   __func__, strerror(-ret));
