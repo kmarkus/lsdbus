@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 project(sdbus-lua VERSION 0.0.1 LANGUAGES C)
+set(CMAKE_C_STANDARD 11)
 
 include(GNUInstallDirs)
 

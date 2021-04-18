@@ -27,6 +27,380 @@ static int lsdbus_open(lua_State *L)
 	return 1;
 }
 
+
+#define BUS_CONTAINER_DEPTH 128
+
+
+#include <stdbool.h>
+
+#define ELEMENTSOF(x)                                                   \
+        (__builtin_choose_expr(                                         \
+                !__builtin_types_compatible_p(typeof(x), typeof(&*(x))), \
+                sizeof(x)/sizeof((x)[0]),                               \
+                (void)0))
+
+#define assert_return(expr, r) do { } while (0)
+
+typedef struct {
+        const char *types;
+        unsigned n_struct;
+        unsigned n_array;
+} TypeStack;
+
+static int type_stack_push(TypeStack *stack, unsigned max, unsigned *i, const char *types, unsigned n_struct, unsigned n_array) {
+        assert(stack);
+        assert(max > 0);
+
+        if (*i >= max)
+                return -EINVAL;
+
+        stack[*i].types = types;
+        stack[*i].n_struct = n_struct;
+        stack[*i].n_array = n_array;
+        (*i)++;
+
+        return 0;
+}
+
+static int type_stack_pop(TypeStack *stack, unsigned max, unsigned *i, const char **types, unsigned *n_struct, unsigned *n_array) {
+        assert(stack);
+        assert(max > 0);
+        assert(types);
+        assert(n_struct);
+        assert(n_array);
+
+        if (*i <= 0)
+                return 0;
+
+        (*i)--;
+        *types = stack[*i].types;
+        *n_struct = stack[*i].n_struct;
+        *n_array = stack[*i].n_array;
+
+        return 1;
+}
+
+bool bus_type_is_basic(char c) {
+        static const char valid[] = {
+                SD_BUS_TYPE_BYTE,
+                SD_BUS_TYPE_BOOLEAN,
+                SD_BUS_TYPE_INT16,
+                SD_BUS_TYPE_UINT16,
+                SD_BUS_TYPE_INT32,
+                SD_BUS_TYPE_UINT32,
+                SD_BUS_TYPE_INT64,
+                SD_BUS_TYPE_UINT64,
+                SD_BUS_TYPE_DOUBLE,
+                SD_BUS_TYPE_STRING,
+                SD_BUS_TYPE_OBJECT_PATH,
+                SD_BUS_TYPE_SIGNATURE,
+                SD_BUS_TYPE_UNIX_FD
+        };
+
+        return !!memchr(valid, c, sizeof(valid));
+}
+
+static int signature_element_length_internal(
+                const char *s,
+                bool allow_dict_entry,
+                unsigned array_depth,
+                unsigned struct_depth,
+                size_t *l) {
+
+        int r;
+
+        if (!s)
+                return -EINVAL;
+
+        assert(l);
+
+        if (bus_type_is_basic(*s) || *s == SD_BUS_TYPE_VARIANT) {
+                *l = 1;
+                return 0;
+        }
+
+        if (*s == SD_BUS_TYPE_ARRAY) {
+                size_t t;
+
+                if (array_depth >= 32)
+                        return -EINVAL;
+
+                r = signature_element_length_internal(s + 1, true, array_depth+1, struct_depth, &t);
+                if (r < 0)
+                        return r;
+
+                *l = t + 1;
+                return 0;
+        }
+
+        if (*s == SD_BUS_TYPE_STRUCT_BEGIN) {
+                const char *p = s + 1;
+
+                if (struct_depth >= 32)
+                        return -EINVAL;
+
+                while (*p != SD_BUS_TYPE_STRUCT_END) {
+                        size_t t;
+
+                        r = signature_element_length_internal(p, false, array_depth, struct_depth+1, &t);
+                        if (r < 0)
+                                return r;
+
+                        p += t;
+                }
+
+                if (p - s < 2)
+                        /* D-Bus spec: Empty structures are not allowed; there
+                         * must be at least one type code between the parentheses.
+                         */
+                        return -EINVAL;
+
+                *l = p - s + 1;
+                return 0;
+        }
+
+        if (*s == SD_BUS_TYPE_DICT_ENTRY_BEGIN && allow_dict_entry) {
+                const char *p = s + 1;
+                unsigned n = 0;
+
+                if (struct_depth >= 32)
+                        return -EINVAL;
+
+                while (*p != SD_BUS_TYPE_DICT_ENTRY_END) {
+                        size_t t;
+
+                        if (n == 0 && !bus_type_is_basic(*p))
+                                return -EINVAL;
+
+                        r = signature_element_length_internal(p, false, array_depth, struct_depth+1, &t);
+                        if (r < 0)
+                                return r;
+
+                        p += t;
+                        n++;
+                }
+
+                if (n != 2)
+                        return -EINVAL;
+
+                *l = p - s + 1;
+                return 0;
+        }
+
+        return -EINVAL;
+}
+
+int signature_element_length(const char *s, size_t *l) {
+        return signature_element_length_internal(s, true, 0, 0, l);
+}
+
+int sd_bus_message_appendv(
+	sd_bus_message *m,
+	const char *types,
+	va_list ap) {
+
+        unsigned n_array, n_struct;
+        TypeStack stack[BUS_CONTAINER_DEPTH];
+        unsigned stack_ptr = 0;
+        int r;
+
+        assert_return(m, -EINVAL);
+        assert_return(types, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(!m->poisoned, -ESTALE);
+
+        n_array = (unsigned) -1;
+        n_struct = strlen(types);
+
+        for (;;) {
+                const char *t;
+
+                if (n_array == 0 || (n_array == (unsigned) -1 && n_struct == 0)) {
+                        r = type_stack_pop(stack, ELEMENTSOF(stack), &stack_ptr, &types, &n_struct, &n_array);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        r = sd_bus_message_close_container(m);
+                        if (r < 0)
+                                return r;
+
+                        continue;
+                }
+
+                t = types;
+                if (n_array != (unsigned) -1)
+                        n_array--;
+                else {
+                        types++;
+                        n_struct--;
+                }
+
+                switch (*t) {
+
+                case SD_BUS_TYPE_BYTE: {
+                        uint8_t x;
+
+                        x = (uint8_t) va_arg(ap, int);
+                        r = sd_bus_message_append_basic(m, *t, &x);
+                        break;
+                }
+
+                case SD_BUS_TYPE_BOOLEAN:
+                case SD_BUS_TYPE_INT32:
+                case SD_BUS_TYPE_UINT32:
+                case SD_BUS_TYPE_UNIX_FD: {
+                        uint32_t x;
+
+                        /* We assume a boolean is the same as int32_t */
+                        static_assert(sizeof(int32_t) == sizeof(int));
+
+                        x = va_arg(ap, uint32_t);
+                        r = sd_bus_message_append_basic(m, *t, &x);
+                        break;
+                }
+
+                case SD_BUS_TYPE_INT16:
+                case SD_BUS_TYPE_UINT16: {
+                        uint16_t x;
+
+                        x = (uint16_t) va_arg(ap, int);
+                        r = sd_bus_message_append_basic(m, *t, &x);
+                        break;
+                }
+
+                case SD_BUS_TYPE_INT64:
+                case SD_BUS_TYPE_UINT64: {
+                        uint64_t x;
+
+                        x = va_arg(ap, uint64_t);
+                        r = sd_bus_message_append_basic(m, *t, &x);
+                        break;
+                }
+
+                case SD_BUS_TYPE_DOUBLE: {
+                        double x;
+
+                        x = va_arg(ap, double);
+                        r = sd_bus_message_append_basic(m, *t, &x);
+                        break;
+                }
+
+                case SD_BUS_TYPE_STRING:
+                case SD_BUS_TYPE_OBJECT_PATH:
+                case SD_BUS_TYPE_SIGNATURE: {
+                        const char *x;
+
+                        x = va_arg(ap, const char*);
+                        r = sd_bus_message_append_basic(m, *t, x);
+                        break;
+                }
+
+                case SD_BUS_TYPE_ARRAY: {
+                        size_t k;
+
+                        r = signature_element_length(t + 1, &k);
+                        if (r < 0)
+                                return r;
+
+                        {
+                                char s[k + 1];
+                                memcpy(s, t + 1, k);
+                                s[k] = 0;
+
+                                r = sd_bus_message_open_container(m, SD_BUS_TYPE_ARRAY, s);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        if (n_array == (unsigned) -1) {
+                                types += k;
+                                n_struct -= k;
+                        }
+
+                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array);
+                        if (r < 0)
+                                return r;
+
+                        types = t + 1;
+                        n_struct = k;
+
+			/* first array param is size of array */
+                        n_array = va_arg(ap, unsigned);
+
+                        break;
+                }
+
+                case SD_BUS_TYPE_VARIANT: {
+                        const char *s;
+
+                        s = va_arg(ap, const char*);
+                        if (!s)
+                                return -EINVAL;
+
+                        r = sd_bus_message_open_container(m, SD_BUS_TYPE_VARIANT, s);
+                        if (r < 0)
+                                return r;
+
+                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array);
+                        if (r < 0)
+                                return r;
+
+                        types = s;
+                        n_struct = strlen(s);
+                        n_array = (unsigned) -1;
+
+                        break;
+                }
+
+                case SD_BUS_TYPE_STRUCT_BEGIN:
+                case SD_BUS_TYPE_DICT_ENTRY_BEGIN: {
+                        size_t k;
+
+                        r = signature_element_length(t, &k);
+                        if (r < 0)
+                                return r;
+
+                        {
+                                char s[k - 1];
+
+                                memcpy(s, t + 1, k - 2);
+                                s[k - 2] = 0;
+
+                                r = sd_bus_message_open_container(m, *t == SD_BUS_TYPE_STRUCT_BEGIN ? SD_BUS_TYPE_STRUCT : SD_BUS_TYPE_DICT_ENTRY, s);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        if (n_array == (unsigned) -1) {
+                                types += k - 1;
+                                n_struct -= k - 1;
+                        }
+
+                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array);
+                        if (r < 0)
+                                return r;
+
+                        types = t + 1;
+                        n_struct = k - 2;
+                        n_array = (unsigned) -1;
+
+                        break;
+                }
+
+                default:
+                        r = -EINVAL;
+                }
+
+                if (r < 0)
+                        return r;
+        }
+
+        return 1;
+}
+
+#if 0
 /**
  * append Lua values conforming to the given types string to a message
  *
@@ -154,10 +528,11 @@ static int __msg_append(lua_State *L,
 
 	return ret;
 }
+#endif
 
 static int msg_append(lua_State *L, sd_bus_message* m, char *t, int stpos)
 {
-	return __msg_append(L, m, t, stpos, lua_gettop(L) + 1);
+	return 0; /* __msg_append(L, m, t, stpos, lua_gettop(L) + 1); */
 }
 
 /* bus methods */
