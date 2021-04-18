@@ -9,8 +9,8 @@ u.pp(b:call('org.freedesktop.UPower',
 	    'Introspect'))
 
 print("timedata1")
-u.pp(b:call('org.freedesktop.timedate1',
-	    '/org/freedesktop/timedate1',
-	    'org.freedesktop.timedate1',
-	    'ListTimezones',
-	    ""))
+u.pp({b:call('org.freedesktop.timedate1',
+	     '/org/freedesktop/timedate1',
+	     'org.freedesktop.timedate1',
+	     'ListTimezones',
+	     "")})

@@ -705,9 +705,6 @@ static int lsdbus_bus_call(lua_State *L)
 	memb = luaL_checkstring(L, 5);
 	types = luaL_optstring(L, 6, NULL);
 
-	printf("2 dest:  %s\n3 path:  %s\n4 intf:  %s\n5 memb:  %s\n6 types:  %s\n",
-	       dest, path, intf, memb, types);
-
 	ret = sd_bus_message_new_method_call(b, &m, dest, path, intf, memb);
 
 	if (ret < 0)
@@ -723,22 +720,32 @@ static int lsdbus_bus_call(lua_State *L)
 	sd_bus_message_seal(m, 2, 1000*1000);
 	sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
-	ret = sd_bus_call(b, m, -1, &error, &reply);
+	ret = sd_bus_call(NULL, m, 0, &error, &reply);
 
-	if (ret<0)
-		luaL_error(L, "%s error: %s", __func__, strerror(-ret));
+	if (ret<0) {
+		lua_pushboolean(L, 0);
+		if(sd_bus_error_is_set(&error)) {
+			lua_pushstring(L, error.name);
+			lua_pushstring(L, error.message);
+			ret = 3;
+		} else {
+			luaL_error(L, "call failed: %s", strerror(-ret));
+		}
 
+		goto out;
+	}
+
+	lua_pushboolean(L, 1);
 	ret = msg_tolua(L, reply);
 
+	if (ret<0)
+		lua_error(L);
 out:
 	sd_bus_error_free(&error);
 	sd_bus_message_unref(reply);
 	sd_bus_message_unref(m);
 
-	if (ret<0)
-		lua_error(L);
-
-	return 1;
+	return ret;
 }
 
 static int lsdbus_testmsg(lua_State *L)
