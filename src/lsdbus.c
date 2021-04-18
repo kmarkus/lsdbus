@@ -372,7 +372,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 case SD_BUS_TYPE_UINT32:
                 case SD_BUS_TYPE_UNIX_FD: {
                         uint32_t x;
-			static_assert(sizeof(int32_t) == sizeof(int));
+			static_assert(sizeof(int32_t) == sizeof(int), "int != int32_t");
 			x = luaL_checkinteger(L, stpos);
 			dbg("append uint/int/fd %u", x);
 			r = sd_bus_message_append_basic(m, *t, &x);
@@ -718,7 +718,6 @@ static int lsdbus_bus_call(lua_State *L)
 		goto out;
 
 	sd_bus_message_seal(m, 2, 1000*1000);
-	sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
 	ret = sd_bus_call(NULL, m, 0, &error, &reply);
 
@@ -774,7 +773,9 @@ static int lsdbus_testmsg(lua_State *L)
 		goto out;
 
 	sd_bus_message_seal(m, 2, 1000*1000);
+#ifdef SDBUS_HAS_DUMP
 	sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
+#endif
 	sd_bus_message_rewind(m, 1);
 	ret = msg_tolua(L, m);
 
