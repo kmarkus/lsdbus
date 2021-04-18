@@ -588,7 +588,8 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
                         if (r < 0)
 				luaL_error(L, "msg_tolua: failed to enter container: %s", strerror(-r));
 
-			if (type != SD_BUS_TYPE_DICT_ENTRY) {
+			if (type != SD_BUS_TYPE_DICT_ENTRY &&
+			    type != SD_BUS_TYPE_VARIANT) {
 				dbg("newtable");
 				lua_newtable(L);
 				cnt++;
@@ -658,9 +659,6 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
 	table_update:
 
 		if (ctype == SD_BUS_TYPE_ARRAY) {
-			dbg("rawseti t=%c, ct=%c (#%i)", type, ctype, cnt);
-			lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
-		} else if (ctype == SD_BUS_TYPE_VARIANT) {
 			dbg("rawseti t=%c, ct=%c (#%i)", type, ctype, cnt);
 			lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
 		} else if (ctype == SD_BUS_TYPE_STRUCT) {

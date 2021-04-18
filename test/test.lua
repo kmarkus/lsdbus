@@ -94,13 +94,13 @@ end
 function TestMsg:TestVariant()
    local s = "sumpi"
    local ret = b:testmsg("v", "s", s)
-   lu.assert_equals(ret, { s })
+   lu.assert_equals(ret, s)
 end
 
 function TestMsg:TestVariantArrayOfInts()
    local arg = { 11, 22, 33, 44, 55, 66 }
    local ret = b:testmsg("vs", "ai", arg, "lumpi")
-   lu.assert_equals(ret, { arg })
+   lu.assert_equals(ret, arg)
 end
 
 function TestMsg:TestInvalidArg()
