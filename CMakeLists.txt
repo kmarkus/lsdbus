@@ -24,3 +24,6 @@ target_include_directories(lsdbus PRIVATE ${LUA_INCLUDE_DIR})
 target_link_libraries(lsdbus ${LUA_LIBRARIES} ${SYSTEMD_LIBRARIES} )
 set_target_properties(lsdbus PROPERTIES PREFIX "")
 install(TARGETS lsdbus LIBRARY DESTINATION ${LSDBUS_INST_DIR})
+
+install(FILES lua/lsdbus_proxy.lua DESTINATION
+  ${CMAKE_INSTALL_PREFIX}/share/lua/${LUA_VERSION_MAJOR}.${LUA_VERSION_MINOR}/)
