@@ -17,15 +17,37 @@
 # define dbg(fmt, args...)  do {} while (0)
 #endif
 
+static const char *const open_opts_lst [] = {
+	"default",
+	"system",
+	"user",
+	"default_system",
+	"default_user",
+	NULL
+};
+
+static int(*open_funcs[])(sd_bus **bus) = {
+	sd_bus_default,
+	sd_bus_open_system,
+	sd_bus_open_user,
+	sd_bus_default_system,
+	sd_bus_default_user,
+};
+
 /* toplevel functions */
 static int lsdbus_open(lua_State *L)
 {
 	int ret;
 	sd_bus **b;
 
+	ret = luaL_checkoption(L, 1, "default", open_opts_lst);
+
+	dbg("opening %s bus connection", open_opts_lst[ret]);
+
 	b = (sd_bus**) lua_newuserdata(L, sizeof(sd_bus*));
 
-	ret = sd_bus_open_system(b);
+	ret = open_funcs[ret](b);
+
 	if (ret<0)
 		luaL_error(L, "%s: failed to connect to bus: %s",
 			   __func__, strerror(-ret));

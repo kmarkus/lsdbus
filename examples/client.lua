@@ -1,6 +1,6 @@
 local u = require("utils")
 local lsdb = require("lsdbus")
-local b = lsdb.open()
+local b = lsdb.open('default_system')
 
 print("UPower")
 u.pp(b:call('org.freedesktop.UPower',
