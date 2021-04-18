@@ -35,15 +35,27 @@ function TestMsg:TestNegInts()
    lu.assert_equals(ret, args)
 end
 
-function TestMsg:TestArr()
+function TestMsg:TestArray()
    local args = { -2, -1, 1, 2, 3, 4, 5, 6, 7, 9 }
    local ret = b:testmsg("ai", args)
    lu.assert_equals(ret, args)
 end
 
-function TestMsg:TestArrStr()
-   local ret = b:testmsg("a(ibs)", {{1, true, "one"}, { 2, false, "two"}, { 3, true, "three"}})
-   lu.assert_equals(ret, {{1, "one"}, {2, "two"}, {3, "three"}})
+function TestMsg:TestsComplexMsg()
+   local ret = { b:testmsg("sais", "banana", {1,2,3,4}, "kiwi") }
+   lu.assert_equals(ret, { "banana", {1,2,3,4}, "kiwi" })
+end
+
+function TestMsg:TestStruct()
+   local s = {1, true, "one"}
+   local ret = b:testmsg("(ibs)", s)
+   lu.assert_equals(ret, s)
+end
+
+function TestMsg:TestArrayOfStructs()
+   local aos = {{1, true, "one"}, { 2, false, "two"}, { 3, true, "three"}}
+   local ret = b:testmsg("a(ibs)", aos)
+   lu.assert_equals(ret, aos)
 end
 
 function TestMsg:TestDictInt()
@@ -53,15 +65,11 @@ function TestMsg:TestDictInt()
 end
 
 function TestMsg:TestDictStr()
-   local dict =	{one='number one', two='number two', three='number three'}
+   local dict =	{one='this is one', two='this is two', three='this is three'}
    local ret = b:testmsg("a{ss}", dict)
    lu.assert_equals(ret, dict)
 end
 
-function TestMsg:TestsComplexMsg()
-   local ret = { b:testmsg("sais", "banana", {1,2,3,4}, "kiwi") }
-   lu.assert_equals(ret, { "banana", {1,2,3,4}, "kiwi" })
-end
 
 
 os.exit( lu.LuaUnit.run() )

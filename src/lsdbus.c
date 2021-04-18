@@ -61,6 +61,39 @@ static int table_explode(lua_State *L, int pos, const char *ctx)
 	return len;
 }
 
+/* explode the all key, value pairs of the table at pos onto the top
+ * of stack. Drop the table afterwards */
+static int dict_explode(lua_State *L, int pos, const char *ctx)
+{
+	int len=0, type;
+
+	pos = lua_absindex(L, pos);
+	type = lua_type(L, pos);
+
+	if (type != LUA_TTABLE) {
+		lua_pushfstring(
+			L, "msg_fromlua: error at %s: arg %d not a table but %s",
+			ctx, pos, lua_typename(L, type));
+		return -1;
+	}
+
+	/* table is in the stack at index 't' */
+	lua_pushnil(L);  /* first key */
+	while (lua_next(L, pos) != 0) {
+		/* puts 'key' (at index -2) and 'value' (at index -1) */
+		dbg("%s - %s", lua_typename(L, lua_type(L, -2)), lua_typename(L, lua_type(L, -1)));
+		/* removes 'value'; keeps 'key' for next iteration */
+		/* duplicate key to top for next iteration */
+		lua_pushvalue(L, -2);
+		/* lua_pop(L, 1); */
+		len++;
+	}
+
+	lua_remove(L, pos);
+	return len*2;
+}
+
+
 int luaL_checkboolean (lua_State *L, int index)
 {
 	int t = lua_type(L, index);
@@ -295,6 +328,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                                 break;
 
                         r = sd_bus_message_close_container(m);
+			dbg("close container");
                         if (r < 0)
                                 return r;
 
@@ -314,7 +348,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 case SD_BUS_TYPE_BYTE: {
 			uint8_t x;
 			x = luaL_checkinteger(L, stpos);
-			dbg("adding BYTE %c", x);
+			dbg("append BYTE %c", x);
 			r = sd_bus_message_append_basic(m, *t, &x);
 			lua_remove(L, stpos);
 			break;
@@ -322,7 +356,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 
                 case SD_BUS_TYPE_BOOLEAN: {
 			int x = luaL_checkboolean(L, stpos);
-			dbg("adding bool %i", x);
+			dbg("append bool %i", x);
 			r = sd_bus_message_append_basic(m, *t, &x);
 			lua_remove(L, stpos);
                         break;
@@ -334,7 +368,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                         uint32_t x;
 			static_assert(sizeof(int32_t) == sizeof(int));
 			x = luaL_checkinteger(L, stpos);
-			dbg("adding uint/int/fd %u", x);
+			dbg("append uint/int/fd %u", x);
 			r = sd_bus_message_append_basic(m, *t, &x);
 			lua_remove(L, stpos);
                         break;
@@ -344,7 +378,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 case SD_BUS_TYPE_UINT16: {
                         uint16_t x;
 			x = luaL_checkinteger(L, stpos);
-			dbg("adding UINT16 %u", x);
+			dbg("append UINT16 %u", x);
                         r = sd_bus_message_append_basic(m, *t, &x);
 			lua_remove(L, stpos);
                         break;
@@ -354,7 +388,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 case SD_BUS_TYPE_UINT64: {
                         uint64_t x;
 			x = luaL_checkinteger(L, stpos);
-			dbg("adding UINT64 %lu", x);
+			dbg("append UINT64 %lu", x);
                         r = sd_bus_message_append_basic(m, *t, &x);
 			lua_remove(L, stpos);
                         break;
@@ -363,7 +397,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 case SD_BUS_TYPE_DOUBLE: {
                         double x;
 			x = luaL_checknumber(L, stpos);
-			dbg("adding DOUBLE %f", x);
+			dbg("append DOUBLE %f", x);
                         r = sd_bus_message_append_basic(m, *t, &x);
 			lua_remove(L, stpos);
                         break;
@@ -373,7 +407,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 case SD_BUS_TYPE_OBJECT_PATH:
                 case SD_BUS_TYPE_SIGNATURE: {
                         const char *x =	luaL_checkstring(L, stpos);
-			dbg("adding string %s", x);
+			dbg("append string %s", x);
                         r = sd_bus_message_append_basic(m, *t, x);
 			lua_remove(L, stpos);
                         break;
@@ -409,22 +443,27 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 
 			/* first array param is size of array */
                         /* n_array = va_arg(ap, unsigned); */
-			r = table_explode(L, stpos, types-1);
+
+			if(t[1] == SD_BUS_TYPE_DICT_ENTRY_BEGIN) {
+				r = dict_explode(L, stpos, types-1);
+				n_array = r/2;
+
+			} else {
+				r = table_explode(L, stpos, types-1);
+				n_array = r;
+			}
 			if (r<0)
 				return r;
-			n_array = r;
-			dbg("found array of size %u", r);
+
+			dbg("appending container %c of size %u", t[1], n_array);
+
 			stpos =	lua_absindex(L,	-r);
                         break;
                 }
 
                 case SD_BUS_TYPE_VARIANT: {
-                        const char *s;
-
-                        /* s = va_arg(ap, const char*);
-                        if (!s)
-                                return -EINVAL;
-			*/
+                        const char *s =	luaL_checkstring(L, stpos);
+			lua_remove(L, stpos);
 
                         r = sd_bus_message_open_container(m, SD_BUS_TYPE_VARIANT, s);
                         if (r < 0)
@@ -437,6 +476,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                         types = s;
                         n_struct = strlen(s);
                         n_array = (unsigned) -1;
+			dbg("appending variant %s of size %u", types, n_struct);
 
                         break;
                 }
@@ -473,6 +513,14 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                         n_struct = k - 2;
                         n_array = (unsigned) -1;
 
+			dbg("struct: %c", *t);
+			if (*t == SD_BUS_TYPE_STRUCT_BEGIN) {
+				r = table_explode(L, stpos, t);
+				if (r<0) {
+					return r;
+				}
+			}
+
                         break;
                 }
 
@@ -489,6 +537,8 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 
 static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
 {
+	dbg("%c", ctype);
+
 	int r, cnt_basic=0;
 
         for (;;) {
@@ -529,7 +579,10 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
                         if (r < 0)
 				luaL_error(L, "msg_tolua: failed to enter container: %s", strerror(-r));
 
-			lua_newtable(L);
+			if (type != SD_BUS_TYPE_DICT_ENTRY) {
+				dbg("newtable");
+				lua_newtable(L);
+			}
 			__msg_tolua(L, m, type);
                         continue;
                 }
@@ -587,7 +640,8 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
                 default:
                         luaL_error(L, "msg_tolua: unknown basic type: %c", type);
                 }
-		cnt_basic++;
+
+		dbg("pushbasic t=%c, ct=%c (#%i)", type, ctype, cnt_basic);
 
 		if (ctype == SD_BUS_TYPE_ARRAY)
 			lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
@@ -599,6 +653,7 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
 			if (cnt_basic%2)
 				lua_rawset(L, -3);
 		}
+		cnt_basic++;
         }
 
         return 0;
