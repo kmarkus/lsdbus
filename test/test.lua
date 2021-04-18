@@ -30,15 +30,14 @@ b = lsdb.open()
 --        'BlurgOp',
 --        "sais", "banana", {1,2,3,4}, "kiwi")
 
--- print("somewhere")
-local r = table.pack(b:testmsg_dump('org.somewhere.service',
+function testmsg(typestr, ...)
+   return table.pack(b:testmsg_dump('org.somewhere.service',
 				    '/org/somewhere/obj',
 				    'org.somewhere.dbus.if',
 				    'BlurgOp',
-				    "saisas", "banana", {1,2,3,4}, "kiwi", {"irg", "birg"}))
-
-print("res:")
-u.pp(r)
+				    typestr, ...))
+end
+u.pp(testmsg("sais", "banana", {1,2,3,4}, "kiwi"))
 
 
 -- b:testmsg_dump('org.somewhere.service',
