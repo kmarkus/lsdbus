@@ -9,9 +9,13 @@
 #define BUS_MT		"lsdbus.bus"
 #define MSG_MT	 	"lsdbus.msg"
 
-#define dbg(fmt, args...) ( fprintf(stderr, "%s: ", __FUNCTION__), \
-			    fprintf(stderr, fmt, ##args),	   \
-			    fprintf(stderr, "\n") )
+#ifdef DEBUG
+# define dbg(fmt, args...) ( fprintf(stderr, "%s: ", __FUNCTION__), \
+			     fprintf(stderr, fmt, ##args),	    \
+			     fprintf(stderr, "\n") )
+#else
+# define dbg(fmt, args...)  do {} while (0)
+#endif
 
 /* toplevel functions */
 static int lsdbus_open(lua_State *L)
