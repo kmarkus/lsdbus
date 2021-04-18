@@ -1,7 +1,6 @@
-
+u = require("utils")
 lsdb = require("lsdbus")
 b = lsdb.open()
-
 
 
 -- print("UPower")
@@ -32,11 +31,14 @@ b = lsdb.open()
 --        "sais", "banana", {1,2,3,4}, "kiwi")
 
 -- print("somewhere")
-b:testmsg_dump('org.somewhere.service',
-	       '/org/somewhere/obj',
-	       'org.somewhere.dbus.if',
-	       'BlurgOp',
-	       "saisas", "banana", {1,2,3,4}, "kiwi", {"irg", "birg"})
+local r = table.pack(b:testmsg_dump('org.somewhere.service',
+				    '/org/somewhere/obj',
+				    'org.somewhere.dbus.if',
+				    'BlurgOp',
+				    "saisas", "banana", {1,2,3,4}, "kiwi", {"irg", "birg"}))
+
+print("res:")
+u.pp(r)
 
 
 -- b:testmsg_dump('org.somewhere.service',

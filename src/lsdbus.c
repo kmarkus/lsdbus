@@ -61,6 +61,9 @@ static int table_explode(lua_State *L, int pos, const char *ctx)
 	return len;
 }
 
+/*
+ * Copied from lsdbus v248-rc2-173-g275334c562
+ */
 #define BUS_CONTAINER_DEPTH 128
 
 
@@ -148,6 +151,18 @@ bool bus_type_is_basic(char c) {
 
         return !!memchr(valid, c, sizeof(valid));
 }
+
+bool bus_type_is_container(char c) {
+        static const char valid[] = {
+                SD_BUS_TYPE_ARRAY,
+                SD_BUS_TYPE_VARIANT,
+                SD_BUS_TYPE_STRUCT,
+                SD_BUS_TYPE_DICT_ENTRY
+        };
+
+        return !!memchr(valid, c, sizeof(valid));
+}
+
 
 static int signature_element_length_internal(
                 const char *s,
@@ -454,6 +469,126 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
         return 1;
 }
 
+static int msg_tolua(lua_State *L, sd_bus_message* m)
+{
+	int r, nargs, level=1;
+
+	nargs = lua_gettop(L);
+
+        for (;;) {
+                /* _cleanup_free_ char *prefix = NULL; */
+                const char *contents = NULL;
+                char type;
+                union {
+                        uint8_t u8;
+                        uint16_t u16;
+                        int16_t s16;
+                        uint32_t u32;
+                        int32_t s32;
+                        uint64_t u64;
+                        int64_t s64;
+                        double d64;
+                        const char *string;
+                        int i;
+                } basic;
+
+                r = sd_bus_message_peek_type(m, &type, &contents);
+
+                if (r < 0)
+                        luaL_error(L, "msg_tolua: peek_type failed: %m", strerror(-r));
+
+                if (r == 0) {
+                        if (level <= 1)
+                                break;
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+				luaL_error(L, "msg_tolua: failed to exit container: %m", strerror(-r));
+
+                        level--;
+
+                        continue;
+                }
+
+                if (bus_type_is_container(type) > 0) {
+                        r = sd_bus_message_enter_container(m, type, contents);
+                        if (r < 0)
+				luaL_error(L, "msg_tolua: failed to enter container: %m", strerror(-r));
+
+			/* TODO: based on the container type create
+			 * either arrays or dictionarys */
+
+                        /* if (type == SD_BUS_TYPE_ARRAY) */
+                        /*         fprintf(f, "%sARRAY \"%s\" {\n", prefix, contents); */
+                        /* else if (type == SD_BUS_TYPE_VARIANT) */
+                        /*         fprintf(f, "%sVARIANT \"%s\" {\n", prefix, contents); */
+                        /* else if (type == SD_BUS_TYPE_STRUCT) */
+                        /*         fprintf(f, "%sSTRUCT \"%s\" {\n", prefix, contents); */
+                        /* else if (type == SD_BUS_TYPE_DICT_ENTRY) */
+                        /*         fprintf(f, "%sDICT_ENTRY \"%s\" {\n", prefix, contents); */
+
+                        level++;
+			lua_newtable(L);
+			dbg("newtable %i", level);
+                        continue;
+                }
+
+                r = sd_bus_message_read_basic(m, type, &basic);
+                if (r < 0)
+			luaL_error(L, "msg_tolua: read_basic error: %s", strerror(-r));
+
+                assert(r > 0);
+
+		dbg("level: %u", level);
+
+                switch (type) {
+
+                case SD_BUS_TYPE_BYTE:
+			lua_pushinteger(L, basic.u8);
+                        break;
+
+                case SD_BUS_TYPE_BOOLEAN:
+			lua_pushboolean(L, basic.i);
+                        break;
+
+                case SD_BUS_TYPE_INT16:
+                case SD_BUS_TYPE_UINT16:
+			lua_pushinteger(L, basic.u16);
+                        break;
+
+                case SD_BUS_TYPE_INT32:
+                case SD_BUS_TYPE_UINT32:
+                case SD_BUS_TYPE_UNIX_FD:
+			lua_pushinteger(L, basic.u32);
+                        break;
+
+                case SD_BUS_TYPE_INT64:
+                case SD_BUS_TYPE_UINT64:
+			lua_pushinteger(L, basic.u64);
+                        break;
+
+                case SD_BUS_TYPE_DOUBLE:
+			lua_pushinteger(L, basic.d64);
+                        break;
+
+                case SD_BUS_TYPE_STRING:
+                case SD_BUS_TYPE_OBJECT_PATH:
+                case SD_BUS_TYPE_SIGNATURE:
+			lua_pushstring(L, basic.string);
+                        break;
+
+                default:
+                        luaL_error(L, "msg_tolua: unknown basic type: %c", type);
+                }
+
+		if (level>1)
+			lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
+
+        }
+
+        return lua_gettop(L) - nargs;
+}
+
 /* bus methods */
 static int lsdbus_bus_call(lua_State *L)
 {
@@ -535,8 +670,10 @@ static int lsdbus_testmsg_dump(lua_State *L)
 
 	sd_bus_message_seal(m, 2, 1000*1000);
 	sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
+	sd_bus_message_rewind(m, 1);
+	ret = msg_tolua(L, m);
 	sd_bus_message_unref(m);
-	return 0;
+	return ret;
 }
 
 static int lsdbus_bus_tostring(lua_State *L)
