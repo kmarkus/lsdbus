@@ -61,6 +61,17 @@ static int table_explode(lua_State *L, int pos, const char *ctx)
 	return len;
 }
 
+int luaL_checkboolean (lua_State *L, int index)
+{
+	int t = lua_type(L, index);
+
+	if (t != LUA_TBOOLEAN) {
+		luaL_error(L, "bad argument #%d (boolean expected, got %s)",
+			   index, lua_typename(L, t));
+	}
+	return lua_toboolean(L, index);
+}
+
 /*
  * Copied from lsdbus v248-rc2-173-g275334c562
  */
@@ -309,14 +320,21 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 			break;
                 }
 
-                case SD_BUS_TYPE_BOOLEAN:
+                case SD_BUS_TYPE_BOOLEAN: {
+			int x = luaL_checkboolean(L, stpos);
+			dbg("adding bool %i", x);
+			r = sd_bus_message_append_basic(m, *t, &x);
+			lua_remove(L, stpos);
+                        break;
+		}
+
                 case SD_BUS_TYPE_INT32:
                 case SD_BUS_TYPE_UINT32:
                 case SD_BUS_TYPE_UNIX_FD: {
                         uint32_t x;
 			static_assert(sizeof(int32_t) == sizeof(int));
 			x = luaL_checkinteger(L, stpos);
-			dbg("adding BOOL/uint/int/fd %u", x);
+			dbg("adding uint/int/fd %u", x);
 			r = sd_bus_message_append_basic(m, *t, &x);
 			lua_remove(L, stpos);
                         break;
@@ -532,23 +550,32 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
                         break;
 
                 case SD_BUS_TYPE_INT16:
+			lua_pushinteger(L, basic.s16);
+			break;
+
                 case SD_BUS_TYPE_UINT16:
 			lua_pushinteger(L, basic.u16);
                         break;
 
                 case SD_BUS_TYPE_INT32:
-                case SD_BUS_TYPE_UINT32:
                 case SD_BUS_TYPE_UNIX_FD:
+			lua_pushinteger(L, basic.s32);
+			break;
+
+                case SD_BUS_TYPE_UINT32:
 			lua_pushinteger(L, basic.u32);
                         break;
 
                 case SD_BUS_TYPE_INT64:
+			lua_pushinteger(L, basic.s64);
+			break;
+
                 case SD_BUS_TYPE_UINT64:
 			lua_pushinteger(L, basic.u64);
                         break;
 
                 case SD_BUS_TYPE_DOUBLE:
-			lua_pushinteger(L, basic.d64);
+			lua_pushnumber(L, basic.d64);
                         break;
 
                 case SD_BUS_TYPE_STRING:
@@ -626,8 +653,7 @@ static int lsdbus_bus_call(lua_State *L)
 	if (ret<0)
 		luaL_error(L, "%s error: %s", __func__, strerror(-ret));
 
-	/* msg_tolua(L, reply); */
-	sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
+	msg_tolua(L, reply);
 
 	sd_bus_error_free(&error);
 	sd_bus_message_unref(reply);
@@ -635,19 +661,18 @@ static int lsdbus_bus_call(lua_State *L)
 	return 1;
 }
 
-static int lsdbus_testmsg_dump(lua_State *L)
+static int lsdbus_testmsg(lua_State *L)
 {
 	int ret;
 	sd_bus_message *m = NULL;
-	const char *dest, *path, *intf, *memb, *types;
+	const char *types;
+	const char *dest = "org.lsdb";
+	const char *path = "/lsdb";
+	const char *intf = "org.lsdb.test";
+	const char *memb = "testmsg";
 
 	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
-
-	dest = luaL_checkstring(L, 2);
-	path = luaL_checkstring(L, 3);
-	intf = luaL_checkstring(L, 4);
-	memb = luaL_checkstring(L, 5);
-	types = luaL_optstring(L, 6, NULL);
+	types = luaL_optstring(L, 2, NULL);
 
 	ret = sd_bus_message_new_method_call(b, &m, dest, path, intf, memb);
 
@@ -656,7 +681,7 @@ static int lsdbus_testmsg_dump(lua_State *L)
 			   __func__, strerror(-ret));
 
 	if (types!= NULL)
-		ret = msg_fromlua(L, m, types, 7);
+		ret = msg_fromlua(L, m, types, 3);
 
 	if (ret<0)
 		return -1;
@@ -703,7 +728,7 @@ static const luaL_Reg lsdbus_f [] = {
 
 static const luaL_Reg lsdbus_bus_m [] = {
 	{ "call", lsdbus_bus_call },
-	{ "testmsg_dump", lsdbus_testmsg_dump },
+	{ "testmsg", lsdbus_testmsg },
 	{ "__tostring", lsdbus_bus_tostring },
 	{ "__gc", lsdbus_bus_gc },
 	{ NULL, NULL },
