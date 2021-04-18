@@ -9,6 +9,10 @@
 #define BUS_MT		"lsdbus.bus"
 #define MSG_MT	 	"lsdbus.msg"
 
+#define dbg(fmt, args...) ( fprintf(stderr, "%s: ", __FUNCTION__), \
+			    fprintf(stderr, fmt, ##args),	   \
+			    fprintf(stderr, "\n") )
+
 /* toplevel functions */
 static int lsdbus_open(lua_State *L)
 {
@@ -17,7 +21,7 @@ static int lsdbus_open(lua_State *L)
 
 	b = (sd_bus**) lua_newuserdata(L, sizeof(sd_bus*));
 
-	ret = sd_bus_default(b);
+	ret = sd_bus_open_system(b);
 	if (ret<0)
 		luaL_error(L, "%s: failed to connect to bus: %s",
 			   __func__, strerror(-ret));
@@ -27,6 +31,35 @@ static int lsdbus_open(lua_State *L)
 	return 1;
 }
 
+/**
+ * table_explode - unpack the table at src onto the top of the stack
+ */
+static int table_explode(lua_State *L, int pos, const char *ctx)
+{
+	int len, type;
+
+	pos = lua_absindex(L, pos);
+	type = lua_type(L, pos);
+
+	if (type != LUA_TTABLE) {
+		lua_pushfstring(
+			L, "msg_fromlua: error at %s: arg %d not a table but %s",
+			ctx, pos, lua_typename(L, type));
+		return -1;
+	}
+
+	lua_len(L, pos);
+	len = lua_tointeger(L, -1);
+	lua_pop(L, 1);
+
+	for (int i=1; i<=len; i++) {
+		lua_geti(L, pos, i);
+		dbg("pushed %s value", lua_typename(L, lua_type(L, -1)));
+	}
+
+	lua_remove(L, pos);
+	return len;
+}
 
 #define BUS_CONTAINER_DEPTH 128
 
@@ -45,9 +78,16 @@ typedef struct {
         const char *types;
         unsigned n_struct;
         unsigned n_array;
+	int stackpos;
 } TypeStack;
 
-static int type_stack_push(TypeStack *stack, unsigned max, unsigned *i, const char *types, unsigned n_struct, unsigned n_array) {
+static int type_stack_push(TypeStack *stack,
+			   unsigned max,
+			   unsigned *i,
+			   const char *types,
+			   unsigned n_struct,
+			   unsigned n_array,
+			   int stackpos) {
         assert(stack);
         assert(max > 0);
 
@@ -57,17 +97,25 @@ static int type_stack_push(TypeStack *stack, unsigned max, unsigned *i, const ch
         stack[*i].types = types;
         stack[*i].n_struct = n_struct;
         stack[*i].n_array = n_array;
+	stack[*i].stackpos = stackpos;
         (*i)++;
 
         return 0;
 }
 
-static int type_stack_pop(TypeStack *stack, unsigned max, unsigned *i, const char **types, unsigned *n_struct, unsigned *n_array) {
+static int type_stack_pop(TypeStack *stack,
+			  unsigned max,
+			  unsigned *i,
+			  const char **types,
+			  unsigned *n_struct,
+			  unsigned *n_array,
+			  int *stackpos) {
         assert(stack);
         assert(max > 0);
         assert(types);
         assert(n_struct);
         assert(n_array);
+        assert(stackpos);
 
         if (*i <= 0)
                 return 0;
@@ -76,6 +124,7 @@ static int type_stack_pop(TypeStack *stack, unsigned max, unsigned *i, const cha
         *types = stack[*i].types;
         *n_struct = stack[*i].n_struct;
         *n_array = stack[*i].n_array;
+	*stackpos = stack[*i].stackpos;
 
         return 1;
 }
@@ -194,11 +243,8 @@ int signature_element_length(const char *s, size_t *l) {
         return signature_element_length_internal(s, true, 0, 0, l);
 }
 
-int sd_bus_message_appendv(
-	sd_bus_message *m,
-	const char *types,
-	va_list ap) {
-
+int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
+{
         unsigned n_array, n_struct;
         TypeStack stack[BUS_CONTAINER_DEPTH];
         unsigned stack_ptr = 0;
@@ -216,7 +262,7 @@ int sd_bus_message_appendv(
                 const char *t;
 
                 if (n_array == 0 || (n_array == (unsigned) -1 && n_struct == 0)) {
-                        r = type_stack_pop(stack, ELEMENTSOF(stack), &stack_ptr, &types, &n_struct, &n_array);
+                        r = type_stack_pop(stack, ELEMENTSOF(stack), &stack_ptr, &types, &n_struct, &n_array, &stpos);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -240,11 +286,12 @@ int sd_bus_message_appendv(
                 switch (*t) {
 
                 case SD_BUS_TYPE_BYTE: {
-                        uint8_t x;
-
-                        x = (uint8_t) va_arg(ap, int);
-                        r = sd_bus_message_append_basic(m, *t, &x);
-                        break;
+			uint8_t x;
+			x = luaL_checkinteger(L, stpos);
+			dbg("adding BYTE %c", x);
+			r = sd_bus_message_append_basic(m, *t, &x);
+			lua_remove(L, stpos);
+			break;
                 }
 
                 case SD_BUS_TYPE_BOOLEAN:
@@ -252,48 +299,50 @@ int sd_bus_message_appendv(
                 case SD_BUS_TYPE_UINT32:
                 case SD_BUS_TYPE_UNIX_FD: {
                         uint32_t x;
-
-                        /* We assume a boolean is the same as int32_t */
-                        static_assert(sizeof(int32_t) == sizeof(int));
-
-                        x = va_arg(ap, uint32_t);
-                        r = sd_bus_message_append_basic(m, *t, &x);
+			static_assert(sizeof(int32_t) == sizeof(int));
+			x = luaL_checkinteger(L, stpos);
+			dbg("adding BOOL/uint/int/fd %u", x);
+			r = sd_bus_message_append_basic(m, *t, &x);
+			lua_remove(L, stpos);
                         break;
                 }
 
                 case SD_BUS_TYPE_INT16:
                 case SD_BUS_TYPE_UINT16: {
                         uint16_t x;
-
-                        x = (uint16_t) va_arg(ap, int);
+			x = luaL_checkinteger(L, stpos);
+			dbg("adding UINT16 %u", x);
                         r = sd_bus_message_append_basic(m, *t, &x);
+			lua_remove(L, stpos);
                         break;
                 }
 
                 case SD_BUS_TYPE_INT64:
                 case SD_BUS_TYPE_UINT64: {
                         uint64_t x;
-
-                        x = va_arg(ap, uint64_t);
+			x = luaL_checkinteger(L, stpos);
+			dbg("adding UINT64 %lu", x);
                         r = sd_bus_message_append_basic(m, *t, &x);
+			lua_remove(L, stpos);
                         break;
                 }
 
                 case SD_BUS_TYPE_DOUBLE: {
                         double x;
-
-                        x = va_arg(ap, double);
+			x = luaL_checknumber(L, stpos);
+			dbg("adding DOUBLE %f", x);
                         r = sd_bus_message_append_basic(m, *t, &x);
+			lua_remove(L, stpos);
                         break;
                 }
 
                 case SD_BUS_TYPE_STRING:
                 case SD_BUS_TYPE_OBJECT_PATH:
                 case SD_BUS_TYPE_SIGNATURE: {
-                        const char *x;
-
-                        x = va_arg(ap, const char*);
+                        const char *x =	luaL_checkstring(L, stpos);
+			dbg("adding string %s", x);
                         r = sd_bus_message_append_basic(m, *t, x);
+			lua_remove(L, stpos);
                         break;
                 }
 
@@ -303,7 +352,6 @@ int sd_bus_message_appendv(
                         r = signature_element_length(t + 1, &k);
                         if (r < 0)
                                 return r;
-
                         {
                                 char s[k + 1];
                                 memcpy(s, t + 1, k);
@@ -319,7 +367,7 @@ int sd_bus_message_appendv(
                                 n_struct -= k;
                         }
 
-                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array);
+                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array, stpos);
                         if (r < 0)
                                 return r;
 
@@ -327,23 +375,29 @@ int sd_bus_message_appendv(
                         n_struct = k;
 
 			/* first array param is size of array */
-                        n_array = va_arg(ap, unsigned);
-
+                        /* n_array = va_arg(ap, unsigned); */
+			r = table_explode(L, stpos, types-1);
+			if (r<0)
+				return r;
+			n_array = r;
+			dbg("found array of size %u", r);
+			stpos =	lua_absindex(L,	-r);
                         break;
                 }
 
                 case SD_BUS_TYPE_VARIANT: {
                         const char *s;
 
-                        s = va_arg(ap, const char*);
+                        /* s = va_arg(ap, const char*);
                         if (!s)
                                 return -EINVAL;
+			*/
 
                         r = sd_bus_message_open_container(m, SD_BUS_TYPE_VARIANT, s);
                         if (r < 0)
                                 return r;
 
-                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array);
+                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array, stpos);
                         if (r < 0)
                                 return r;
 
@@ -378,7 +432,7 @@ int sd_bus_message_appendv(
                                 n_struct -= k - 1;
                         }
 
-                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array);
+                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array, stpos);
                         if (r < 0)
                                 return r;
 
@@ -413,12 +467,7 @@ int sd_bus_message_appendv(
  * @return 0 if OK, <0 in case of error. In that case, an error
  * message is pushed to the top of the stack.
  */
-static int __msg_append(lua_State *L,
-			sd_bus_message* m,
-			char *t,
-			int stpos,
-			int stend,
-			int tpos)
+static int __msg_append(lua_State *L, sd_bus_message* m, char *t, int stpos, int stend, int tpos)
 {
 	int ret = 0;
 	char ttmp[strlen(t)];
@@ -528,12 +577,12 @@ static int __msg_append(lua_State *L,
 
 	return ret;
 }
-#endif
 
 static int msg_append(lua_State *L, sd_bus_message* m, char *t, int stpos)
 {
-	return 0; /* __msg_append(L, m, t, stpos, lua_gettop(L) + 1); */
+	return  __msg_append(L, m, t, stpos, lua_gettop(L) + 1);
 }
+#endif
 
 /* bus methods */
 static int lsdbus_bus_call(lua_State *L)
@@ -551,9 +600,9 @@ static int lsdbus_bus_call(lua_State *L)
 	path = luaL_checkstring(L, 3);
 	intf = luaL_checkstring(L, 4);
 	memb = luaL_checkstring(L, 5);
-	types = lua_tolstring(L, 6, NULL);
+	types = luaL_optstring(L, 6, NULL);
 
-	printf("dest:  %s\npath:  %s\nintf:  %s\nmemb:  %s\ntypes:  %s\n",
+	printf("2 dest:  %s\n3 path:  %s\n4 intf:  %s\n5 memb:  %s\n6 types:  %s\n",
 	       dest, path, intf, memb, types);
 
 	ret = sd_bus_message_new_method_call(b, &m, dest, path, intf, memb);
@@ -565,6 +614,11 @@ static int lsdbus_bus_call(lua_State *L)
 	if (types!= NULL)
 		ret = msg_fromlua(L, m, types, 7);
 
+	if (ret<0)
+		return -1;
+
+	printf("c\n");
+
 	sd_bus_message_seal(m, 2, 1000*1000);
 	sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
@@ -573,7 +627,8 @@ static int lsdbus_bus_call(lua_State *L)
 	if (ret<0)
 		luaL_error(L, "%s error: %s", __func__, strerror(-ret));
 
-	msg_tolua(L, reply);
+	/* msg_tolua(L, reply); */
+	sd_bus_message_dump(reply, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 
 	sd_bus_error_free(&error);
 	sd_bus_message_unref(reply);
