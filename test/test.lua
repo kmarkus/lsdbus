@@ -94,13 +94,45 @@ end
 function TestMsg:TestVariant()
    local s = "sumpi"
    local ret = b:testmsg("v", "s", s)
-   lu.assert_equals(ret, s)
+   lu.assert_equals(ret, { s })
 end
 
 function TestMsg:TestVariantArrayOfInts()
    local arg = { 11, 22, 33, 44, 55, 66 }
-   local ret = b:testmsg("vai", arg)
-   lu.assert_equals(ret, arg)
+   local ret = b:testmsg("vs", "ai", arg, "lumpi")
+   lu.assert_equals(ret, { arg })
+end
+
+function TestMsg:TestInvalidArg()
+   local function invalid_msg()
+      return b:testmsg("s", false)
+   end
+   local exp_err = "bad argument #2 to 'testmsg' (string expected, got boolean)"
+   lu.assert_error_msg_contains(exp_err, invalid_msg)
+end
+
+function TestMsg:TestInvalidArg2()
+   local function invalid_msg()
+      return b:testmsg(")))", 1, 2, 3)
+   end
+   local exp_err = "invalid or unexpected typestring ')'"
+   lu.assert_error_msg_contains(exp_err, invalid_msg)
+end
+
+function TestMsg:TestInvalidArg3()
+   local function invalid_msg()
+      return b:testmsg("i%^&*", 1, 2, 3)
+   end
+   local exp_err = "invalid or unexpected typestring '%'"
+   lu.assert_error_msg_contains(exp_err, invalid_msg)
+end
+
+function TestMsg:TestInvalidTooFewArgs()
+   local function invalid_msg()
+      return b:testmsg("siq", "grunk", -4711)
+   end
+   local exp_err = "(number expected, got no value)"
+   lu.assert_error_msg_contains(exp_err, invalid_msg)
 end
 
 

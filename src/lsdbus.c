@@ -322,8 +322,10 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 
                 if (n_array == 0 || (n_array == (unsigned) -1 && n_struct == 0)) {
                         r = type_stack_pop(stack, ELEMENTSOF(stack), &stack_ptr, &types, &n_struct, &n_array, &stpos);
-                        if (r < 0)
+                        if (r < 0) {
+				lua_pushfstring(L, "invalid type string %s, no container to close", types);
                                 return r;
+			}
                         if (r == 0)
                                 break;
 
@@ -526,6 +528,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 }
 
                 default:
+			lua_pushfstring(L, "invalid or unexpected typestring '%c'", *t);
                         r = -EINVAL;
                 }
 
@@ -533,7 +536,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                         return r;
         }
 
-        return 1;
+	return 1;
 }
 
 static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
@@ -670,10 +673,13 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
 
         return 0;
 }
+
 static int msg_tolua(lua_State *L, sd_bus_message* m)
 {
-	int nargs = lua_gettop(L);
-	__msg_tolua(L, m, 0);
+	int ret, nargs = lua_gettop(L);
+	ret = __msg_tolua(L, m, 0);
+	if (ret < 0)
+		return ret;
 	return lua_gettop(L) - nargs;
 }
 
@@ -708,9 +714,7 @@ static int lsdbus_bus_call(lua_State *L)
 		ret = msg_fromlua(L, m, types, 7);
 
 	if (ret<0)
-		return -1;
-
-	printf("c\n");
+		goto out;
 
 	sd_bus_message_seal(m, 2, 1000*1000);
 	sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
@@ -720,11 +724,16 @@ static int lsdbus_bus_call(lua_State *L)
 	if (ret<0)
 		luaL_error(L, "%s error: %s", __func__, strerror(-ret));
 
-	msg_tolua(L, reply);
+	ret = msg_tolua(L, reply);
 
+out:
 	sd_bus_error_free(&error);
 	sd_bus_message_unref(reply);
 	sd_bus_message_unref(m);
+
+	if (ret<0)
+		lua_error(L);
+
 	return 1;
 }
 
@@ -751,14 +760,19 @@ static int lsdbus_testmsg(lua_State *L)
 		ret = msg_fromlua(L, m, types, 3);
 
 	if (ret<0)
-		return -1;
-
+		goto out;
 
 	sd_bus_message_seal(m, 2, 1000*1000);
 	sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 	sd_bus_message_rewind(m, 1);
 	ret = msg_tolua(L, m);
+
+out:
 	sd_bus_message_unref(m);
+
+	if(ret<0)
+		lua_error(L);
+
 	return ret;
 }
 
