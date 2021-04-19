@@ -76,6 +76,26 @@ function TestMsg:TestDictStr()
    lu.assert_equals(ret, dict)
 end
 
+function TestMsg:TestDictWithStruct()
+   local dict =	{ {99, 'ninenine'} }
+   local ret = b:testmsg("a{i(is)}", dict)
+   lu.assert_equals(ret, dict)
+end
+
+function TestMsg:TestDictWithStruct2()
+   local dict =	{ one = {11, 'this is one'},
+		  two = {22, 'this is two'},
+		  three = {33,'this is three'} }
+   local ret = b:testmsg("a{s(is)}", dict)
+   lu.assert_equals(ret, dict)
+end
+
+function TestMsg:TestDictWithStruct3()
+   local dict =	{ }
+   local ret = b:testmsg("a{i(is)}", dict)
+   lu.assert_equals(ret, dict)
+end
+
 function TestMsg:TestsVeryComplexMsg()
    local msg = {
       "banana",
