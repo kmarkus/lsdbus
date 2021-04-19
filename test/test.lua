@@ -70,6 +70,12 @@ function TestMsg:TestDictInt()
    lu.assert_equals(ret, dict)
 end
 
+function TestMsg:TestDictIntZeroBased()
+   local dict =	{[0]='zero', 'one', 'two', 'three'}
+   local ret = b:testmsg("a{is}", dict)
+   lu.assert_equals(ret, dict)
+end
+
 function TestMsg:TestDictStr()
    local dict =	{one='this is one', two='this is two', three='this is three'}
    local ret = b:testmsg("a{ss}", dict)
