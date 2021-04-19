@@ -626,9 +626,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 
 static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
 {
-	dbg("%c", ctype);
-
-	int r, cnt=0;
+	int r;
 
         for (;;) {
                 /* _cleanup_free_ char *prefix = NULL; */
@@ -660,28 +658,46 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
                         if (r < 0)
 				luaL_error(L, "msg_tolua: failed to exit container: %s", strerror(-r));
 
-			dbg("container exit");
+			dbg("exit container ctype %c", ctype);
                         return 0;
                 }
 
-                if (bus_type_is_container(type) > 0) {
+		if (type == SD_BUS_TYPE_ARRAY || type == SD_BUS_TYPE_STRUCT) {
+			dbg("enter ARRAY/STRUCT container: %c", type);
+
                         r = sd_bus_message_enter_container(m, type, contents);
+
                         if (r < 0)
 				luaL_error(L, "msg_tolua: failed to enter container: %s", strerror(-r));
 
-			if (type != SD_BUS_TYPE_DICT_ENTRY &&
-			    type != SD_BUS_TYPE_VARIANT) {
-				dbg("newtable");
-				lua_newtable(L);
-				cnt++;
-			}
+			lua_newtable(L);
 			__msg_tolua(L, m, type);
+			goto update_table;
 
-			if (type != SD_BUS_TYPE_DICT_ENTRY)
-				goto table_update;
-			else
-				continue;
-                }
+		} else if (type == SD_BUS_TYPE_DICT_ENTRY) {
+			dbg("enter DICT_ENTRY container: %c", type);
+
+                        r = sd_bus_message_enter_container(m, type, contents);
+
+                        if (r < 0)
+				luaL_error(L, "msg_tolua: failed to enter container: %s", strerror(-r));
+
+			__msg_tolua(L, m, type);
+			dbg("rawset into parent at -3");
+			lua_rawset(L, -3);
+			continue;
+
+		} else if (type == SD_BUS_TYPE_VARIANT) {
+			dbg("enter VARIANT container: %c", type);
+
+			r = sd_bus_message_enter_container(m, type, contents);
+
+                        if (r < 0)
+				luaL_error(L, "msg_tolua: failed to enter container: %s", strerror(-r));
+
+			__msg_tolua(L, m, type);
+			continue;
+		}
 
                 r = sd_bus_message_read_basic(m, type, &basic);
                 if (r < 0)
@@ -691,45 +707,55 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
 
                 switch (type) {
                 case SD_BUS_TYPE_BYTE:
+			dbg("push BYTE");
 			lua_pushinteger(L, basic.u8);
                         break;
 
                 case SD_BUS_TYPE_BOOLEAN:
+			dbg("push BOOLEAN");
 			lua_pushboolean(L, basic.i);
                         break;
 
                 case SD_BUS_TYPE_INT16:
+			dbg("push INT16");
 			lua_pushinteger(L, basic.s16);
 			break;
 
                 case SD_BUS_TYPE_UINT16:
+			dbg("push UINT16");
 			lua_pushinteger(L, basic.u16);
                         break;
 
                 case SD_BUS_TYPE_INT32:
                 case SD_BUS_TYPE_UNIX_FD:
+			dbg("push INT32/FD %i", basic.s32);
 			lua_pushinteger(L, basic.s32);
 			break;
 
                 case SD_BUS_TYPE_UINT32:
+			dbg("push UINT32");
 			lua_pushinteger(L, basic.u32);
                         break;
 
                 case SD_BUS_TYPE_INT64:
+			dbg("push INT64");
 			lua_pushinteger(L, basic.s64);
 			break;
 
                 case SD_BUS_TYPE_UINT64:
+			dbg("push UINT64");
 			lua_pushinteger(L, basic.u64);
                         break;
 
                 case SD_BUS_TYPE_DOUBLE:
+			dbg("push DOUBLE");
 			lua_pushnumber(L, basic.d64);
                         break;
 
                 case SD_BUS_TYPE_STRING:
                 case SD_BUS_TYPE_OBJECT_PATH:
                 case SD_BUS_TYPE_SIGNATURE:
+			dbg("push STRING/OBJ/sig %s", basic.string);
 			lua_pushstring(L, basic.string);
                         break;
 
@@ -737,21 +763,15 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
                         luaL_error(L, "msg_tolua: unknown basic type: %c", type);
                 }
 
-	table_update:
+	update_table:
+		if (ctype == SD_BUS_TYPE_ARRAY || ctype == SD_BUS_TYPE_STRUCT) {
 
-		if (ctype == SD_BUS_TYPE_ARRAY) {
-			dbg("rawseti t=%c, ct=%c (#%i)", type, ctype, cnt);
+			if (lua_type(L, -2) != LUA_TTABLE)
+				luaL_error(L, "%c rawseti: not table at -2", ctype);
+
+			dbg("rawseti t[%lu]", lua_rawlen(L, -2) + 1);
 			lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
-		} else if (ctype == SD_BUS_TYPE_STRUCT) {
-			dbg("rawseti t=%c, ct=%c (#%i)", type, ctype, cnt);
-			lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
-		} else if (ctype == SD_BUS_TYPE_DICT_ENTRY) {
-			if (cnt%2) {
-				dbg("rawset t=%c, ct=%c (#%i)", type, ctype, cnt);
-				lua_rawset(L, -3);
-			}
 		}
-		cnt++;
         }
 
         return 0;
