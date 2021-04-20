@@ -102,6 +102,12 @@ function TestMsg:TestDictWithStruct3()
    lu.assert_equals(ret, dict)
 end
 
+function TestMsg:TestDictWithArray()
+   local dict =	{ { "krick", "krack" }, { "grit", "grat", "gronk", } }
+   local ret = b:testmsg("a{uas}", dict)
+   lu.assert_equals(ret, dict)
+end
+
 function TestMsg:TestsVeryComplexMsg()
    local msg = {
       "banana",
