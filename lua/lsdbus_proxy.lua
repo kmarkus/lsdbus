@@ -78,11 +78,11 @@ function proxy:Set(k, ...)
    return self:xcall(prop_if, 'Set', 'ssv', self.intf.name, k, self.intf.properties[k].type, ...)
 end
 
-function proxy:__newindex(k, v) self:Set(k, v) end
-
 function proxy:GetAll()
    return self:xcall(prop_if, 'GetAll', 's', self.intf.name)
 end
+
+function proxy:__newindex(k, v) self:Set(k, v) end
 
 function proxy:__tostring()
    local res = {}
@@ -99,10 +99,13 @@ function proxy:new(bus, srv, obj, intf)
    intf.properties = intf.properties or {}
 
    local o = { bus=bus, srv=srv, obj=obj, intf=intf }
-
-   setmetatable(o, self)
-   self.__index = function (_, k) return self[k] or proxy.Get(o, k) end
-
+   local mt = {
+      __index = function (_, k) return proxy[k] or proxy.Get(o, k) end,
+      __newindex = proxy.__newindex,
+      __call = proxy.__call,
+      __tostring = proxy.__tostring,
+   }
+   setmetatable(o, mt)
    return o
 end
 
