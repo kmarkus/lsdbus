@@ -187,14 +187,6 @@ function TestMsg:TestInvalidMissingStructClose()
    local function invalid_msg()
       return b:testmsg("(siq", "str", 23, 2)
    end
-   local exp_err = "asd"
-   lu.assert_error_msg_contains(exp_err, invalid_msg)
-end
-
-function TestMsg:TestInvalidMissingStructClose()
-   local function invalid_msg()
-      return b:testmsg("(siq", "str", 23, 2)
-   end
    local exp_err = "invalid struct type string (siq"
    lu.assert_error_msg_contains(exp_err, invalid_msg)
 end
