@@ -1,7 +1,5 @@
 local lu=require("luaunit")
-local utils = require("utils")
 local lsdb = require("lsdbus")
-local strict = require("strict")
 
 local unpack = table.unpack
 
