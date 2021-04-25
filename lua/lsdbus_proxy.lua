@@ -82,6 +82,10 @@ function proxy:GetAll()
    return self:xcall(prop_if, 'GetAll', 's', self.intf.name)
 end
 
+function proxy:SetAll(t)
+   for k,v in pairs(t) do self:Set(k,v) end
+end
+
 function proxy:__newindex(k, v) self:Set(k, v) end
 
 function proxy:__tostring()
