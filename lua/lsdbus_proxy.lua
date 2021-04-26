@@ -103,13 +103,8 @@ function proxy:new(bus, srv, obj, intf)
    intf.properties = intf.properties or {}
 
    local o = { bus=bus, srv=srv, obj=obj, intf=intf }
-   local mt = {
-      __index = function (_, k) return proxy[k] or proxy.Get(o, k) end,
-      __newindex = proxy.__newindex,
-      __call = proxy.__call,
-      __tostring = proxy.__tostring,
-   }
-   setmetatable(o, mt)
+   setmetatable(o, self)
+   self.__index = function (p, k) return self[k] or proxy.Get(p, k) end
    return o
 end
 
