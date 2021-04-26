@@ -45,4 +45,4 @@ function TestProxy:TestSimpleCall()
    lu.assertEquals(hn.Chassis, "laptop")
 end
 
-os.exit( lu.LuaUnit.run() )
+return TestProxy

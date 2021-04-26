@@ -197,5 +197,4 @@ function TestMsg:TestInvalidMissingDictClose()
    lu.assert_error_msg_contains(exp_err, invalid_msg)
 end
 
-
-os.exit( lu.LuaUnit.run() )
+return TestMsg
