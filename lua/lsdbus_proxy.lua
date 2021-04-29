@@ -6,6 +6,8 @@ local fmt = string.format
 local concat = table.concat
 
 local prop_if = 'org.freedesktop.DBus.Properties'
+local peer_if = 'org.freedesktop.DBus.Peer'
+
 local proxy = {}
 
 --[[
@@ -85,6 +87,11 @@ end
 function proxy:SetAll(t)
    for k,v in pairs(t) do self:Set(k,v) end
 end
+
+function proxy:Ping()
+   return self.bus:call(self.srv, self.obj, peer_if, 'Ping')
+end
+
 
 function proxy:__newindex(k, v) self:Set(k, v) end
 

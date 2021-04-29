@@ -39,6 +39,20 @@ function TestProxy:setup()
    hn = proxy:new(b, 'org.freedesktop.hostname1', '/org/freedesktop/hostname1', hostname1_if)
 end
 
+function TestProxy:TestPing()
+   local ret, err
+
+   ret, err = td:Ping()
+   if not ret then
+      lu.assertIsTrue(ret, err[1]..": "..err[2])
+   end
+
+   ret, err = hn:Ping()
+   if not ret then
+      lu.assertIsTrue(ret, err[1]..": "..err[2])
+   end
+end
+
 function TestProxy:TestSimpleCall()
    lu.assertIsTable(td('ListTimezones'))
    lu.assertEquals(td.Timezone, "Europe/Berlin")
