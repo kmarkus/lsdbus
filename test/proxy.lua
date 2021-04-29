@@ -59,4 +59,10 @@ function TestProxy:TestSimpleCall()
    lu.assertEquals(hn.Chassis, "laptop")
 end
 
+function TestProxy:TestHas()
+   lu.assertIsTrue(td:HasMethod('ListTimezones'))
+   lu.assertIsTrue(td:HasProperty('CanNTP'))
+   lu.assertIsFalse(td:HasProperty('GuineaPig'))
+end
+
 return TestProxy

@@ -92,6 +92,13 @@ function proxy:Ping()
    return self.bus:call(self.srv, self.obj, peer_if, 'Ping')
 end
 
+function proxy:HasProperty(p)
+   if self.intf.properties[p] then return true else return false end
+end
+
+function proxy:HasMethod(m)
+   if self.intf.methods[m] then return true else return false end
+end
 
 function proxy:__newindex(k, v) self:Set(k, v) end
 
