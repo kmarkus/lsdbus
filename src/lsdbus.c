@@ -18,6 +18,8 @@
 # define dbg(fmt, args...)  do {} while (0)
 #endif
 
+int lsdbus_xml_read(lua_State *L);
+
 static const char *const open_opts_lst [] = {
 	"default",
 	"system",
@@ -1067,6 +1069,7 @@ static int lsdbus_bus_gc(lua_State *L)
 
 static const luaL_Reg lsdbus_f [] = {
 	{ "open", lsdbus_open },
+	{ "xml_read", lsdbus_xml_read },
 	/* { "testmsg_tolua", lsdbus_testmsg_tolua }, */
 	{ NULL, NULL },
 };
