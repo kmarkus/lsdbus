@@ -123,14 +123,24 @@ end
 
 function TestMsg:TestVariant()
    local s = "sumpi"
-   local ret = b:testmsg("v", "s", s)
+   local ret = b:testmsg("v", { "s", s })
    lu.assert_equals(ret, s)
 end
 
 function TestMsg:TestVariantArrayOfInts()
    local arg = { 11, 22, 33, 44, 55, 66 }
-   local ret = b:testmsg("vs", "ai", arg, "lumpi")
+   local ret = b:testmsg("v", { "ai", arg })
    lu.assert_equals(ret, arg)
+end
+
+function TestMsg:TestArrayWithVariant1()
+   local ret = b:testmsg("a{iv}", { { 'd', 22.2 }, { 's', "foo"}, { 'b', true} })
+   lu.assert_equals(ret, { 22.2, "foo", true})
+end
+
+function TestMsg:TestArrayWithVariant2()
+   local ret = b:testmsg("a{sv}", { foo={'s', "nirk"}, bar={'d', 2.718}, dunk={'b', false}})
+   lu.assert_equals(ret, {foo="nirk", bar=2.718, dunk=false})
 end
 
 -- TODO:
