@@ -88,7 +88,7 @@ static int table_explode(lua_State *L, int pos, const char *ctx)
 
 	for (int i=1; i<=len; i++) {
 		lua_geti(L, pos, i);
-		dbg("pushed %s value", lua_typename(L, lua_type(L, -1)));
+		dbg("pushed %s value to pos %i", lua_typename(L, lua_type(L, -1)), pos+i-2);
 	}
 
 	lua_remove(L, pos);
@@ -119,7 +119,9 @@ static int dict_explode(lua_State *L, int pos, const char *ctx)
 
 	lua_pushnil(L);  /* first key */
 	while (lua_next(L, pos) != 0) {
-		dbg("%s - %s", lua_typename(L, lua_type(L, -2)), lua_typename(L, lua_type(L, -1)));
+		dbg("pushed %s - %s to pos %i",
+		    lua_typename(L, lua_type(L, -2)),
+		    lua_typename(L, lua_type(L, -1)), pos+len-1);
 		/* duplicate key to top for next iteration */
 		lua_pushvalue(L, -2);
 		len++;
@@ -534,13 +536,31 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 }
 
                 case SD_BUS_TYPE_VARIANT: {
-                        const char *s =	luaL_checkstring(L, stpos);
-			lua_remove(L, stpos);
+			const char* s;
+
+			int ltype = lua_type(L, stpos);
+
+			if (ltype != LUA_TTABLE) {
+				lua_pushfstring(L, "invalid type %s of arg %i, expected table",
+						lua_typename(L,	ltype),	stpos);
+				return -EINVAL;
+			}
+
+			r = table_explode(L, stpos, s);
+
+			if (r != 2) {
+				lua_pushfstring(L, "invalid table at stpos %i", stpos);
+				return -EINVAL;
+			}
+
+			s = luaL_checkstring(L, -2);
+			lua_remove(L, -2);
+
+			dbg("pushing variant of type %s", s);
 
                         r = sd_bus_message_open_container(m, SD_BUS_TYPE_VARIANT, s);
                         if (r < 0) {
-				lua_pushfstring(L, "failed to open variant container for %s: %s",
-						t, strerror(-r));
+				lua_pushfstring(L, "failed to open variant container for typestr '%s', val: %s: %s", s, t, strerror(-r));
                                 return r;
 			}
 
@@ -550,9 +570,10 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                                 return r;
 			}
 
-                        types = s;
-                        n_struct = strlen(s);
-                        n_array = (unsigned) -1;
+			types = s;
+			n_struct = strlen(s);
+			n_array = (unsigned) -1;
+			stpos =	lua_absindex(L,	-1);
 			dbg("appending variant %s of size %u", types, n_struct);
 
                         break;

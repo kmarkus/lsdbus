@@ -77,7 +77,7 @@ function proxy:Set(k, ...)
       error(fmt("Set: no property %s", k))
    end
 
-   return self:xcall(prop_if, 'Set', 'ssv', self.intf.name, k, self.intf.properties[k].type, ...)
+   return self:xcall(prop_if, 'Set', 'ssv', self.intf.name, k, { self.intf.properties[k].type, ... })
 end
 
 function proxy:GetAll()
