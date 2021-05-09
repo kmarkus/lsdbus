@@ -6,8 +6,9 @@
 #include "lua.h"
 #include "lauxlib.h"
 
-#define BUS_MT		"lsdbus.bus"
-#define MSG_MT	 	"lsdbus.msg"
+#define BUS_MT			"lsdbus.bus"
+#define MSG_MT	 		"lsdbus.msg"
+#define REG_SLOT_TABLE		"lsdbus.slot_table"
 
 #ifdef DEBUG
 # define dbg(fmt, args...) ( fprintf(stderr, "%s: ", __FUNCTION__), \
@@ -662,7 +663,7 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
                         uint64_t u64;
                         int64_t s64;
                         double d64;
-                        const char *string;
+			const char *string;
                         int i;
                 } basic;
 
@@ -801,6 +802,10 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
 static int msg_tolua(lua_State *L, sd_bus_message* m)
 {
 	int ret, nargs = lua_gettop(L);
+	ret = sd_bus_message_rewind(m, 1);
+	if (ret < 0)
+		luaL_error(L, "failed to rewind message");
+
 	ret = __msg_tolua(L, m, 0);
 	if (ret < 0)
 		return ret;
@@ -870,6 +875,77 @@ out:
 	return ret;
 }
 
+void push_string_or_nil(lua_State *L, const char* s)
+{
+	if (s)
+		lua_pushstring(L, s);
+	else
+		lua_pushnil(L);
+}
+
+int signal_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error)
+{
+	(void)ret_error;
+	int ret, nargs;
+	lua_State *L = (lua_State*) userdata;
+	sd_bus *b = sd_bus_message_get_bus(m);
+	sd_bus_slot *slot = sd_bus_get_current_slot(b);
+
+	if (lua_getfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE) != LUA_TTABLE)
+		luaL_error(L, "missing slot table");
+
+	if (lua_rawgetp(L, -1, slot) != LUA_TFUNCTION)
+		luaL_error(L, "invalid callback type");
+
+	push_string_or_nil(L, sd_bus_message_get_sender(m));
+	push_string_or_nil(L, sd_bus_message_get_path(m));
+	push_string_or_nil(L, sd_bus_message_get_interface(m));
+	push_string_or_nil(L, sd_bus_message_get_member(m));
+
+	nargs = msg_tolua(L, m);
+
+	if(nargs<0)
+		lua_error(L);
+
+	lua_call(L, nargs+4, 1);
+
+	ret = lua_tointeger(L, -1);
+	lua_settop(L, 0);
+	return ret;
+}
+
+static int lsdbus_match_signal(lua_State *L)
+{
+	int ret;
+	sd_bus_slot *slot;
+	const char *sender=NULL, *path=NULL, *intf=NULL, *memb=NULL;
+
+	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+
+	if (!lua_isnil(L, 2)) sender = luaL_checkstring(L, 2);
+	if (!lua_isnil(L, 3)) path = luaL_checkstring(L, 3);
+	if (!lua_isnil(L, 4)) intf = luaL_checkstring(L, 4);
+	if (!lua_isnil(L, 5)) memb = luaL_checkstring(L, 5);
+	luaL_checktype(L, 6, LUA_TFUNCTION);
+
+	ret = sd_bus_match_signal(b, &slot, sender, path, intf, memb, signal_callback, L);
+
+	if (ret<0)
+		luaL_error(L, "failed to install signal match rule: %s", strerror(-ret));
+
+	/* store the callback in the registry reg.slottab[slot]=callback */
+	if (lua_getfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE) != LUA_TTABLE) {
+		lua_pop(L, 1);
+		lua_newtable(L);
+		lua_setfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE);
+		lua_getfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE);
+	}
+
+	lua_pushvalue(L, 6);
+	lua_rawsetp(L, -2, slot);
+	return 0;
+}
+
 static int lsdbus_testmsg(lua_State *L)
 {
 	int ret;
@@ -911,6 +987,30 @@ out:
 	return ret;
 }
 
+static int lsdbus_loop(lua_State *L)
+{
+	int ret;
+
+	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+
+	for (;;) {
+		ret = sd_bus_process(b, NULL);
+		if (ret < 0)
+			luaL_error(L, "failed to process bus: %s", strerror(-ret));
+
+		if (ret > 0)
+			continue;
+
+		ret = sd_bus_wait(b, (uint64_t) -1);
+		if (ret < 0)
+			luaL_error(L, "failed to wait on bus: %s", strerror(-ret));
+	}
+
+	return 0;
+}
+
+
+
 static int lsdbus_bus_tostring(lua_State *L)
 {
 	int ret;
@@ -944,6 +1044,8 @@ static const luaL_Reg lsdbus_f [] = {
 
 static const luaL_Reg lsdbus_bus_m [] = {
 	{ "call", lsdbus_bus_call },
+	{ "match_signal", lsdbus_match_signal },
+	{ "loop", lsdbus_loop },
 	{ "testmsg", lsdbus_testmsg },
 	{ "__tostring", lsdbus_bus_tostring },
 	{ "__gc", lsdbus_bus_gc },
