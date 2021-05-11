@@ -946,6 +946,35 @@ static int lsdbus_match_signal(lua_State *L)
 	return 0;
 }
 
+static int lsdbus_match(lua_State *L)
+{
+	int ret;
+	sd_bus_slot *slot;
+	const char *match=NULL;
+
+	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+
+	if (!lua_isnil(L, 2)) match = luaL_checkstring(L, 2);
+	luaL_checktype(L, 3, LUA_TFUNCTION);
+
+	ret = sd_bus_add_match(b, &slot, match, signal_callback, L);
+
+	if (ret<0)
+		luaL_error(L, "failed to install match rule: %s", strerror(-ret));
+
+	/* store the callback in the registry reg.slottab[slot]=callback */
+	if (lua_getfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE) != LUA_TTABLE) {
+		lua_pop(L, 1);
+		lua_newtable(L);
+		lua_setfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE);
+		lua_getfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE);
+	}
+
+	lua_pushvalue(L, 3);
+	lua_rawsetp(L, -2, slot);
+	return 0;
+}
+
 static int lsdbus_testmsg(lua_State *L)
 {
 	int ret;
@@ -1045,6 +1074,7 @@ static const luaL_Reg lsdbus_f [] = {
 static const luaL_Reg lsdbus_bus_m [] = {
 	{ "call", lsdbus_bus_call },
 	{ "match_signal", lsdbus_match_signal },
+	{ "match", lsdbus_match },
 	{ "loop", lsdbus_loop },
 	{ "testmsg", lsdbus_testmsg },
 	{ "__tostring", lsdbus_bus_tostring },
