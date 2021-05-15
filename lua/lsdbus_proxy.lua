@@ -2,11 +2,14 @@
 -- Proxy: client convenience object
 --
 
+local lsdb = require("lsdbus")
+
 local fmt = string.format
 local concat = table.concat
 
 local prop_if = 'org.freedesktop.DBus.Properties'
 local peer_if = 'org.freedesktop.DBus.Peer'
+local introspect_if = 'org.freedesktop.DBus.Introspectable'
 
 local proxy = {}
 
@@ -112,7 +115,26 @@ function proxy:__tostring()
    return table.concat(res, "\n")
 end
 
+function proxy.introspect(bus, srv, obj)
+   local ret, xml = bus:call(srv, obj, introspect_if, 'Introspect')
+   if not ret then error(fmt("failed to introspect %s, %s: %s", srv, obj, xml)) end
+   return lsdb.xml_fromstr(xml)
+end
+
 function proxy:new(bus, srv, obj, intf)
+
+   if type(intf) == 'string' then
+      local node = proxy.introspect(bus, srv, obj)
+      for _,i in ipairs(node) do
+	 if i.name == intf then
+	    intf = i
+	    goto continue
+	 end
+      end
+      error(fmt("no interface %s on %s, %s", intf, srv, obj))
+   end
+
+   ::continue::
    intf.methods = intf.methods or {}
    intf.properties = intf.properties or {}
 
