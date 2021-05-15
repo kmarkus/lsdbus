@@ -35,18 +35,14 @@
   <node name="another_child_of_sample_object"/>
 </node>
 */
-static int load_dbus_xml_file(lua_State *L, const char* file)
+
+/*
+ * convert the given D-Bus XML node to it's corresponding Lua
+ * representation.
+ */
+static int dbus_xml2lua(lua_State *L, mxml_node_t *root)
 {
-	FILE *fp;
-	mxml_node_t *root, *node, *intf, *prop, *met, *sig, *arg;
-
-	fp = fopen(file, "r");
-
-	if (fp == NULL)
-		luaL_error(L, "failed to open %s", file);
-
-	root = mxmlLoadFile(NULL, fp, MXML_OPAQUE_CALLBACK);
-	fclose(fp);
+	mxml_node_t *node, *intf, *prop, *met, *sig, *arg;
 
 	node = mxmlFindElement(root, root, "node", NULL, NULL, MXML_DESCEND);
 
@@ -55,48 +51,151 @@ static int load_dbus_xml_file(lua_State *L, const char* file)
 		luaL_error(L, "failed to find <node> element");
 	}
 
+	lua_newtable(L); /* nodes */
+
 	for(intf = mxmlFindElement(node, node, "interface", NULL, NULL, MXML_DESCEND);
 	    intf != NULL;
 	    intf = mxmlFindElement(intf, node, "interface", NULL, NULL, MXML_NO_DESCEND)) {
-		printf("interface: %s\n", mxmlElementGetAttr(intf, "name"));
+
+		/* interface */
+		lua_newtable(L);
+
+		lua_pushstring(L, "name");
+		lua_pushstring(L, mxmlElementGetAttr(intf, "name"));
+		lua_rawset(L, -3);
 
 		/* methods */
+		lua_pushstring(L, "methods");
+		lua_newtable(L);
+
 		for(met = mxmlFindElement(intf, intf, "method", NULL, NULL, MXML_DESCEND);
 		    met != NULL;
 		    met = mxmlFindElement(met, intf, "method", NULL, NULL, MXML_NO_DESCEND)) {
-			printf("  method: %s\n", mxmlElementGetAttr(met, "name"));
+			/* method */
+			lua_pushstring(L, mxmlElementGetAttr(met, "name"));
+			lua_newtable(L);
 
 			for(arg = mxmlFindElement(met, met, "arg", NULL, NULL, MXML_DESCEND);
 			    arg != NULL;
 			    arg = mxmlFindElement(arg, met, "arg", NULL, NULL, MXML_NO_DESCEND)) {
-				printf("     arg: %s type=%s, dir=%s \n",
-				       mxmlElementGetAttr(arg, "name"),
-				       mxmlElementGetAttr(arg, "type"),
-				       mxmlElementGetAttr(arg, "direction"));
-			}
-		}
+				lua_newtable(L); /* arg */
 
-		/* property */
+				lua_pushstring(L, "name");
+				lua_pushstring(L, mxmlElementGetAttr(arg, "name"));
+				lua_rawset(L, -3);
+
+				lua_pushstring(L, "type");
+				lua_pushstring(L, mxmlElementGetAttr(arg, "type"));
+				lua_rawset(L, -3);
+
+				lua_pushstring(L, "direction");
+				lua_pushstring(L, mxmlElementGetAttr(arg, "direction"));
+				lua_rawset(L, -3);
+
+				/* method[#method+1] = arg */
+				lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
+			}
+
+			lua_rawset(L, -3); /* methods[name] = method */
+		}
+		lua_rawset(L, -3); /* interface.methods = methods */
+
+		/* properties */
+		lua_pushstring(L, "properties");
+		lua_newtable(L);
+
 		for(prop = mxmlFindElement(intf, intf, "property", NULL, NULL, MXML_DESCEND);
 		    prop != NULL;
 		    prop = mxmlFindElement(prop, intf, "property", NULL, NULL, MXML_NO_DESCEND)) {
-			printf("  property: %s\n", mxmlElementGetAttr(prop, "name"));
+			lua_pushstring(L, mxmlElementGetAttr(prop, "name"));
+			lua_newtable(L);
+
+			lua_pushstring(L, "type");
+			lua_pushstring(L, mxmlElementGetAttr(prop, "type"));
+			lua_rawset(L, -3);
+
+			lua_pushstring(L, "access");
+			lua_pushstring(L, mxmlElementGetAttr(prop, "access"));
+			lua_rawset(L, -3);
+
+			lua_rawset(L, -3); /* properties[name] = property */
 		}
 
+		lua_rawset(L, -3); /* interface.properties = properties */
+
 		/* signal */
+		lua_pushstring(L, "signals");
+		lua_newtable(L);
+
 		for(sig = mxmlFindElement(intf, intf, "signal", NULL, NULL, MXML_DESCEND);
 		    sig != NULL;
 		    sig = mxmlFindElement(sig, intf, "signal", NULL, NULL, MXML_NO_DESCEND)) {
-			printf("  signal: %s\n", mxmlElementGetAttr(sig, "name"));
+			lua_pushstring(L,  mxmlElementGetAttr(sig, "name"));
+			lua_newtable(L);
+
+			for(arg = mxmlFindElement(sig, sig, "arg", NULL, NULL, MXML_DESCEND);
+			    arg != NULL;
+			    arg = mxmlFindElement(arg, sig, "arg", NULL, NULL, MXML_NO_DESCEND)) {
+				lua_newtable(L); /* arg */
+
+				lua_pushstring(L, "name");
+				lua_pushstring(L, mxmlElementGetAttr(arg, "name"));
+				lua_rawset(L, -3);
+
+				lua_pushstring(L, "type");
+				lua_pushstring(L, mxmlElementGetAttr(arg, "type"));
+				lua_rawset(L, -3);
+
+				/* signal[#signal+1] = arg */
+				lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
+			}
+			lua_rawset(L, -3); /* signals[name] = signal */
 		}
+
+		lua_rawset(L, -3); /* interface.signals = signals */
+
+		/* nodes[#nodes+1] = interface */
+		lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
 	}
 
 	mxmlDelete(root);
 	return 0;
 }
 
-int lsdbus_xml_read(lua_State *L)
+int lsdbus_xml_fromfile(lua_State *L)
 {
+
+	FILE *fp;
+	mxml_node_t *root;
+
 	const char* f = luaL_checkstring(L, 1);
-	return load_dbus_xml_file(L, f);
+
+	fp = fopen(f, "r");
+
+	if (fp == NULL)
+		luaL_error(L, "failed to open %s", f);
+
+	root = mxmlLoadFile(NULL, fp, MXML_OPAQUE_CALLBACK);
+
+	fclose(fp);
+
+	if (root == NULL)
+		luaL_error(L, "failed to parse file %s", f);
+
+	dbus_xml2lua(L, root);
+	return 1;
+}
+
+int lsdbus_xml_fromstr(lua_State *L)
+{
+	mxml_node_t *root;
+	const char* s = luaL_checkstring(L, 1);
+
+	root = mxmlLoadString(NULL, s, MXML_OPAQUE_CALLBACK);
+
+	if (root == NULL)
+		luaL_error(L, "failed to parse XML string");
+
+	dbus_xml2lua(L, root);
+	return 1;
 }
