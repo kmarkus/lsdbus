@@ -38,12 +38,24 @@ local node = {
 
 local function met2its(mtab)
    local i = {}
-
    for _,a in ipairs(mtab or {}) do
       if a.direction=='in' then i[#i+1] = a.type end
    end
-
    return concat(i)
+end
+
+local function met2ots(mtab)
+   local o = {}
+   for _,a in ipairs(mtab or {}) do
+      if a.direction=='out' then o[#o+1] = a.type end
+   end
+   return concat(o)
+end
+
+local function sig2ts(stab)
+   local s = {}
+   for _,a in ipairs(stab or {}) do s[#s+1] = a.type end
+   return concat(s)
 end
 
 -- lowlevel plumbing method
@@ -109,9 +121,21 @@ function proxy:__tostring()
    local res = {}
    res[#res+1] = fmt("srv: %s, obj: %s, intf: %s", self.srv, self.obj, self.intf.name)
 
-   for n,p in pairs(self.intf.properties) do
-      res[#res+1] = fmt("%s: %s, %s", n, p.type, p.access)
+   res[#res+1] = "Methods:"
+   for n,m in pairs(self.intf.methods) do
+      res[#res+1] = fmt("  %s (%s) -> %s", n, met2its(m), met2ots(m))
    end
+
+   res[#res+1] = "Properties:"
+   for n,p in pairs(self.intf.properties) do
+      res[#res+1] = fmt("  %s: %s, %s", n, p.type, p.access)
+   end
+
+   res[#res+1] = "Signals:"
+   for n,m in pairs(self.intf.methods) do
+      res[#res+1] = fmt("  %s (%s)", n, sig2ts(m))
+   end
+
    return table.concat(res, "\n")
 end
 
