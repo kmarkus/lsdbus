@@ -4,13 +4,14 @@ local proxy = require("lsdbus_proxy")
 
 TestProxy = {}
 
-local b, td, hn
+local b, td, hn, login
 
 function TestProxy:setup()
    b = lsdb.open('default_system')
 
    td = proxy:new(b, 'org.freedesktop.timedate1', '/org/freedesktop/timedate1', 'org.freedesktop.timedate1')
    hn = proxy:new(b, 'org.freedesktop.hostname1', '/org/freedesktop/hostname1', 'org.freedesktop.hostname1')
+   login = proxy:new(b, 'org.freedesktop.login1', '/org/freedesktop/login1', 'org.freedesktop.login1.Manager')
 end
 
 function TestProxy:TestPing()
@@ -37,6 +38,11 @@ function TestProxy:TestHas()
    lu.assertIsTrue(td:HasMethod('ListTimezones'))
    lu.assertIsTrue(td:HasProperty('CanNTP'))
    lu.assertIsFalse(td:HasProperty('GuineaPig'))
+end
+
+function TestProxy:TestCallT()
+   lu.assertIsTable(td:callt('ListTimezones', {}))
+   login:callt('SetWallMessage', { wall_message="howdee", enable=true })
 end
 
 return TestProxy

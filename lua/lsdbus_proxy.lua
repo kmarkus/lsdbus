@@ -6,6 +6,7 @@ local lsdb = require("lsdbus")
 
 local fmt = string.format
 local concat = table.concat
+local unpack = table.unpack
 
 local prop_if = 'org.freedesktop.DBus.Properties'
 local peer_if = 'org.freedesktop.DBus.Peer'
@@ -79,11 +80,31 @@ end
 
 function proxy:__call(m, ...) return self:call(m, ...) end
 
+-- call with argument table
+function proxy:callt(m, argtab)
+   local mtab = self.intf.methods[m]
+   local args = {}
+   if not mtab then
+      error(fmt("call: no method %s", m))
+   end
+   for n,a in ipairs(mtab) do
+      if a.direction == 'out' then goto continue end
+      if not a.name then
+	 error(fmt("callt: unnamed arg #i of method %s", n, m))
+      end
+      if argtab[a.name] == nil then
+	 error(fmt("callt: argument %s missing", a.name))
+      end
+      args[#args+1] = argtab[a.name]
+      ::continue::
+   end
+   return self:xcall(self.intf.name, m, met2its(mtab), unpack(args))
+end
+
 function proxy:Get(k)
    if not self.intf.properties[k] then
       error(fmt("Get: no property %s", k))
    end
-
    return self:xcall(prop_if, 'Get', 'ss', self.intf.name, k)
 end
 
