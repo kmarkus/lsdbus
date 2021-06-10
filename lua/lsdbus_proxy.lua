@@ -181,8 +181,8 @@ function proxy:__tostring()
    end
 
    res[#res+1] = "Signals:"
-   for n,m in pairs(self.intf.methods) do
-      res[#res+1] = fmt("  %s (%s)", n, sig2ts(m))
+   for n,s in pairs(self.intf.signals) do
+      res[#res+1] = fmt("  %s: %s", n, sig2ts(s))
    end
 
    return table.concat(res, "\n")
