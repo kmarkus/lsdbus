@@ -116,8 +116,36 @@ function proxy:Set(k, ...)
    return self:xcall(prop_if, 'Set', 'ssv', self.intf.name, k, { self.intf.properties[k].type, ... })
 end
 
-function proxy:GetAll()
-   return self:xcall(prop_if, 'GetAll', 's', self.intf.name)
+function proxy:GetAll(filter)
+   local p = self:xcall(prop_if, 'GetAll', 's', self.intf.name)
+
+   if filter == nil then
+      return p
+   end
+
+   local ft = type(filter)
+
+   if ft ~= 'string' and ft ~= 'function' then
+      error(fmt("invalid arg type %s", filter))
+   end
+
+   local pred = filter
+
+   if ft == 'string' then
+      if filter=='read' or filter=='write' or filter=='readwrite' then
+	 pred = function (n,v,d) return d.access == filter end
+      else
+	 error(fmt("unknown string arg %s", filter))
+      end
+   end
+
+   local pf = {}
+
+   for k,v in pairs(p) do
+      if pred(k,v,self.intf.properties[k]) then pf[k] = v end
+   end
+
+   return pf
 end
 
 function proxy:SetAll(t)
