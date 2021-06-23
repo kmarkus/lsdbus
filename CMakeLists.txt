@@ -14,6 +14,7 @@ set(LSDBUS_SRC_DIR ${CMAKE_SOURCE_DIR}/src/)
 
 set(LSDBUS_SRCS
   ${LSDBUS_SRC_DIR}/lsdbus.c
+  ${LSDBUS_SRC_DIR}/message.c
   ${LSDBUS_SRC_DIR}/introspect.c
 )
 
