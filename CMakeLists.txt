@@ -16,6 +16,7 @@ set(LSDBUS_SRCS
   ${LSDBUS_SRC_DIR}/lsdbus.c
   ${LSDBUS_SRC_DIR}/message.c
   ${LSDBUS_SRC_DIR}/introspect.c
+  ${LSDBUS_SRC_DIR}/evl.c
 )
 
 set(LSDBUS_INST_DIR

@@ -1,5 +1,4 @@
-#define DEBUG
-
+#include <signal.h>
 #include "lsdbus.h"
 
 static const char *const open_opts_lst [] = {
@@ -19,68 +18,36 @@ static int(*open_funcs[])(sd_bus **bus) = {
 	sd_bus_default_user,
 };
 
+
 /**
- * evl_get: return event loop (and create if it doesn't exist)
+ * store a function in registry.regtab[k] = fun
+ *
+ * if the regtab doesn't exist, create it.
  */
-static sd_event* evl_get(lua_State *L, sd_bus *bus)
+void regtab_store(lua_State *L, const char* regtab, void *k, int funidx)
 {
-	int ret;
-	sd_event *loop;
+	if (lua_getfield(L, LUA_REGISTRYINDEX, regtab) != LUA_TTABLE) {
+		lua_pop(L, 1);
+		lua_newtable(L);
+		lua_setfield(L, LUA_REGISTRYINDEX, regtab);
+		lua_getfield(L, LUA_REGISTRYINDEX, regtab);
+	}
 
-	loop = sd_bus_get_event(bus);
-
-	if (loop)
-		goto out;
-
-	ret = sd_event_default(&loop);
-
-	if (ret<0)
-		luaL_error(L, "failed to create sd_event_loop: %s", strerror(-ret));
-
-	ret = sd_bus_attach_event(bus, loop, SD_EVENT_PRIORITY_NORMAL);
-
-	if (ret<0)
-		luaL_error(L, "failed to attach bus to event loop: %s", strerror(-ret));
-out:
-	return loop;
+	lua_pushvalue(L, funidx);
+	lua_rawsetp(L, -2, k);
 }
 
-static void evl_cleanup(sd_bus *bus)
+/**
+ * push the value regtab[k] onto the top of the stack
+ *
+ * @return returns the type of the value
+ */
+int regtab_get(lua_State *L, const char* regtab, void *k)
 {
-	sd_event *loop = sd_bus_get_event(bus);
+	if (lua_getfield(L, LUA_REGISTRYINDEX, regtab) != LUA_TTABLE)
+		luaL_error(L, "missing registry table %s", regtab);
 
-	if (loop)
-		sd_event_unref(loop);
-}
-
-static void evl_loop(lua_State *L, sd_bus *bus)
-{
-	int ret;
-	sd_event *loop = evl_get(L, bus);
-
-	ret = sd_event_loop(loop);
-
-	if(ret<0)
-		luaL_error(L, "sd_event_loop exited with error %s", strerror(-ret));
-}
-
-static int evl_exit(lua_State *L)
-{
-	int ret, code;
-	sd_bus *bus = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
-	sd_event *loop = sd_bus_get_event(bus);
-
-	code = luaL_checkinteger(L, 2);
-
-	if (loop == NULL)
-		luaL_error(L, "failed to exit loop: bus not attached");
-
-	ret = sd_event_exit(loop, code);
-
-	if (ret<0)
-		luaL_error(L, "sd_event_exit failed: %s", strerror(-ret));
-
-	return 0;
+	return lua_rawgetp(L, -1, k);
 }
 
 
@@ -399,7 +366,8 @@ static const luaL_Reg lsdbus_bus_m [] = {
 	{ "match_signal", lsdbus_match_signal },
 	{ "match", lsdbus_match },
 	{ "loop", lsdbus_loop },
-	{ "exit", evl_exit },
+	{ "exit_loop", evl_exit },
+	{ "add_signal", evl_add_signal },
 	{ "testmsg", lsdbus_testmsg },
 	{ "__tostring", lsdbus_bus_tostring },
 	{ "__gc", lsdbus_bus_gc },
