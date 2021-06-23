@@ -1,3 +1,5 @@
+#define DEBUG
+
 #include "lsdbus.h"
 
 static const char *const open_opts_lst [] = {
@@ -16,6 +18,71 @@ static int(*open_funcs[])(sd_bus **bus) = {
 	sd_bus_default_system,
 	sd_bus_default_user,
 };
+
+/**
+ * evl_get: return event loop (and create if it doesn't exist)
+ */
+static sd_event* evl_get(lua_State *L, sd_bus *bus)
+{
+	int ret;
+	sd_event *loop;
+
+	loop = sd_bus_get_event(bus);
+
+	if (loop)
+		goto out;
+
+	ret = sd_event_default(&loop);
+
+	if (ret<0)
+		luaL_error(L, "failed to create sd_event_loop: %s", strerror(-ret));
+
+	ret = sd_bus_attach_event(bus, loop, SD_EVENT_PRIORITY_NORMAL);
+
+	if (ret<0)
+		luaL_error(L, "failed to attach bus to event loop: %s", strerror(-ret));
+out:
+	return loop;
+}
+
+static void evl_cleanup(sd_bus *bus)
+{
+	sd_event *loop = sd_bus_get_event(bus);
+
+	if (loop)
+		sd_event_unref(loop);
+}
+
+static void evl_loop(lua_State *L, sd_bus *bus)
+{
+	int ret;
+	sd_event *loop = evl_get(L, bus);
+
+	ret = sd_event_loop(loop);
+
+	if(ret<0)
+		luaL_error(L, "sd_event_loop exited with error %s", strerror(-ret));
+}
+
+static int evl_exit(lua_State *L)
+{
+	int ret, code;
+	sd_bus *bus = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_event *loop = sd_bus_get_event(bus);
+
+	code = luaL_checkinteger(L, 2);
+
+	if (loop == NULL)
+		luaL_error(L, "failed to exit loop: bus not attached");
+
+	ret = sd_event_exit(loop, code);
+
+	if (ret<0)
+		luaL_error(L, "sd_event_exit failed: %s", strerror(-ret));
+
+	return 0;
+}
+
 
 /* toplevel functions */
 static int lsdbus_open(lua_State *L)
@@ -118,6 +185,9 @@ void push_string_or_nil(lua_State *L, const char* s)
 		lua_pushnil(L);
 }
 
+/**
+ * generic signal callback
+ */
 int signal_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error)
 {
 	(void)ret_error;
@@ -253,23 +323,8 @@ out:
 
 static int lsdbus_loop(lua_State *L)
 {
-	int ret;
-
 	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
-
-	for (;;) {
-		ret = sd_bus_process(b, NULL);
-		if (ret < 0)
-			luaL_error(L, "failed to process bus: %s", strerror(-ret));
-
-		if (ret > 0)
-			continue;
-
-		ret = sd_bus_wait(b, (uint64_t) -1);
-		if (ret < 0)
-			luaL_error(L, "failed to wait on bus: %s", strerror(-ret));
-	}
-
+	evl_loop(L, b);
 	return 0;
 }
 
@@ -324,6 +379,7 @@ static int lsdbus_bus_get_method_call_timeout(lua_State *L)
 static int lsdbus_bus_gc(lua_State *L)
 {
 	sd_bus *b = *((sd_bus**) lua_touserdata(L, 1));
+	evl_cleanup(b);
 	sd_bus_unref(b);
 	return 0;
 }
@@ -343,6 +399,7 @@ static const luaL_Reg lsdbus_bus_m [] = {
 	{ "match_signal", lsdbus_match_signal },
 	{ "match", lsdbus_match },
 	{ "loop", lsdbus_loop },
+	{ "exit", evl_exit },
 	{ "testmsg", lsdbus_testmsg },
 	{ "__tostring", lsdbus_bus_tostring },
 	{ "__gc", lsdbus_bus_gc },
