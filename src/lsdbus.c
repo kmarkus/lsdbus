@@ -163,11 +163,7 @@ int signal_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error)
 	sd_bus *b = sd_bus_message_get_bus(m);
 	sd_bus_slot *slot = sd_bus_get_current_slot(b);
 
-	if (lua_getfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE) != LUA_TTABLE)
-		luaL_error(L, "missing slot table");
-
-	if (lua_rawgetp(L, -1, slot) != LUA_TFUNCTION)
-		luaL_error(L, "invalid callback type");
+	regtab_get(L, REG_SLOT_TABLE, slot);
 
 	push_string_or_nil(L, sd_bus_message_get_sender(m));
 	push_string_or_nil(L, sd_bus_message_get_path(m));
@@ -205,16 +201,7 @@ static int lsdbus_match_signal(lua_State *L)
 	if (ret<0)
 		luaL_error(L, "failed to install signal match rule: %s", strerror(-ret));
 
-	/* store the callback in the registry reg.slottab[slot]=callback */
-	if (lua_getfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE) != LUA_TTABLE) {
-		lua_pop(L, 1);
-		lua_newtable(L);
-		lua_setfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE);
-		lua_getfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE);
-	}
-
-	lua_pushvalue(L, 6);
-	lua_rawsetp(L, -2, slot);
+	regtab_store(L,	REG_SLOT_TABLE, slot, 6);
 	return 0;
 }
 
