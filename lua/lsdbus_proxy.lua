@@ -90,7 +90,7 @@ function proxy:callt(m, argtab)
    for n,a in ipairs(mtab) do
       if a.direction == 'out' then goto continue end
       if not a.name then
-	 error(fmt("callt: unnamed arg #i of method %s", n, m))
+	 error(fmt("callt: unnamed arg %i of method %s", n, m))
       end
       if argtab[a.name] == nil then
 	 error(fmt("callt: argument %s missing", a.name))
