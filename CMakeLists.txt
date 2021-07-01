@@ -5,10 +5,10 @@ set(CMAKE_C_STANDARD 11)
 
 include(GNUInstallDirs)
 
-find_package(Lua REQUIRED)
+find_package(Lua 5.3)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SYSTEMD libsystemd>=236)
-pkg_check_modules(MXML mxml)
+pkg_check_modules(MXML REQUIRED mxml)
 
 set(LSDBUS_SRC_DIR ${CMAKE_SOURCE_DIR}/src/)
 
