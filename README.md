@@ -19,7 +19,7 @@ distribution like Ubuntu:
 
 `sudo apt-get install build-essential git cmake lua5.3 liblua5.3-dev libmxml-dev`
 
-To run the tests, get a copy of `luaunit`:
+To run the tests, get a copy of `lua-unit`:
 
 either 
 
