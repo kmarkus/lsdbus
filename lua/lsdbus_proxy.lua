@@ -63,8 +63,8 @@ end
 function proxy:xcall(i, m, ts, ...)
    local ret, res = self.bus:call(self.srv, self.obj, i, m, ts, ...)
    if not ret then
-      error(fmt("calling %s (%s) failed: %s: %s (%s, %s, %s)",
-		m, ts, res[1], res[2], self.srv, self.obj, i))
+      self:error(fmt("calling %s (%s) failed: %s: %s (%s, %s, %s)",
+		     m, ts, res[1], res[2], self.srv, self.obj, i))
    end
    return res
 end
@@ -72,7 +72,7 @@ end
 function proxy:call(m, ...)
    local mtab = self.intf.methods[m]
    if not mtab then
-      error(fmt("call: no method %s", m))
+      self:error(fmt("call: no method %s", m))
    end
    local its = met2its(mtab)
    return self:xcall(self.intf.name, m, its, ...)
@@ -85,15 +85,15 @@ function proxy:callt(m, argtab)
    local mtab = self.intf.methods[m]
    local args = {}
    if not mtab then
-      error(fmt("call: no method %s", m))
+      self:error(fmt("call: no method %s", m))
    end
    for n,a in ipairs(mtab) do
       if a.direction == 'out' then goto continue end
       if not a.name then
-	 error(fmt("callt: unnamed arg %i of method %s", n, m))
+	 self:error(fmt("callt: unnamed arg %i of method %s", n, m))
       end
       if argtab[a.name] == nil then
-	 error(fmt("callt: argument %s missing", a.name))
+	 self:error(fmt("callt: argument %s missing", a.name))
       end
       args[#args+1] = argtab[a.name]
       ::continue::
@@ -103,14 +103,14 @@ end
 
 function proxy:Get(k)
    if not self.intf.properties[k] then
-      error(fmt("Get: no property %s", k))
+      self:error(fmt("Get: no property %s", k))
    end
    return self:xcall(prop_if, 'Get', 'ss', self.intf.name, k)
 end
 
 function proxy:Set(k, ...)
    if not self.intf.properties[k] then
-      error(fmt("Set: no property %s", k))
+      self:error(fmt("Set: no property %s", k))
    end
 
    return self:xcall(prop_if, 'Set', 'ssv', self.intf.name, k, { self.intf.properties[k].type, ... })
@@ -126,7 +126,7 @@ function proxy:GetAll(filter)
    local ft = type(filter)
 
    if ft ~= 'string' and ft ~= 'function' then
-      error(fmt("invalid arg type %s", filter))
+      self:error(fmt("invalid arg type %s", filter))
    end
 
    local pred = filter
@@ -135,7 +135,7 @@ function proxy:GetAll(filter)
       if filter=='read' or filter=='write' or filter=='readwrite' then
 	 pred = function (n,v,d) return d.access == filter end
       else
-	 error(fmt("unknown string arg %s", filter))
+	 self:error(fmt("unknown string arg %s", filter))
       end
    end
 
@@ -187,6 +187,8 @@ function proxy:__tostring()
 
    return table.concat(res, "\n")
 end
+
+function proxy.error(_, msg) error(msg) end
 
 function proxy.introspect(bus, srv, obj)
    local ret, xml = bus:call(srv, obj, introspect_if, 'Introspect')
