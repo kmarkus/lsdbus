@@ -35,8 +35,51 @@ Either install the luaunit.lua file or copy it to the `test` directory
 in this project.
 
 ## Usage
-Please see the examples provided.
+
+### Type mapping
+
+| What            | D-Bus                             | Lua representation     | example                      | Result              |
+|-----------------|-----------------------------------|------------------------|------------------------------|---------------------|
+| boolean         | `b`                               | `boolean`              | `'b', true`                  | `true`              |
+| integers        | `y`, `n`, `q`, `i`, `u`, `x`, `t` | `number` (integer)     | `'i', 42`                    | `42`                |
+| floating-point  | `d`                               | `number` (double)      | `'d', 3.14`                  | `3.14`              |
+| file descriptor | `h`                               | `number`               |                              |                     |
+| string          | `s`                               | `string`               | `'s', "foo"`                 | `"foo"`             |
+| signature       | `g`                               | `string`               | `'g', a{sv}`                 | `a{sv}`             |
+| object path     | `o`                               | `string`               | `'o', "/a/b/c"`              | `"/a/b/c"`          |
+| variant         | `v`                               | `{ SPECIFIER, VALUE }` | `'v', {'i', 33 }`            | `33`                |
+| array           | `a`                               | `table` (array part)   | `'ai', {1,2,3,4}`            | `{1,2,3}`           |
+| struct          | `(...`)                           | `table` (array part)   | `'(ibs)', {3, false, "hey"}` | `{3, false, "hey"}` |
+| dictionary      | `a{...}`                          | `table` (dict part)    | `'a{ss}', {a=1, b=2}`        | `{a=1, b=2}`        |
 
 
 
 
+Note that the variant is the only type that is unsymmetric, i.e. the
+input arguments are not equal the result. This is because the variant
+is unpacked automatically.
+
+
+```
+u=require("utils")
+l=require("lsdbus")
+b = l.open()
+u.pp(b:testmsg(typestr, arg0, ...))
+```
+
+### Client API
+
+#### lsdb_proxy
+
+#### plumbing API
+
+The low-level API can be used if the proxy client API is unavailable
+(e.g. no introspection is available).
+
+
+### Server API
+
+
+## License
+
+LGPLv2 as the lsdbus type conversion is based on code from systemd.
