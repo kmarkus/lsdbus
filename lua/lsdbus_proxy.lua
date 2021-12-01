@@ -212,6 +212,7 @@ function proxy:new(bus, srv, obj, intf)
    ::continue::
    intf.methods = intf.methods or {}
    intf.properties = intf.properties or {}
+   intf.signals = intf.signals or {}
 
    local o = { bus=bus, srv=srv, obj=obj, intf=intf }
    setmetatable(o, self)
