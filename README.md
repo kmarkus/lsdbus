@@ -76,7 +76,6 @@ directory in this project.
 
 - Many more examples can be found in the unit tests:
   `test/message.lua`
-
 - *Variant* is the only type whose conversion is unsymmetric, i.e. the
   input arguments are not equal the result. This is because the
   variant is unpacked automatically.
@@ -193,13 +192,11 @@ Unlike with the plumbing API, no D-Bus specifiers need to be provided.
 
 - `callt` is a convenience method that works only if the method has
   named arguments: `b:callt{argA=2, argB="that"}`.
-
 - `GetAll` accepts a filter which can be either
   1. a string `read`|`readwrite`|`write`
   2. a filter function that accepts `(name, value, description)` and returns
   `true` or `false` depending on whether the value shall be included
   or not.
-
 - see *Internals* about how `lsdbus_proxy` works.
 
 #### plumbing API
@@ -262,8 +259,8 @@ Match and dump all signals on the system bus:
 ```lua
 local u = require("utils")
 local lsdb = require("lsdbus")
-local b = lsdb.open(system')
-b:match_signal(nil, nil, nil, nil, function (...) u.pp({...}) end)
+local b = lsdb.open('system')
+b:match_signal(nil, nil, nil, nil, function (...) u.pp(...) end)
 b:loop()
 ```
 
@@ -289,9 +286,8 @@ without introspection.
 **Example**
 
 ```lua
-local node = {
-   {
-      name = 'de.mkio.test',
+intf = {
+      name = 'foo.bar.myintf1',
 
       methods = {
          Foo = {},
@@ -306,8 +302,19 @@ local node = {
          Flop = { type='a{ss}', access='readwrite' },
          Flup = { type='s', access='read' },
       }
-   }
 }
+
+prx = proxy:new(b, 'foo.bar.ick1', '/my/nice/obj', intf)
+print(prx)
+srv: foo.bar.ick1, obj: /my/nice/obj, intf: foo.bar.myintf1
+Methods:
+  Foo () ->
+  Bar (s) -> u
+Properties:
+  Flup: s, read
+  Flip: s, readwrite
+  Flop: a{ss}, readwrite
+Signals:
 ```
 
 ## License
