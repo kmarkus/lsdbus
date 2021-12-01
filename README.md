@@ -38,24 +38,31 @@ in this project.
 
 ### Type mapping
 
-| D-Bus Type      | D-Bus specifier                   | Lua                    | Example Lua->D-Bus           | D-Bus -> Lua        |
-|-----------------|-----------------------------------|------------------------|------------------------------|---------------------|
-| boolean         | `b`                               | `boolean`              | `'b', true`                  | `true`              |
-| integers        | `y`, `n`, `q`, `i`, `u`, `x`, `t` | `number` (integer)     | `'i', 42`                    | `42`                |
-| floating-point  | `d`                               | `number` (double)      | `'d', 3.14`                  | `3.14`              |
-| file descriptor | `h`                               | `number`               |                              |                     |
-| string          | `s`                               | `string`               | `'s', "foo"`                 | `"foo"`             |
-| signature       | `g`                               | `string`               | `'g', a{sv}`                 | `a{sv}`             |
-| object path     | `o`                               | `string`               | `'o', "/a/b/c"`              | `"/a/b/c"`          |
-| variant         | `v`                               | `{ SPECIFIER, VALUE }` | `'v', {'i', 33 }`            | `33`                |
-| array           | `a`                               | `table` (array part)   | `'ai', {1,2,3,4}`            | `{1,2,3}`           |
-| struct          | `(...`)                           | `table` (array part)   | `'(ibs)', {3, false, "hey"}` | `{3, false, "hey"}` |
-| dictionary      | `a{...}`                          | `table` (dict part)    | `'a{si}', {a=1, b=2}`        | `{a=1, b=2}`        |
+| D-Bus Type      | D-Bus specifier                   | Lua                  | Example Lua to D-Bus msg...  | ...and back to Lua  |
+|-----------------|-----------------------------------|----------------------|------------------------------|---------------------|
+| boolean         | `b`                               | `boolean`            | `'b', true`                  | `true`              |
+| integers        | `y`, `n`, `q`, `i`, `u`, `x`, `t` | `number` (integer)   | `'i', 42`                    | `42`                |
+| floating-point  | `d`                               | `number` (double)    | `'d', 3.14`                  | `3.14`              |
+| file descriptor | `h`                               | `number`             |                              |                     |
+| string          | `s`                               | `string`             | `'s', "foo"`                 | `"foo"`             |
+| signature       | `g`                               | `string`             | `'g', a{sv}`                 | `a{sv}`             |
+| object path     | `o`                               | `string`             | `'o', "/a/b/c"`              | `"/a/b/c"`          |
+| variant         | `v`                               | `{SPECIFIER, VALUE}` | `'v', {'i', 33 }`            | `33`                |
+| array           | `a`                               | `table` (array part) | `'ai', {1,2,3,4}`            | `{1,2,3}`           |
+| struct          | `(...`)                           | `table` (array part) | `'(ibs)', {3, false, "hey"}` | `{3, false, "hey"}` |
+| dictionary      | `a{...}`                          | `table` (dict part)  | `'a{si}', {a=1, b=2}`        | `{a=1, b=2}`        |
 
 
-**Note** *Variant* is the only type whose conversion is unsymmetric,
-i.e. the input arguments are not equal the result. This is because the
-variant is unpacked automatically.
+*Notes*
+
+- Many more examples can be found in the unit tests:
+  `test/message.lua`
+
+- *Variant* is the only type whose conversion is unsymmetric, i.e. the
+  input arguments are not equal the result. This is because the
+  variant is unpacked automatically.
+
+**Testmsg**
 
 To faciliate testing message conversion, lsdbus provides a special
 function `testmsg`, that accepts a message specifier and value,
@@ -65,14 +72,13 @@ creates a D-Bus message from it and converts it back to Lua:
 > lsdb = require("lsdbus")
 > b = lsdb.open()
 > u = require("utils")
-
 > u.pp(b:testmsg('b', true))
 true
 > u.pp(b:testmsg('ai', {1,2,3,4}))
 {1,2,3,4}
 > u.pp(b:testmsg('a{s(is)}', { one = {1, 'this is one'}, two = {2, 'this is two'} })
 {one={1,"this is one"},two={2,"this is two"}}
-u.pp(b:testmsg('a{sv}', { foo={'s', "nirk"}, bar={'d', 2.718}, dunk={'b', false}})
+> u.pp(b:testmsg('a{sv}', { foo={'s', "nirk"}, bar={'d', 2.718}, dunk={'b', false}})
 {foo="nirk",dunk=false,bar=2.718}
 ```
 
@@ -139,26 +145,43 @@ name as the first argument:
 > td('ListTimezones')
 ```
 
+Unlike with the plumbing API, no D-Bus specifiers need to be provided.
+
 **Proxy Methods**
 
-| Method                         | Description                                           |
-|--------------------------------|-------------------------------------------------------|
-| `prxy(method, arg0, ...)`      | call a D-Bus method                                   |
-| `prxy:call(method, arg0, ...)` | long form, same as above                              |
-| `prxy:HasMethod(method)`       | check if prxy has a method with the given name        |
-| `prxy:callt(method, ARGTAB)`   | call a method with a table of arguments               |
-|--------------------------------|-------------------------------------------------------|
-| `prxy:Get(name)`               | get a property                                        |
-| `prxy.name`                    | short form, same as previous                          |
-| `prxy:Set(name, value)`        | set a property                                        |
-| `prxy.name = value`            | short form for setting a property to value            |
-| `prxy:GetAll(filter)`          | get all properties that match the optional filter     |
-| `prxy:SetAll(t)`               | set all properties from a table                       |
-| `prxy:HasProperty(prop)`       | check if prxy has a property of the given name        |
-|--------------------------------|-------------------------------------------------------|
-| `prxy:Ping`                    | call the `Ping` method on `org.freedesktop.DBus.Peer` |
-| `prxy:error`                   | error handler, override to customize behavior         |
+| Method                                  | Description                                           |
+|-----------------------------------------|-------------------------------------------------------|
+| `lsdbus_proxy:new(bus, srv, obj, intf)` | constructor                                           |
+|-----------------------------------------|-------------------------------------------------------|
+| `prxy(method, arg0, ...)`               | call a D-Bus method                                   |
+| `prxy:call(method, arg0, ...)`          | long form, same as above                              |
+| `prxy:HasMethod(method)`                | check if prxy has a method with the given name        |
+| `prxy:callt(method, ARGTAB)`            | call a method with a table of arguments               |
+|-----------------------------------------|-------------------------------------------------------|
+| `prxy:Get(name)`                        | get a property                                        |
+| `prxy.name`                             | short form, same as previous                          |
+| `prxy:Set(name, value)`                 | set a property                                        |
+| `prxy.name = value`                     | short form for setting a property to value            |
+| `prxy:GetAll(filter)`                   | get all properties that match the optional filter     |
+| `prxy:SetAll(t)`                        | set all properties from a table                       |
+| `prxy:HasProperty(prop)`                | check if prxy has a property of the given name        |
+|-----------------------------------------|-------------------------------------------------------|
+| `prxy:Ping`                             | call the `Ping` method on `org.freedesktop.DBus.Peer` |
+| `prxy:error`                            | error handler, override to customize behavior         |
 
+
+*Notes*
+
+- `callt` is a convenience method that works only if the method has
+  named arguments: `b:callt{argA=2, argB="that"}`.
+
+- `GetAll` accepts a filter which can be either
+  1. a string `read`|`readwrite`|`write`
+  2. a filter function that accepts `(name, value, description)` and returns
+  `true` or `false` depending on whether the value shall be included
+  or not.
+
+- see *Internals* about how `lsdbus_proxy` works.
 
 #### plumbing API
 
@@ -228,6 +251,45 @@ b:loop()
 #### Properties
 
 #### Methods
+
+
+## Internals
+
+### Introspection
+
+The fourth parameter of `lsdbus_proxy:new` is typically a string
+interface name, whose XML is then retrieved using the standard
+introspection interfaces and converted to a Lua representation using
+`lsdb.xml_fromstr(xml)`. It is available as `proxy.intf`.
+
+However, if introspection is not available, this Lua interface table
+can be manually specified and provided directly as the fourth
+parameter instead of a string. This way, `lsdb_proxy` can be used also
+without introspection.
+
+**Example**
+
+```lua
+local node = {
+   {
+      name = 'de.mkio.test',
+
+      methods = {
+         Foo = {},
+         Bar = {
+            { name='x', type='s', direction='in' },
+            { name='y', type='u', direction='out' }
+         },
+      },
+
+      properties = {
+         Flip = {  type='s', access='readwrite' },
+         Flop = { type='a{ss}', access='readwrite' },
+         Flup = { type='s', access='read' },
+      }
+   }
+}
+```
 
 ## License
 
