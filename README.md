@@ -38,7 +38,7 @@ in this project.
 
 ### Type mapping
 
-| What            | D-Bus                             | Lua representation     | Example (specifier, value)   | Result              |
+| D-Bus Type      | D-Bus specifier                   | Lua                    | Example Lua->D-Bus           | D-Bus -> Lua        |
 |-----------------|-----------------------------------|------------------------|------------------------------|---------------------|
 | boolean         | `b`                               | `boolean`              | `'b', true`                  | `true`              |
 | integers        | `y`, `n`, `q`, `i`, `u`, `x`, `t` | `number` (integer)     | `'i', 42`                    | `42`                |
@@ -50,18 +50,18 @@ in this project.
 | variant         | `v`                               | `{ SPECIFIER, VALUE }` | `'v', {'i', 33 }`            | `33`                |
 | array           | `a`                               | `table` (array part)   | `'ai', {1,2,3,4}`            | `{1,2,3}`           |
 | struct          | `(...`)                           | `table` (array part)   | `'(ibs)', {3, false, "hey"}` | `{3, false, "hey"}` |
-| dictionary      | `a{...}`                          | `table` (dict part)    | `'a{ss}', {a=1, b=2}`        | `{a=1, b=2}`        |
+| dictionary      | `a{...}`                          | `table` (dict part)    | `'a{si}', {a=1, b=2}`        | `{a=1, b=2}`        |
 
 
-**Note** The variant is the only type that is unsymmetric, i.e. the
-input arguments are not equal the result. This is because the variant
-is unpacked automatically.
+**Note** *Variant* is the only type whose conversion is unsymmetric,
+i.e. the input arguments are not equal the result. This is because the
+variant is unpacked automatically.
 
 To faciliate testing message conversion, lsdbus provides a special
 function `testmsg`, that accepts a message specifier and value,
 creates a D-Bus message from it and converts it back to Lua:
 
-```Lua
+```lua
 > lsdb = require("lsdbus")
 > b = lsdb.open()
 > u = require("utils")
@@ -82,7 +82,7 @@ The above uses the tiny `uutils` [1] library for printing tables.
 
 Before doing anything, it is necessary to connect to a bus:
 
-```
+```lua
 lsdb = require("lsdbus")
 b = lsdb.open()
 ```
@@ -101,7 +101,7 @@ properties. The plumbing API allows direct calling of methods.
 
 **Example**
 
-```
+```lua
 > lsdb = require("lsdbus")
 > b = lsdb.open("system")
 > proxy = require("lsdbus_proxy")
@@ -109,25 +109,25 @@ properties. The plumbing API allows direct calling of methods.
 > print(td)
 srv: org.freedesktop.timedate1, obj: /org/freedesktop/timedate1, intf: org.freedesktop.timedate1
 Methods:
-SetLocalRTC (bbb) ->
-SetTime (xbb) ->
-SetTimezone (sb) ->
-SetNTP (bb) ->
-ListTimezones () -> as
+  SetLocalRTC (bbb) ->
+  SetTime (xbb) ->
+  SetTimezone (sb) ->
+  SetNTP (bb) ->
+  ListTimezones () -> as
 Properties:
-Timezone: s, read
-LocalRTC: b, read
-NTP: b, read
-TimeUSec: t, read
-NTPSynchronized: b, read
-RTCTimeUSec: t, read
-CanNTP: b, read
+  Timezone: s, read
+  LocalRTC: b, read
+  NTP: b, read
+  TimeUSec: t, read
+  NTPSynchronized: b, read
+  RTCTimeUSec: t, read
+  CanNTP: b, read
 Signals:
 ```
 
 **Properties** can be accessed by indexing the proxy:
 
-```
+```lua
 > td.Timezone
 Pacific/Tahiti
 ```
@@ -135,16 +135,16 @@ Pacific/Tahiti
 **Methods** can called by "calling" the proxy and providing the Method
 name as the first argument:
 
-```
-> td('ListTimezones')  -- same as td:call(METHOD)
+```lua
+> td('ListTimezones')
 ```
 
 **Proxy Methods**
 
 | Method                         | Description                                           |
 |--------------------------------|-------------------------------------------------------|
-| `prxy:call(method, arg0, ...)` | call a D-Bus method                                   |
-| `prxy(method, arg0, ...)`      | short form, same as previous                          |
+| `prxy(method, arg0, ...)`      | call a D-Bus method                                   |
+| `prxy:call(method, arg0, ...)` | long form, same as above                              |
 | `prxy:HasMethod(method)`       | check if prxy has a method with the given name        |
 | `prxy:callt(method, ARGTAB)`   | call a method with a table of arguments               |
 |--------------------------------|-------------------------------------------------------|
@@ -164,20 +164,20 @@ name as the first argument:
 
 **Syntax**
 
-```Lua
+```lua
 ret, res0, ... = bus:call(dest, path, intf, member, spec, arg0, ...)
 ```
 
 in case of success `ret` is `true` and `res0`, `res1`, ... are the
 return values of the call.
 
-if case of failure `ret` is `false and `res0` is a table of the form
-`{ ERROR, message }`.
+if case of failure `ret` is `false` and `res0` is a table of the form
+`{ERROR, message}`.
 
 
 **Example**
 
-```Lua
+```lua
 lsdb = require("lsdbus")
 b = lsdb.open('default_system')
 u = require("utils")
@@ -195,13 +195,13 @@ false, {"org.freedesktop.DBus.Error.UnknownMethod","Unknown method NoMethod or i
 
 #### Event loop
 
-```
+```lua
 b:loop()
 ```
 
 #### Signal handling
 
-```Lua
+```lua
 bus:match_signal(sender, path, interface, member, callback)
 bus:match(match_expr, callback);
 
@@ -217,7 +217,7 @@ respectively.
 
 Match and dump all signals on the system bus:
 
-```
+```lua
 local u = require("utils")
 local lsdb = require("lsdbus")
 local b = lsdb.open(system')
