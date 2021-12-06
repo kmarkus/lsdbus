@@ -143,6 +143,74 @@ function TestMsg:TestArrayWithVariant2()
    lu.assert_equals(ret, {foo="nirk", bar=2.718, dunk=false})
 end
 
+function TestMsg:TestArrayWithVariant3()
+   local vin = { foo={'s', "nirk"}, bar={'a{si}', { irg=1, barg=2}}}
+   local vout = { foo="nirk", bar={ irg=1, barg=2}}
+   local ret = b:testmsg("a{sv}", vin)
+   lu.assert_equals(ret, vout)
+end
+
+function TestMsg:TestArrayWithVariant4()
+   local vin = { foo={'s', "nirk"}, bar={'a{sv}', { irg={'i', 1}, barg={'s', 'harry'}}}}
+   local vout = { foo="nirk", bar={ irg=1, barg='harry'}}
+   local ret = b:testmsg("a{sv}", vin)
+   lu.assert_equals(ret, vout)
+end
+
+function TestMsg:TestArrayOfVariants()
+   local vin = { {'i', 1}, {'s', "forb" } }
+   local vout = { 1, "forb"}
+
+   local ret, ret2 = b:testmsg("av", vin)
+   lu.assert_equals(ret, vout)
+end
+
+function TestMsg:TestArrayWithVariantNested1()
+   local vin = {
+      a={'s', "nirk"},
+      b={'av', { {'i', 1}, {'s', "forb" } }}
+   }
+
+   local vout = { a='nirk', b = {1, "forb"} }
+   local ret = b:testmsg("a{sv}", vin)
+   lu.assert_equals(ret, vout)
+end
+
+function TestMsg:TestArrayWithVariantNested2()
+   local vin = {
+      a={'s', "nirk"},
+      b={'a{sv}',
+	 {
+	    cc={'i', 1},
+	    dd={'s', 'harry'},
+	    ee={'a{sv}',
+		{
+		   ff={'i', 22},
+		   gg={'s', 'sally'}
+		}
+	    },
+	    ii={ 'av',
+		 {
+		    { 'u', 234 },
+		    { 'a{sv}', { jjj={'i', 33}, gg={'s', "asd" } } }
+		 }
+	    }
+	 }
+      }
+   }
+
+   local vout = {
+      a = "nirk",
+      b = { cc=1, dd='harry',
+	    ee={ ff=22, gg='sally' },
+	    ii={ 234, { jjj=33, gg="asd" } }
+      }
+   }
+
+   local ret = b:testmsg("a{sv}", vin)
+   lu.assert_equals(ret, vout)
+end
+
 -- TODO:
 --   - test huge data sets
 --
