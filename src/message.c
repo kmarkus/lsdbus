@@ -660,7 +660,7 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
 				luaL_error(L, "msg_tolua: failed to enter container: %s", strerror(-r));
 
 			__msg_tolua(L, m, type);
-			continue;
+			goto update_table;
 		}
 
                 r = sd_bus_message_read_basic(m, type, &basic);
