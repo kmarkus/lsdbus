@@ -194,18 +194,6 @@ bool bus_type_is_basic(char c) {
         return !!memchr(valid, c, sizeof(valid));
 }
 
-bool bus_type_is_container(char c) {
-        static const char valid[] = {
-                SD_BUS_TYPE_ARRAY,
-                SD_BUS_TYPE_VARIANT,
-                SD_BUS_TYPE_STRUCT,
-                SD_BUS_TYPE_DICT_ENTRY
-        };
-
-        return !!memchr(valid, c, sizeof(valid));
-}
-
-
 static int signature_element_length_internal(
                 const char *s,
                 bool allow_dict_entry,
@@ -485,7 +473,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 }
 
                 case SD_BUS_TYPE_VARIANT: {
-			const char* s;
+			const char* s="v";
 
 			int ltype = lua_type(L, stpos);
 
@@ -750,10 +738,11 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
 int msg_tolua(lua_State *L, sd_bus_message* m)
 {
 	int ret, nargs = lua_gettop(L);
+#if 0
 	ret = sd_bus_message_rewind(m, 1);
 	if (ret < 0)
 		luaL_error(L, "failed to rewind message");
-
+#endif
 	ret = __msg_tolua(L, m, 0);
 	if (ret < 0)
 		return ret;

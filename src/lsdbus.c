@@ -20,12 +20,14 @@ static int(*open_funcs[])(sd_bus **bus) = {
 
 
 /**
- * store a function in registry.regtab[k] = fun
+ * store a value in registry.regtab[k] = val
  *
  * if the regtab doesn't exist, create it.
  */
-void regtab_store(lua_State *L, const char* regtab, void *k, int funidx)
+void regtab_store(lua_State *L, const char* regtab, void *k, int validx)
 {
+	int _validx = lua_absindex(L, validx);
+
 	if (lua_getfield(L, LUA_REGISTRYINDEX, regtab) != LUA_TTABLE) {
 		lua_pop(L, 1);
 		lua_newtable(L);
@@ -33,7 +35,7 @@ void regtab_store(lua_State *L, const char* regtab, void *k, int funidx)
 		lua_getfield(L, LUA_REGISTRYINDEX, regtab);
 	}
 
-	lua_pushvalue(L, funidx);
+	lua_pushvalue(L, _validx);
 	lua_rawsetp(L, -2, k);
 }
 
@@ -44,10 +46,13 @@ void regtab_store(lua_State *L, const char* regtab, void *k, int funidx)
  */
 int regtab_get(lua_State *L, const char* regtab, void *k)
 {
+	int ret;
 	if (lua_getfield(L, LUA_REGISTRYINDEX, regtab) != LUA_TTABLE)
 		luaL_error(L, "missing registry table %s", regtab);
 
-	return lua_rawgetp(L, -1, k);
+	ret = lua_rawgetp(L, -1, k);
+	lua_remove(L, -2);
+	return ret;
 }
 
 
@@ -155,13 +160,15 @@ void push_string_or_nil(lua_State *L, const char* s)
 /**
  * generic signal callback
  */
-int signal_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error)
+static int signal_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error)
 {
 	(void)ret_error;
-	int ret, nargs;
+	int ret, nargs, top;
 	lua_State *L = (lua_State*) userdata;
-	sd_bus *b = sd_bus_message_get_bus(m);
+	sd_bus *b = sd_bus_message_get_bus(m); /* TODO: drop? */
 	sd_bus_slot *slot = sd_bus_get_current_slot(b);
+
+	top = lua_gettop(L);
 
 	regtab_get(L, REG_SLOT_TABLE, slot);
 
@@ -178,7 +185,7 @@ int signal_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error)
 	lua_call(L, nargs+4, 1);
 
 	ret = lua_tointeger(L, -1);
-	lua_settop(L, 0);
+	lua_settop(L, top);
 	return ret;
 }
 
@@ -282,7 +289,20 @@ static int lsdbus_loop(lua_State *L)
 	return 0;
 }
 
+static int lsdbus_bus_request_name(lua_State *L)
+{
+	int ret;
 
+	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	const char *name = luaL_checkstring(L, 2);
+
+	ret = sd_bus_request_name(b, name, 0);
+
+	if (ret<0)
+		luaL_error(L, "requesting name %s failed: %s", name, strerror(-ret));
+
+	return 0;
+}
 
 static int lsdbus_bus_tostring(lua_State *L)
 {
@@ -334,6 +354,9 @@ static int lsdbus_bus_gc(lua_State *L)
 {
 	sd_bus *b = *((sd_bus**) lua_touserdata(L, 1));
 	evl_cleanup(b);
+	vtable_cleanup(L);
+	sd_bus_flush(b);
+	sd_bus_close(b);
 	sd_bus_unref(b);
 	return 0;
 }
@@ -352,9 +375,15 @@ static const luaL_Reg lsdbus_bus_m [] = {
 	{ "call", lsdbus_bus_call },
 	{ "match_signal", lsdbus_match_signal },
 	{ "match", lsdbus_match },
+	{ "add_object_vtable", lsdbus_add_object_vtable },
+	{ "emit_properties_changed", lsdbus_emit_prop_changed },
+	{ "emit_signal", lsdbus_emit_signal },
+	{ "context", lsdbus_context },
 	{ "loop", lsdbus_loop },
 	{ "exit_loop", evl_exit },
 	{ "add_signal", evl_add_signal },
+	{ "add_periodic", evl_add_periodic },
+	{ "request_name", lsdbus_bus_request_name },
 	{ "testmsg", lsdbus_testmsg },
 	{ "__tostring", lsdbus_bus_tostring },
 	{ "__gc", lsdbus_bus_gc },
@@ -367,6 +396,11 @@ int luaopen_lsdbus(lua_State *L)
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -1, "__index");
 	luaL_setfuncs(L, lsdbus_bus_m, 0);
+
+	luaL_newmetatable(L, EVSRC_MT);
+	lua_pushvalue(L, -1);
+	lua_setfield(L, -1, "__index");
+	luaL_setfuncs(L, lsdbus_evsrc_m, 0);
 
 	luaL_newlib(L, lsdbus_f);
 	return 1;
