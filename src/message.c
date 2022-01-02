@@ -13,10 +13,11 @@
  */
 static int table_explode(lua_State *L, int pos, const char *ctx)
 {
-	int len, type;
+	int len, type, top;
 
 	pos = lua_absindex(L, pos);
 	type = lua_type(L, pos);
+	top = lua_gettop(L);
 
 	if (type != LUA_TTABLE) {
 		lua_pushfstring(
@@ -28,6 +29,8 @@ static int table_explode(lua_State *L, int pos, const char *ctx)
 	lua_len(L, pos);
 	len = lua_tointeger(L, -1);
 	lua_pop(L, 1);
+
+	lua_checkstack(L, top+len);
 
 	for (int i=1; i<=len; i++) {
 		lua_geti(L, pos, i);
@@ -48,10 +51,11 @@ static int table_explode(lua_State *L, int pos, const char *ctx)
  */
 static int dict_explode(lua_State *L, int pos, const char *ctx)
 {
-	int len=0, type;
+	int len=0, type, top;
 
 	pos = lua_absindex(L, pos);
 	type = lua_type(L, pos);
+	top = lua_gettop(L);
 
 	if (type != LUA_TTABLE) {
 		lua_pushfstring(
@@ -62,6 +66,8 @@ static int dict_explode(lua_State *L, int pos, const char *ctx)
 
 	lua_pushnil(L);  /* first key */
 	while (lua_next(L, pos) != 0) {
+		lua_checkstack(L, top+len*2);
+
 		dbg("pushed %s - %s to pos %i",
 		    lua_typename(L, lua_type(L, -2)),
 		    lua_typename(L, lua_type(L, -1)), pos+len-1);

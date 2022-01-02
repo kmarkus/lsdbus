@@ -39,6 +39,13 @@ function TestMsg:TestArray()
    lu.assert_equals(ret, args)
 end
 
+function TestMsg:TestArrayHuge()
+   local args = {}
+   for i=1,1000 do args[#args+1] = i*2 end
+   local ret = b:testmsg("ai", args)
+   lu.assert_equals(ret, args)
+end
+
 function TestMsg:TestArrayOfArray()
    local args = { {1,2,3}, {4,5,6}, {6,7,8} }
    local ret = b:testmsg("aai", args)
@@ -76,6 +83,13 @@ end
 
 function TestMsg:TestDictStr()
    local dict =	{one='this is one', two='this is two', three='this is three'}
+   local ret = b:testmsg("a{ss}", dict)
+   lu.assert_equals(ret, dict)
+end
+
+function TestMsg:TestDictHuge()
+   local dict =	{}
+   for i=1,1000 do dict['key'..tostring(i)] = 'value'..tostring(i) end
    local ret = b:testmsg("a{ss}", dict)
    lu.assert_equals(ret, dict)
 end
