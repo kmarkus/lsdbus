@@ -64,7 +64,7 @@ function proxy:xcall(i, m, ts, ...)
    local ret = { self.bus:call(self.srv, self.obj, i, m, ts, ...) }
    if not ret[1] then
       self:error(fmt("calling %s (%s) failed: %s: %s (%s, %s, %s)",
-		     m, ts, ret[2], ret[3], self.srv, self.obj, i))
+		     m, ts, ret[2][1], ret[2][2], self.srv, self.obj, i))
    end
    return unpack(ret, 2)
 end
