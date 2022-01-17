@@ -819,6 +819,7 @@ static int msg_tolua(lua_State *L, sd_bus_message* m)
 static int lsdbus_bus_call(lua_State *L)
 {
 	int ret;
+	uint64_t timeout;
 	const char *dest, *path, *intf, *memb, *types;
 
 	sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -846,9 +847,15 @@ static int lsdbus_bus_call(lua_State *L)
 			goto out;
 	}
 
-	sd_bus_message_seal(m, 2, 1000*1000);
+	ret = sd_bus_get_method_call_timeout(b, &timeout);
 
-	ret = sd_bus_call(NULL, m, 0, &error, &reply);
+	if(ret<0)
+		luaL_error(L, "%s: failed to get call timeout: %s",
+			   __func__, strerror(-ret));
+
+	sd_bus_message_seal(m, 2, timeout);
+
+	ret = sd_bus_call(b, m, 0, &error, &reply);
 
 	if (ret<0) {
 		lua_pushboolean(L, 0);
