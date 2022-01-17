@@ -1060,6 +1060,34 @@ static int lsdbus_bus_tostring(lua_State *L)
 	return 1;
 }
 
+static int lsdbus_bus_set_method_call_timeout(lua_State *L)
+{
+	int ret;
+	sd_bus *b = *((sd_bus**) lua_touserdata(L, -2));
+	uint64_t timeout = lua_tointeger(L, -1);
+
+	ret = sd_bus_set_method_call_timeout(b,	timeout);
+
+	if (ret<0)
+		luaL_error(L, "set_method_call_timeout failed: %s", strerror(-ret));
+
+	return 0;
+}
+
+static int lsdbus_bus_get_method_call_timeout(lua_State *L)
+{
+	int ret;
+	uint64_t timeout;
+	sd_bus *b = *((sd_bus**) lua_touserdata(L, 1));
+
+	ret = sd_bus_get_method_call_timeout(b,	&timeout);
+
+	if (ret<0)
+		luaL_error(L, "get_method_call_timeout failed: %s", strerror(-ret));
+
+	lua_pushinteger(L, timeout);
+	return 1;
+}
 
 static int lsdbus_bus_gc(lua_State *L)
 {
@@ -1077,6 +1105,8 @@ static const luaL_Reg lsdbus_f [] = {
 };
 
 static const luaL_Reg lsdbus_bus_m [] = {
+	{ "get_method_call_timeout", lsdbus_bus_get_method_call_timeout },
+	{ "set_method_call_timeout", lsdbus_bus_set_method_call_timeout },
 	{ "call", lsdbus_bus_call },
 	{ "match_signal", lsdbus_match_signal },
 	{ "match", lsdbus_match },
