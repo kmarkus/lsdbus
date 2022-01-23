@@ -737,12 +737,8 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
 
 int msg_tolua(lua_State *L, sd_bus_message* m)
 {
-	int ret, nargs = lua_gettop(L);
-#if 0
-	ret = sd_bus_message_rewind(m, 1);
-	if (ret < 0)
-		luaL_error(L, "failed to rewind message");
-#endif
+	int ret, nargs;
+	nargs = lua_gettop(L);
 	ret = __msg_tolua(L, m, 0);
 	if (ret < 0)
 		return ret;
