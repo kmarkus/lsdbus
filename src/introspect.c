@@ -3,8 +3,8 @@
 #include <assert.h>
 #include <errno.h>
 
-#include "lua.h"
-#include "lauxlib.h"
+#include "lsdbus.h"
+
 
 #include <mxml.h>
 

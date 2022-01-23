@@ -2,11 +2,16 @@
 -- Proxy: client convenience object
 --
 
+
+if tonumber(_VERSION:match('Lua (%d%.%d)')) < 5.3 then
+   require("compat53")
+end
+
 local lsdb = require("lsdbus")
 
 local fmt = string.format
 local concat = table.concat
-local unpack = table.unpack
+local unpack = table.unpack or unpack
 
 local prop_if = 'org.freedesktop.DBus.Properties'
 local peer_if = 'org.freedesktop.DBus.Peer'

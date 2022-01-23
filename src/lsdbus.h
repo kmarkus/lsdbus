@@ -10,6 +10,10 @@
 #include "lua.h"
 #include "lauxlib.h"
 
+#if LUA_VERSION_NUM < 503
+# include "compat-5.3.h"
+#endif
+
 #define DBUS_NAME_MAXLEN	255
 #define LSDBUS_ERR_SEP		'|'
 

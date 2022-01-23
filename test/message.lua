@@ -1,7 +1,7 @@
 local lu=require("luaunit")
 local lsdb = require("lsdbus")
 
-local unpack = table.unpack
+local unpack = table.unpack or unpack
 
 local b = lsdb.open()
 

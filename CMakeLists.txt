@@ -5,10 +5,19 @@ set(CMAKE_C_STANDARD 11)
 
 include(GNUInstallDirs)
 
-find_package(Lua 5.3)
+find_package(Lua REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SYSTEMD libsystemd>=236)
 pkg_check_modules(MXML REQUIRED mxml)
+
+if(${LUA_VERSION_STRING} VERSION_LESS "5.3")
+  find_file(COMPAT53 compat-5.3.h PATHS ${LUA_INCLUDE_DIR} NO_DEFAULT_PATH)
+  if(NOT COMPAT53)
+    message(FATAL_ERROR "missing compat-5.3.h in ${LUA_INCLUDE_DIR}, please install lua-compat53-dev")
+  else()
+    message(STATUS "lua-compat53 found")
+  endif()
+endif()
 
 set(LSDBUS_SRC_DIR ${CMAKE_SOURCE_DIR}/src/)
 
