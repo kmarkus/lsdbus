@@ -220,7 +220,7 @@ static int timer_callback(sd_event_source *evsrc, uint64_t usec, void* userdata)
 int evl_add_periodic(lua_State *L)
 {
 	int ret;
-	uint64_t usec, accuracy;
+	uint64_t now, usec, accuracy;
 	sd_event_source *evsrc, **evsrcp;
 
 	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
@@ -233,8 +233,13 @@ int evl_add_periodic(lua_State *L)
 	if(!loop)
 		luaL_error(L, "bus has no loop");
 
-	ret = sd_event_add_time_relative(
-		loop, &evsrc, CLOCK_MONOTONIC, usec, accuracy, timer_callback, L);
+	ret = sd_event_now(loop, CLOCK_MONOTONIC, &now);
+
+	if(ret<0)
+		luaL_error(L, "failed get current time: %s", strerror(-ret));
+
+	ret = sd_event_add_time(
+		loop, &evsrc, CLOCK_MONOTONIC, now+usec, accuracy, timer_callback, L);
 
 	if(ret<0)
 		luaL_error(L, "failed add relativ time source: %s",
