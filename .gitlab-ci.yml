@@ -4,13 +4,15 @@ image: gcc:bullseye
 build:
   stage: build
   before_script:
-  - apt update && apt -y install cmake lua5.3 liblua5.3-dev libsystemd-dev libmxml-dev 
+  - apt update && apt -y install cmake liblua5.3-dev libsystemd-dev libmxml-dev 
   script:
     - mkdir build && cd build && cmake .. && make && make install && cd ..
 
 # run tests using the binary built before
 test:
   stage: test
+  before_script:
+  - apt update && apt -y install lua-5.3 libmxml1 libsystemd0 lua-unit
   script:
     - ls /usr/bin/
-    - cd test && lua5.3 run.lua -v
+    - cd test && lua run.lua -v
