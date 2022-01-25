@@ -14,6 +14,13 @@ local introspect_if = 'org.freedesktop.DBus.Introspectable'
 
 local proxy = {}
 
+local err = {
+   UNKNOWN_INTERFACE = "org.freedesktop.DBus.Error.UnknownInterface",
+   UNKNOWN_METHOD =    "org.freedesktop.DBus.Error.UnknownMethod",
+   UNKNOWN_PROPERTY = "org.freedesktop.DBus.Error.UnknownProperty",
+   INVALID_ARGS =      "org.freedesktop.DBus.Error.InvalidArgs",
+}
+
 --[[
 -- example interface description
 local node = {
@@ -63,8 +70,8 @@ end
 function proxy:xcall(i, m, ts, ...)
    local ret = { self.bus:call(self.srv, self.obj, i, m, ts, ...) }
    if not ret[1] then
-      self:error(fmt("calling %s (%s) failed: %s: %s (%s, %s, %s)",
-		     m, ts, ret[2][1], ret[2][2], self.srv, self.obj, i))
+      self:error(ret[2][1], fmt("calling %s (%s) failed: %s (%s, %s, %s)",
+				m, ts, ret[2][2], self.srv, self.obj, i))
    end
    return unpack(ret, 2)
 end
@@ -72,7 +79,7 @@ end
 function proxy:call(m, ...)
    local mtab = self.intf.methods[m]
    if not mtab then
-      self:error(fmt("call: no method %s", m))
+      self:error(err.UNKNOWN_METHOD, fmt("call: no method %s", m))
    end
    local its = met2its(mtab)
    return self:xcall(self.intf.name, m, its, ...)
@@ -85,15 +92,15 @@ function proxy:callt(m, argtab)
    local mtab = self.intf.methods[m]
    local args = {}
    if not mtab then
-      self:error(fmt("call: no method %s", m))
+      self:error(err.UNKNOWN_METHOD, fmt("callt: no method %s", m))
    end
    for n,a in ipairs(mtab) do
       if a.direction == 'out' then goto continue end
       if not a.name then
-	 self:error(fmt("callt: unnamed arg %i of method %s", n, m))
+	 self:error(err.INVALID_ARGS, fmt("callt: unnamed arg %i of method %s", n, m))
       end
       if argtab[a.name] == nil then
-	 self:error(fmt("callt: argument %s missing", a.name))
+	 self:error(err.INVALID_ARGS, fmt("callt: argument %s missing", a.name))
       end
       args[#args+1] = argtab[a.name]
       ::continue::
@@ -103,14 +110,14 @@ end
 
 function proxy:Get(k)
    if not self.intf.properties[k] then
-      self:error(fmt("Get: no property %s", k))
+      self:error(err.UNKOWN_PROPERTY, fmt("Get: unknown property %s", k))
    end
    return self:xcall(prop_if, 'Get', 'ss', self.intf.name, k)
 end
 
 function proxy:Set(k, ...)
    if not self.intf.properties[k] then
-      self:error(fmt("Set: no property %s", k))
+      self:error(err.UNKOWN_PROPERTY, fmt("Set: unknown property %s", k))
    end
 
    return self:xcall(prop_if, 'Set', 'ssv', self.intf.name, k, { self.intf.properties[k].type, ... })
@@ -126,7 +133,7 @@ function proxy:GetAll(filter)
    local ft = type(filter)
 
    if ft ~= 'string' and ft ~= 'function' then
-      self:error(fmt("invalid arg type %s", filter))
+      self:error(err.INVALID_ARGS, fmt("GetAll: invalid filter parameter type %s", filter))
    end
 
    local pred = filter
@@ -135,7 +142,7 @@ function proxy:GetAll(filter)
       if filter=='read' or filter=='write' or filter=='readwrite' then
 	 pred = function (n,v,d) return d.access == filter end
       else
-	 self:error(fmt("unknown string arg %s", filter))
+	 self:error(err.INVALID_ARGS, fmt("GetAll: invalid filter type %s", filter))
       end
    end
 
@@ -188,11 +195,11 @@ function proxy:__tostring()
    return table.concat(res, "\n")
 end
 
-function proxy.error(_, msg) error(msg) end
+function proxy.error(_, err, msg) error(fmt("%s: %s", err, msg)) end
 
 function proxy.introspect(bus, srv, obj)
    local ret, xml = bus:call(srv, obj, introspect_if, 'Introspect')
-   if not ret then error(fmt("failed to introspect %s, %s: %s", srv, obj, xml)) end
+   if not ret then proxy.error(nil, xml[1], fmt("failed to introspect %s, %s: %s", srv, obj, xml[2])) end
    return lsdb.xml_fromstr(xml)
 end
 
@@ -206,7 +213,7 @@ function proxy:new(bus, srv, obj, intf)
 	    goto continue
 	 end
       end
-      error(fmt("no interface %s on %s, %s", intf, srv, obj))
+      proxy.error(nil, err.UNKNOWN_INTERFACE, fmt("unkown interface %s on %s, %s", intf, srv, obj))
    end
 
    ::continue::
