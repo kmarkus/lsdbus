@@ -6,19 +6,17 @@ build:
   before_script:
   - apt update && apt -y install cmake liblua5.3-dev libsystemd-dev libmxml-dev 
   script:
-    - mkdir build && cd build && cmake .. && make && make install && cd ..
+    - mkdir build && cd build && cmake .. && make
   artifacts:
-    paths:
-      - /usr/local/lib/lua/5.3/lsdbus.so
-      - /usr/local/share/lua/5.3/lsdbus_proxy.lua
-
+    untracked: true
+    
 # run tests using the binary built before
 test:
   stage: test
   before_script:
     - apt update && apt -y install lua5.3 libmxml1 libsystemd0 lua-unit
   script:
-    - ls
+    - cd build && make install && cd ..
     - cd test && lua run.lua -v
   dependencies:
   - build
