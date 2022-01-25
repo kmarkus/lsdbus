@@ -15,6 +15,7 @@ build:
 test:
   stage: test
   before_script:
-  - apt update && apt -y install lua5.3 libmxml1 libsystemd0 lua-unit
+    - apt update && apt -y install lua5.3 libmxml1 libsystemd0 lua-unit
   script:
+    - ls
     - cd test && lua run.lua -v
