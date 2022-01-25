@@ -6,7 +6,7 @@ build:
   before_script:
   - apt update && apt -y install cmake lua5.3 liblua5.3-dev libsystemd-dev libmxml-dev 
   script:
-    - mkdir build && cd build && make && sudo make install && cd ..
+    - mkdir build && cd build && cmake .. && make && sudo make install && cd ..
 
 # run tests using the binary built before
 test:
