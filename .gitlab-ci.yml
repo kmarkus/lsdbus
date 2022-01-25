@@ -12,4 +12,5 @@ build:
 test:
   stage: test
   script:
-    - cd test && lua run.lua -v
+    - ls /usr/bin/
+    - cd test && lua5.3 run.lua -v
