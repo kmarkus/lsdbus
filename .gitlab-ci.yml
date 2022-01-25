@@ -1,0 +1,10 @@
+
+image: gcc:bullseye
+
+build:
+  stage: build
+  before_script:
+  - apt update && apt -y install default-dbus-session-bus default-dbus-system-bus cmake lua5.3 liblua5.3-dev lua-unit libsystemd0 libsystemd-dev libmxml1 libmxml-dev 
+  script:
+    - mkdir build && cd build && cmake .. && make && make install && cd ..
+#    - cd test && lua run.lua -v
