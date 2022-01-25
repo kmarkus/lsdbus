@@ -9,7 +9,8 @@ build:
     - mkdir build && cd build && cmake .. && make && make install && cd ..
   artifacts:
     paths:
-      - lsdbus.so
+      - /usr/local/lib/lua/5.3/lsdbus.so
+      - /usr/local/share/lua/5.3/lsdbus_proxy.lua
 
 # run tests using the binary built before
 test:
@@ -19,3 +20,5 @@ test:
   script:
     - ls
     - cd test && lua run.lua -v
+  dependencies:
+  - build
