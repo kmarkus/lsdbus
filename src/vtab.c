@@ -761,10 +761,8 @@ int lsdbus_emit_prop_changed(lua_State *L)
 	const char *intf = luaL_checkstring (L, 3);
 	const char* props[nprops+1];
 
-	for (int i=0; i<nprops; i++) {
+	for (int i=0; i<nprops; i++)
 		props[i] = luaL_checkstring (L, i+4);
-		printf("props[%i]=%s\n", i, props[i]);
-	}
 
 	props[nprops] = NULL;
 
