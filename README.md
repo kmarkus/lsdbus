@@ -4,6 +4,9 @@ The `lsdbus` module provides Lua bindings to the `sd_bus` D-Bus client
 library. This extension marries the two single greatest achievements
 of mankind: `Lua` and `D-Bus`.
 
+The goal is to provide a compact yet useful subset of the `sd_bus` and
+`sd_event` APIs to cover typical use-cases.
+
 *The `L` stands for 'likeable'.
 
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
@@ -11,16 +14,19 @@ of mankind: `Lua` and `D-Bus`.
 
 - [Installing](#installing)
 - [Usage](#usage)
-    - [Type mapping](#type-mapping)
     - [Bus connection](#bus-connection)
+    - [Type mapping](#type-mapping)
+        - [Testmsg](#testmsg)
     - [Client API](#client-api)
         - [lsdb_proxy](#lsdb_proxy)
         - [plumbing API](#plumbing-api)
+        - [Emitting signals](#emitting-signals)
     - [Server API](#server-api)
         - [Event loop](#event-loop)
-        - [Signal handling](#signal-handling)
-        - [Properties](#properties)
-        - [Methods](#methods)
+        - [D-Bus signal matching and callbacks](#d-bus-signal-matching-and-callbacks)
+        - [Periodic callbacks](#periodic-callbacks)
+        - [Unix Signal callbacks](#unix-signal-callbacks)
+        - [Registering Interfaces: Properties, Methods and Signal](#registering-interfaces-properties-methods-and-signal)
 - [Internals](#internals)
     - [Introspection](#introspection)
 - [License](#license)
@@ -31,76 +37,16 @@ of mankind: `Lua` and `D-Bus`.
 
 ## Installing
 
-First, ensure that the correct packages are installed. For a debian
-distribution like Ubuntu:
+First, ensure that the correct packages are installed. For Debian
+based distributions:
 
 ```sh
 $ sudo apt-get install build-essential git cmake lua5.3 liblua5.3-dev libsystemd-dev libmxml-dev
 ```
 
-To run the tests, get a copy of `lua-unit`:
-
-either 
-
-```sh
-$ sudo apt-get install lua-unit` 
-```
-
-or 
-
-`git clone https://github.com/bluebird75/luaunit.git`
-
-Either install the `luaunit.lua` file or copy it to the `test`
-directory in this project.
+To run the tests, install `lua-unit` or install it directly from here [2].
 
 ## Usage
-
-### Type mapping
-
-| D-Bus Type      | D-Bus specifier                   | Lua                  | Example Lua to D-Bus msg...  | ...and back to Lua  |
-|-----------------|-----------------------------------|----------------------|------------------------------|---------------------|
-| boolean         | `b`                               | `boolean`            | `'b', true`                  | `true`              |
-| integers        | `y`, `n`, `q`, `i`, `u`, `x`, `t` | `number` (integer)   | `'i', 42`                    | `42`                |
-| floating-point  | `d`                               | `number` (double)    | `'d', 3.14`                  | `3.14`              |
-| file descriptor | `h`                               | `number`             |                              |                     |
-| string          | `s`                               | `string`             | `'s', "foo"`                 | `"foo"`             |
-| signature       | `g`                               | `string`             | `'g', a{sv}`                 | `a{sv}`             |
-| object path     | `o`                               | `string`             | `'o', "/a/b/c"`              | `"/a/b/c"`          |
-| variant         | `v`                               | `{SPECIFIER, VALUE}` | `'v', {'i', 33 }`            | `33`                |
-| array           | `a`                               | `table` (array part) | `'ai', {1,2,3,4}`            | `{1,2,3}`           |
-| struct          | `(...`)                           | `table` (array part) | `'(ibs)', {3, false, "hey"}` | `{3, false, "hey"}` |
-| dictionary      | `a{...}`                          | `table` (dict part)  | `'a{si}', {a=1, b=2}`        | `{a=1, b=2}`        |
-
-
-*Notes*
-
-- Many more examples can be found in the unit tests:
-  `test/message.lua`
-- *Variant* is the only type whose conversion is unsymmetric, i.e. the
-  input arguments are not equal the result. This is because the
-  variant is unpacked automatically.
-
-**Testmsg**
-
-To faciliate testing message conversion, lsdbus provides a special
-function `testmsg`, that accepts a message specifier and value,
-creates a D-Bus message from it and converts it back to Lua:
-
-```lua
-> lsdb = require("lsdbus")
-> b = lsdb.open()
-> u = require("utils")
-> u.pp(b:testmsg('b', true))
-true
-> u.pp(b:testmsg('ai', {1,2,3,4}))
-{1,2,3,4}
-> u.pp(b:testmsg('a{s(is)}', { one = {1, 'this is one'}, two = {2, 'this is two'} })
-{one={1,"this is one"},two={2,"this is two"}}
-> u.pp(b:testmsg('a{sv}', { foo={'s', "nirk"}, bar={'d', 2.718}, dunk={'b', false}})
-{foo="nirk",dunk=false,bar=2.718}
-```
-
-The above uses the tiny `uutils` [1] library for printing tables.
 
 ### Bus connection
 
@@ -115,11 +61,69 @@ b = lsdb.open()
 to open: `default`, `system`, `user`, `default_system`, `default_user`
 correspond function as described in `sd_bus_default(3)`.
 
+Optionally, a well-known name can be registered as follows:
+
+```lua
+b:request_name("foo.bar.myservice")
+```
+
+### Type mapping
+
+#### Testmsg
+
+To faciliate testing message conversion, lsdbus provides the `testmsg`
+function, that accepts a D-Bus message specifier (see
+`sd_bus_message_append(3)` and a value, creates a D-Bus message from
+it and converts it back to Lua (the example below uses the small
+`uutils` [2] library for printing tables):
+
+```lua
+> lsdb = require("lsdbus")
+> u = require("utils")
+> b = lsdb.open()
+> u.pp(b:testmsg('u', 33))
+33
+> u.pp(b:testmsg('ai', {1,2,3,4}))
+{1,2,3,4}
+> u.pp(b:testmsg('a{s(is)}', { one = {1, 'this is one'}, two = {2, 'this is two'} }))
+{one={1,"this is one"},two={2,"this is two"}}
+> u.pp(b:testmsg('a{sv}', { foo={'s', "nirk"}, bar={'d', 2.718}, dunk={'b', false}}))
+{foo="nirk",dunk=false,bar=2.718}
+```
+
+**Type conversions**
+
+
+| D-Bus Type      | D-Bus specifier                   | Lua                  | Example Lua to D-Bus msg...  | ...and back to Lua  |
+|-----------------|-----------------------------------|----------------------|------------------------------|---------------------|
+| boolean         | `b`                               | `boolean`            | `'b', true`                  | `true`              |
+| integers        | `y`, `n`, `q`, `i`, `u`, `x`, `t` | `number` (integer)   | `'i', 42`                    | `42`                |
+| floating-point  | `d`                               | `number` (double)    | `'d', 3.14`                  | `3.14`              |
+| file descriptor | `h`                               | `number`             |                              |                     |
+| string          | `s`                               | `string`             | `'s', "foo"`                 | `"foo"`             |
+| signature       | `g`                               | `string`             | `'g', a{sv}`                 | `a{sv}`             |
+| object path     | `o`                               | `string`             | `'o', "/a/b/c"`              | `"/a/b/c"`          |
+| variant         | `v`                               | `{SPECIFIER, VALUE}` | `'v', {'i', 33 }`            | `33`                |
+| array           | `a`                               | `table` (array part) | `'ai', {1,2,3,4}`            | `{1,2,3}`           |
+| struct          | `(...)`                           | `table` (array part) | `'(ibs)', {3, false, "hey"}` | `{3, false, "hey"}` |
+| dictionary      | `a{...}`                          | `table` (dict part)  | `'a{si}', {a=1, b=2}`        | `{a=1, b=2}`        |
+
+
+*Notes*
+
+- More examples can be found in the unit tests: `test/message.lua`
+- *Variant* is the only type whose conversion is unsymmetric, i.e. the
+  input arguments are not equal the result. This is because the
+  variant is unpacked automatically.
+
+
 ### Client API
 
-There are two client APIs: the high level proxy API uses introspection
-to create a proxy object, that can be used to call methods or access
-properties. The plumbing API allows direct calling of methods.
+There are two client APIs: the high level `lsdbus_proxy` API uses
+introspection to create a proxy object, that can be used to
+conveniently call methods or get/set properties. The plumbing API
+allows calling methods however more arguments (destination, path,
+interface, member, typestring and args) need to be provided.
 
 #### lsdb_proxy
 
@@ -163,40 +167,37 @@ name as the first argument:
 > td('ListTimezones')
 ```
 
-Unlike with the plumbing API, no D-Bus specifiers need to be provided.
+Unlike the low-level `call` function, no D-Bus types need to be provided.
 
-**Proxy Methods**
+**lsdbus_proxy methods**
 
-| Method                                  | Description                                           |
-|-----------------------------------------|-------------------------------------------------------|
-| `lsdbus_proxy:new(bus, srv, obj, intf)` | constructor                                           |
-|-----------------------------------------|-------------------------------------------------------|
-| `prxy(method, arg0, ...)`               | call a D-Bus method                                   |
-| `prxy:call(method, arg0, ...)`          | long form, same as above                              |
-| `prxy:HasMethod(method)`                | check if prxy has a method with the given name        |
-| `prxy:callt(method, ARGTAB)`            | call a method with a table of arguments               |
-|-----------------------------------------|-------------------------------------------------------|
-| `prxy:Get(name)`                        | get a property                                        |
-| `prxy.name`                             | short form, same as previous                          |
-| `prxy:Set(name, value)`                 | set a property                                        |
-| `prxy.name = value`                     | short form for setting a property to value            |
-| `prxy:GetAll(filter)`                   | get all properties that match the optional filter     |
-| `prxy:SetAll(t)`                        | set all properties from a table                       |
-| `prxy:HasProperty(prop)`                | check if prxy has a property of the given name        |
-|-----------------------------------------|-------------------------------------------------------|
-| `prxy:Ping`                             | call the `Ping` method on `org.freedesktop.DBus.Peer` |
-| `prxy:error`                            | error handler, override to customize behavior         |
+| Method                                         | Description                                           |
+|------------------------------------------------|-------------------------------------------------------|
+| `prxy = lsdbus_proxy:new(bus, srv, obj, intf)` | constructor                                           |
+| `prxy(method, arg0, ...)`                      | call a D-Bus method                                   |
+| `prxy:call(method, arg0, ...)`                 | same as above, long form                              |
+| `prxy:HasMethod(method)`                       | check if prxy has a method with the given name        |
+| `prxy:callt(method, ARGTAB)`                   | call a method with a table of arguments               |
+| `prxy:Get(name)`                               | get a property                                        |
+| `prxy.name`                                    | short form, same as previous                          |
+| `prxy:Set(name, value)`                        | set a property                                        |
+| `prxy.name = value`                            | short form for setting a property to value            |
+| `prxy:GetAll(filter)`                          | get all properties that match the optional filter     |
+| `prxy:SetAll(t)`                               | set all properties from a table                       |
+| `prxy:HasProperty(prop)`                       | check if prxy has a property of the given name        |
+| `prxy:Ping`                                    | call the `Ping` method on `org.freedesktop.DBus.Peer` |
+| `prxy:error(err, msg)`                         | error handler, override to customize behavior         |
 
 
 *Notes*
 
-- `callt` is a convenience method that works only if the method has
-  named arguments: `b:callt{argA=2, argB="that"}`.
+- `callt` is a convenience method that can be used for methods with named
+  arguments: `b:callt{argA=2, argB="that"}`.
 - `GetAll` accepts a filter which can be either
-  1. a string `read`|`readwrite`|`write`
-  2. a filter function that accepts `(name, value, description)` and returns
-  `true` or `false` depending on whether the value shall be included
-  or not.
+  1. a string [`read`|`readwrite`|`write`] describing the access mode
+  2. a filter function that accepts `(name, value, description)` and
+  returns `true` or `false` depending on whether the value shall be
+  included in the result or not.
 - see *Internals* about how `lsdbus_proxy` works.
 
 #### plumbing API
@@ -204,14 +205,14 @@ Unlike with the plumbing API, no D-Bus specifiers need to be provided.
 **Syntax**
 
 ```lua
-ret, res0, ... = bus:call(dest, path, intf, member, spec, arg0, ...)
+ret, res0, ... = bus:call(dest, path, intf, member, typestr, arg0...)
 ```
 
 in case of success `ret` is `true` and `res0`, `res1`, ... are the
 return values of the call.
 
 if case of failure `ret` is `false` and `res0` is a table of the form
-`{ERROR, message}`.
+`{ error, message }`.
 
 
 **Example**
@@ -230,44 +231,141 @@ u.pp(b:call('org.freedesktop.timedate1', '/org/freedesktop/timedate1', 'org.free
 false, {"org.freedesktop.DBus.Error.UnknownMethod","Unknown method NoMethod or interface org.freedesktop.timedate1."}
 ```
 
+#### Emitting signals
+
+```lua
+b:emit_signal(PATH, INTERFACE, MEMBER, TYPESTR, ARG0...)
+```
+
+**Example**
+
+```lua
+b:emit_signal("/foo", "lsdbus.foo.bar0", "Alarm", "ia{ss}", 999, {x="one", y="two"})
+```
+
 ### Server API
 
 #### Event loop
 
+The event loop can be entered and exited by calling
+
 ```lua
 b:loop()
+-- and
+b:exit_loop()
 ```
 
-#### Signal handling
+respectively.
+
+Any callback can use the method `b:context()` to retrieve additional
+information which depending on the callback type may include
+
+- `interface`
+- `path`
+- `member`
+- `sender`
+- `destination`
+
+(these are retrieved using `sd_bus_get_current_message(3)` and the
+respective `sd_bus_message_get_*(3)` functions).
+
+#### D-Bus signal matching and callbacks
 
 ```lua
-bus:match_signal(sender, path, interface, member, callback)
-bus:match(match_expr, callback);
-
 function callback(sender, path, interface, member, arg0...)
 	-- do something
 end
+
+b:match_signal(sender, path, interface, member, callback)
+b:match(match_expr, callback)
 ```
 
-These correspond to `sd_bus_match_signal` and `sd_bus_add_match`
+These correspond to `sd_bus_match_signal(3)` and `sd_bus_add_match(3)`
 respectively.
 
-**Example**:
-
-Match and dump all signals on the system bus:
+**Example**: dump all signals on the system bus:
 
 ```lua
 local u = require("utils")
 local lsdb = require("lsdbus")
 local b = lsdb.open('system')
-b:match_signal(nil, nil, nil, nil, function (...) u.pp(...) end)
+b:match_signal(nil, nil, nil, nil, u.pp)
 b:loop()
 ```
 
-#### Properties
+#### Periodic callbacks
 
-#### Methods
+```lua
+local function callback()
+	-- do something
+end
 
+evsrc = b:add_periodic(period, accuracy, callback)
+```
+
+The `period` and `accuracy` (both in microseconds) correspond to the
+same parameters in `sd_event_add_time(3)`.
+
+The returned `event_src` object supports a method `set_enable(int)`
+that allows enabling and disabling the event source.
+
+See `examples/periodic.lua` for an example.
+
+#### Unix Signal callbacks
+
+```
+local function callback(signal)
+	print("received signal " .. signal)
+end
+b:add_signal("SIGINT", callback)
+```
+
+Currently supported are `SIGINT`, `SIGTERM`, `SIGUSR1`, `SIGUSR2`.
+
+#### Registering Interfaces: Properties, Methods and Signal
+
+The format used is the same Lua representation of the D-Bus interface
+XML (see below) extended with callbacks. Take a look at the entirely
+self-explaining minimal example `examples/tiny-server.lua`.
+
+```lua
+local interface_table = {
+   name="foo.bar.interface0",
+   methods = {
+      Method1 = {
+             { direction=['in'|'out'], name=ARG0NAME, type=TYPESTR },
+               ...
+              handler=function(in0, in1...) return out0, out1... end
+      }
+   },
+   properties  = {
+      Property1 = {
+         access = ['read'|'readwrite'|'write'],
+         type = TYPESTR,
+         get = function() return VALUE end
+         set = function(value)
+                  store(value)
+                  b:emit_properties_changed(PATH, INTF, Property1)
+                end
+      }
+   },
+   signals = {
+      Signal1 = {
+             { name=ARG0NAME, type=TYPESTR },
+              ...
+      }
+   },
+}
+
+local b = lsdb.open('user')
+b:request_name(WELL_KNOWN_NAME)
+b:add_object_vtable(PATH, interface_table)
+b:loop()
+```
+
+**Note**: the signals specification currently only serves for
+introspection, there is no function attached to it. However a
+convenience function (`b:emit(arg0...)` ?) may be added in the future.
 
 ## Internals
 
@@ -319,9 +417,12 @@ Signals:
 
 ## License
 
-LGPLv2 as the lsdbus type conversion is based on code from systemd.
+LGPLv2. A portion of the lsdbus type conversion is based on code from
+systemd.
 
 
 ## References
 
-[1] https://github.com/kmarkus/uutils.git
+[1] https://github.com/bluebird75/luaunit.git  
+[2] https://github.com/kmarkus/uutils.git  
+

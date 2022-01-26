@@ -1,3 +1,9 @@
+--
+-- server example showing all lsdbus bells and whistles
+--
+-- examples/query-server.lua will query this server
+--
+
 local lsdb = require("lsdbus")
 local u = require("utils")
 
