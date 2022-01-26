@@ -59,20 +59,20 @@ int regtab_get(lua_State *L, const char* regtab, void *k)
 /* toplevel functions */
 static int lsdbus_open(lua_State *L)
 {
-	int ret;
+	int ret, busidx;
 	sd_bus **b;
 
-	ret = luaL_checkoption(L, 1, "default", open_opts_lst);
+	busidx = luaL_checkoption(L, 1, "default", open_opts_lst);
 
-	dbg("opening %s bus connection", open_opts_lst[ret]);
+	dbg("opening %s bus connection", open_opts_lst[busidx]);
 
 	b = (sd_bus**) lua_newuserdata(L, sizeof(sd_bus*));
 
-	ret = open_funcs[ret](b);
+	ret = open_funcs[busidx](b);
 
 	if (ret<0)
-		luaL_error(L, "%s: failed to connect to bus: %s",
-			   __func__, strerror(-ret));
+		luaL_error(L, "%s: failed to connect to %s bus: %s",
+			   __func__, open_opts_lst[busidx], strerror(-ret));
 
 	luaL_getmetatable(L, BUS_MT);
 	lua_setmetatable(L, -2);
