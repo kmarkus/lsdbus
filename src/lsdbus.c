@@ -390,7 +390,7 @@ static const luaL_Reg lsdbus_bus_m [] = {
 	{ NULL, NULL },
 };
 
-int luaopen_lsdbus(lua_State *L)
+int luaopen_lsdbus_core(lua_State *L)
 {
 	luaL_newmetatable(L, BUS_MT);
 	lua_pushvalue(L, -1);

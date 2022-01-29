@@ -1,10 +1,9 @@
 local u = require("utils")
 local lsdb = require("lsdbus")
-local proxy = require("lsdbus_proxy")
 
 local b = lsdb.open('user')
 
-local tst=proxy:new(b, 'lsdbus.test', '/', 'lsdbus.test.testintf0')
+local tst=lsdb.proxy:new(b, 'lsdbus.test', '/', 'lsdbus.test.testintf0')
 
 local cnt = -1
 while cnt ~= 0 do

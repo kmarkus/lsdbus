@@ -1,6 +1,6 @@
 local lu=require("luaunit")
 local lsdb = require("lsdbus")
-local proxy = require("lsdbus_proxy")
+local proxy = lsdb.proxy
 
 TestProxy = {}
 

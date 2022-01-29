@@ -18,15 +18,15 @@ The goal is to provide a compact yet useful subset of the `sd_bus` and
     - [Type mapping](#type-mapping)
         - [Testmsg](#testmsg)
     - [Client API](#client-api)
-        - [lsdb_proxy](#lsdb_proxy)
+        - [lsdb.proxy](#lsdbproxy)
         - [plumbing API](#plumbing-api)
         - [Emitting signals](#emitting-signals)
     - [Server API](#server-api)
         - [Event loop](#event-loop)
+        - [Registering Interfaces: Properties, Methods and Signal](#registering-interfaces-properties-methods-and-signal)
         - [D-Bus signal matching and callbacks](#d-bus-signal-matching-and-callbacks)
         - [Periodic callbacks](#periodic-callbacks)
         - [Unix Signal callbacks](#unix-signal-callbacks)
-        - [Registering Interfaces: Properties, Methods and Signal](#registering-interfaces-properties-methods-and-signal)
 - [Internals](#internals)
     - [Introspection](#introspection)
 - [License](#license)
@@ -93,7 +93,6 @@ it and converts it back to Lua (the example below uses the small
 
 **Type conversions**
 
-
 | D-Bus Type      | D-Bus specifier                   | Lua                  | Example Lua to D-Bus msg...  | ...and back to Lua  |
 |-----------------|-----------------------------------|----------------------|------------------------------|---------------------|
 | boolean         | `b`                               | `boolean`            | `'b', true`                  | `true`              |
@@ -101,39 +100,36 @@ it and converts it back to Lua (the example below uses the small
 | floating-point  | `d`                               | `number` (double)    | `'d', 3.14`                  | `3.14`              |
 | file descriptor | `h`                               | `number`             |                              |                     |
 | string          | `s`                               | `string`             | `'s', "foo"`                 | `"foo"`             |
-| signature       | `g`                               | `string`             | `'g', a{sv}`                 | `a{sv}`             |
+| signature       | `g`                               | `string`             | `'g', "a{sv}"`               | `"a{sv}"`           |
 | object path     | `o`                               | `string`             | `'o', "/a/b/c"`              | `"/a/b/c"`          |
 | variant         | `v`                               | `{SPECIFIER, VALUE}` | `'v', {'i', 33 }`            | `33`                |
-| array           | `a`                               | `table` (array part) | `'ai', {1,2,3,4}`            | `{1,2,3}`           |
+| array           | `a`                               | `table` (array part) | `'ai', {1,2,3,9}`            | `{1,2,3,9}`         |
 | struct          | `(...)`                           | `table` (array part) | `'(ibs)', {3, false, "hey"}` | `{3, false, "hey"}` |
-| dictionary      | `a{...}`                          | `table` (dict part)  | `'a{si}', {a=1, b=2}`        | `{a=1, b=2}`        |
+| dictionary      | `a{...}`                          | `table` (dict part)  | `'a{si}', {a=1, b=2}`        | `{a=1, b=2}`        |  
 
-
-*Notes*
+*Notes:*
 
 - More examples can be found in the unit tests: `test/message.lua`
-- *Variant* is the only type whose conversion is unsymmetric, i.e. the
-  input arguments are not equal the result. This is because the
-  variant is unpacked automatically.
-
+- *Variant* is the only type whose conversion is asymmetrical,
+  i.e. the input arguments are not equal the result. This is because
+  the variant is unpacked automatically.
 
 ### Client API
 
-There are two client APIs: the high level `lsdbus_proxy` API uses
+There are two client APIs: the high level `lsdbus.proxy` API uses
 introspection to create a proxy object, that can be used to
 conveniently call methods or get/set properties. The plumbing API
 allows calling methods however more arguments (destination, path,
 interface, member, typestring and args) need to be provided.
 
-#### lsdb_proxy
+#### lsdb.proxy
 
 **Example**
 
 ```lua
 > lsdb = require("lsdbus")
 > b = lsdb.open("system")
-> proxy = require("lsdbus_proxy")
-> td = proxy:new(b, 'org.freedesktop.timedate1', '/org/freedesktop/timedate1', 'org.freedesktop.timedate1')
+> td = lsdb.proxy:new(b, 'org.freedesktop.timedate1', '/org/freedesktop/timedate1', 'org.freedesktop.timedate1')
 > print(td)
 srv: org.freedesktop.timedate1, obj: /org/freedesktop/timedate1, intf: org.freedesktop.timedate1
 Methods:
@@ -169,11 +165,11 @@ name as the first argument:
 
 Unlike the low-level `call` function, no D-Bus types need to be provided.
 
-**lsdbus_proxy methods**
+**proxy methods**
 
 | Method                                         | Description                                           |
 |------------------------------------------------|-------------------------------------------------------|
-| `prxy = lsdbus_proxy:new(bus, srv, obj, intf)` | constructor                                           |
+| `prxy = lsdbus.proxy:new(bus, srv, obj, intf)` | constructor                                           |
 | `prxy(method, arg0, ...)`                      | call a D-Bus method                                   |
 | `prxy:call(method, arg0, ...)`                 | same as above, long form                              |
 | `prxy:HasMethod(method)`                       | check if prxy has a method with the given name        |
@@ -198,7 +194,7 @@ Unlike the low-level `call` function, no D-Bus types need to be provided.
   2. a filter function that accepts `(name, value, description)` and
   returns `true` or `false` depending on whether the value shall be
   included in the result or not.
-- see *Internals* about how `lsdbus_proxy` works.
+- see *Internals* about how `lsdbus.proxy` works.
 
 #### plumbing API
 
@@ -255,7 +251,14 @@ b:loop()
 b:exit_loop()
 ```
 
-respectively.
+respectively. Alternatively,
+
+```
+b:run(usec)
+```
+
+allows running the loop for a limited time (see `sd_event_loop(3)`,
+`sd_event_run(3)` and `sd_event_exit(3)`.)
 
 Any callback can use the method `b:context()` to retrieve additional
 information which depending on the callback type may include
@@ -268,6 +271,55 @@ information which depending on the callback type may include
 
 (these are retrieved using `sd_bus_get_current_message(3)` and the
 respective `sd_bus_message_get_*(3)` functions).
+
+#### Registering Interfaces: Properties, Methods and Signal
+
+Server object callbacks can be registered with
+`lsdbus.server:new`. The interface uses the same Lua representation of
+the D-Bus interface XML (see below) decorated with callback functions:
+
+```lua
+local interface_table = {
+   name="foo.bar.interface0",
+   methods = {
+      Method1 = {
+             { direction=['in'|'out'], name=ARG0NAME, type=TYPESTR },
+               ...
+              handler=function(in0, in1...) return out0, out1... end
+      }
+   },
+   properties  = {
+      Property1 = {
+         access = ['read'|'readwrite'|'write'],
+         type = TYPESTR,
+         get = function() return VALUE end
+         set = function(value)
+                  store(value)
+                  b:emit_properties_changed(PATH, INTF, Property1)
+                end
+      }
+   },
+   signals = {
+      Signal1 = {
+             { name=ARG0NAME, type=TYPESTR },
+              ...
+      }
+   },
+}
+
+local b = lsdb.open('user')
+b:request_name("well.known.name"))
+srv = lsdbs.server:new(b, PATH, interface_table)
+b:loop()
+```
+
+Additionally, `lsdbus.server` objects allow emitting the specified
+`signals` conveniently via `srv:emit('Signal1', arg0, ...)` instead of
+the longer `bus:emit_signal(...)`.
+
+For further information, take a look at the minimal example
+`examples/tiny-server.lua` and the more extensive one
+`examples/server.lua`.
 
 #### D-Bus signal matching and callbacks
 
@@ -322,63 +374,18 @@ b:add_signal("SIGINT", callback)
 
 Currently supported are `SIGINT`, `SIGTERM`, `SIGUSR1`, `SIGUSR2`.
 
-#### Registering Interfaces: Properties, Methods and Signal
-
-The format used is the same Lua representation of the D-Bus interface
-XML (see below) extended with callbacks. Take a look at the entirely
-self-explaining minimal example `examples/tiny-server.lua`.
-
-```lua
-local interface_table = {
-   name="foo.bar.interface0",
-   methods = {
-      Method1 = {
-             { direction=['in'|'out'], name=ARG0NAME, type=TYPESTR },
-               ...
-              handler=function(in0, in1...) return out0, out1... end
-      }
-   },
-   properties  = {
-      Property1 = {
-         access = ['read'|'readwrite'|'write'],
-         type = TYPESTR,
-         get = function() return VALUE end
-         set = function(value)
-                  store(value)
-                  b:emit_properties_changed(PATH, INTF, Property1)
-                end
-      }
-   },
-   signals = {
-      Signal1 = {
-             { name=ARG0NAME, type=TYPESTR },
-              ...
-      }
-   },
-}
-
-local b = lsdb.open('user')
-b:request_name(WELL_KNOWN_NAME)
-b:add_object_vtable(PATH, interface_table)
-b:loop()
-```
-
-**Note**: the signals specification currently only serves for
-introspection, there is no function attached to it. However a
-convenience function (`b:emit(arg0...)` ?) may be added in the future.
-
 ## Internals
 
 ### Introspection
 
-The fourth parameter of `lsdbus_proxy:new` is typically a string
-interface name, whose XML is then retrieved using the standard
+The fourth parameter of `lsdbus.proxy:new` is typically a string
+interface name, whose XML is then retrieved using the standard D-Bus
 introspection interfaces and converted to a Lua representation using
 `lsdb.xml_fromstr(xml)`. It is available as `proxy.intf`.
 
 However, if introspection is not available, this Lua interface table
 can be manually specified and provided directly as the fourth
-parameter instead of a string. This way, `lsdb_proxy` can be used also
+parameter instead of a string. This way, `lsdb.proxy` can be used also
 without introspection.
 
 **Example**

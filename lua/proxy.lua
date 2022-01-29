@@ -2,12 +2,7 @@
 -- Proxy: client convenience object
 --
 
-
-if tonumber(_VERSION:match('Lua (%d%.%d)')) < 5.3 then
-   require("compat53")
-end
-
-local lsdb = require("lsdbus")
+local core = require("lsdbus.core")
 
 local fmt = string.format
 local concat = table.concat
@@ -205,7 +200,7 @@ function proxy.error(_, err, msg) error(fmt("%s: %s", err, msg)) end
 function proxy.introspect(bus, srv, obj)
    local ret, xml = bus:call(srv, obj, introspect_if, 'Introspect')
    if not ret then proxy.error(nil, xml[1], fmt("failed to introspect %s, %s: %s", srv, obj, xml[2])) end
-   return lsdb.xml_fromstr(xml)
+   return core.xml_fromstr(xml)
 end
 
 function proxy:new(bus, srv, obj, intf)

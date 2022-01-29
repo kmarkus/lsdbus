@@ -30,14 +30,15 @@ set(LSDBUS_SRCS
 )
 
 set(LSDBUS_INST_DIR
-  ${CMAKE_INSTALL_PREFIX}/lib/lua/${LUA_VERSION_MAJOR}.${LUA_VERSION_MINOR}/)
+  ${CMAKE_INSTALL_PREFIX}/lib/lua/${LUA_VERSION_MAJOR}.${LUA_VERSION_MINOR}/lsdbus/)
 
-add_library(lsdbus SHARED ${LSDBUS_SRCS})
-target_compile_options(lsdbus PRIVATE -Wall -Wextra)
-target_include_directories(lsdbus PRIVATE ${LUA_INCLUDE_DIR})
-target_link_libraries(lsdbus ${LUA_LIBRARIES} ${SYSTEMD_LIBRARIES} ${MXML_LIBRARIES} )
-set_target_properties(lsdbus PROPERTIES PREFIX "")
-install(TARGETS lsdbus LIBRARY DESTINATION ${LSDBUS_INST_DIR})
+add_library(core SHARED ${LSDBUS_SRCS})
+target_compile_options(core PRIVATE -Wall -Wextra)
+target_include_directories(core PRIVATE ${LUA_INCLUDE_DIR})
+target_link_libraries(core ${LUA_LIBRARIES} ${SYSTEMD_LIBRARIES} ${MXML_LIBRARIES} )
+set_target_properties(core PROPERTIES PREFIX "")
+install(TARGETS core LIBRARY DESTINATION ${LSDBUS_INST_DIR})
 
-install(FILES lua/lsdbus_proxy.lua DESTINATION
-  ${CMAKE_INSTALL_PREFIX}/share/lua/${LUA_VERSION_MAJOR}.${LUA_VERSION_MINOR}/)
+install(FILES lua/init.lua lua/proxy.lua lua/server.lua DESTINATION
+  ${CMAKE_INSTALL_PREFIX}/share/lua/${LUA_VERSION_MAJOR}.${LUA_VERSION_MINOR}/lsdbus/
+  )
