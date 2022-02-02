@@ -38,7 +38,8 @@ int push_sd_bus_error(lua_State* L, const sd_bus_error* err);
 int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos);
 int msg_tolua(lua_State *L, sd_bus_message* m);
 
-void evl_loop(lua_State *L, sd_bus *bus);
+int evl_loop(lua_State *L);
+int evl_run(lua_State *L);
 int evl_exit(lua_State *L);
 void evl_cleanup(sd_bus *bus);
 int evl_add_signal(lua_State *L);

@@ -3,9 +3,11 @@
 --
 
 local core = require("lsdbus.core")
+local err = require("lsdbus.error")
+local common = require("lsdbus.common")
 
+local met2its, met2ots = common.met2its, common.met2ots
 local fmt = string.format
-local concat = table.concat
 local unpack = table.unpack or unpack
 
 local prop_if = 'org.freedesktop.DBus.Properties'
@@ -13,13 +15,6 @@ local peer_if = 'org.freedesktop.DBus.Peer'
 local introspect_if = 'org.freedesktop.DBus.Introspectable'
 
 local proxy = {}
-
-local err = {
-   UNKNOWN_INTERFACE = "org.freedesktop.DBus.Error.UnknownInterface",
-   UNKNOWN_METHOD =    "org.freedesktop.DBus.Error.UnknownMethod",
-   UNKNOWN_PROPERTY = "org.freedesktop.DBus.Error.UnknownProperty",
-   INVALID_ARGS =      "org.freedesktop.DBus.Error.InvalidArgs",
-}
 
 --[[
 -- example interface description
@@ -43,28 +38,6 @@ local node = {
    }
 }
 --]]
-
-local function met2its(mtab)
-   local i = {}
-   for _,a in ipairs(mtab or {}) do
-      if a.direction=='in' then i[#i+1] = a.type end
-   end
-   return concat(i)
-end
-
-local function met2ots(mtab)
-   local o = {}
-   for _,a in ipairs(mtab or {}) do
-      if a.direction=='out' then o[#o+1] = a.type end
-   end
-   return concat(o)
-end
-
-local function sig2ts(stab)
-   local s = {}
-   for _,a in ipairs(stab or {}) do s[#s+1] = a.type end
-   return concat(s)
-end
 
 -- lowlevel plumbing method
 function proxy:xcall(i, m, ts, ...)
@@ -173,6 +146,8 @@ end
 
 function proxy:__newindex(k, v) self:Set(k, v) end
 
+function proxy.__index(p, k) return proxy[k] or proxy.Get(p, k) end
+
 function proxy:__tostring()
    local res = {}
    res[#res+1] = fmt("srv: %s, obj: %s, intf: %s", self.srv, self.obj, self.intf.name)
@@ -189,7 +164,7 @@ function proxy:__tostring()
 
    res[#res+1] = "Signals:"
    for n,s in pairs(self.intf.signals) do
-      res[#res+1] = fmt("  %s: %s", n, sig2ts(s))
+      res[#res+1] = fmt("  %s: %s", n, core.sig2ts(s))
    end
 
    return table.concat(res, "\n")
@@ -223,7 +198,6 @@ function proxy:new(bus, srv, obj, intf)
 
    local o = { bus=bus, srv=srv, obj=obj, intf=intf }
    setmetatable(o, self)
-   self.__index = function (p, k) return self[k] or proxy.Get(p, k) end
    return o
 end
 

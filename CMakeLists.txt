@@ -39,6 +39,11 @@ target_link_libraries(core ${LUA_LIBRARIES} ${SYSTEMD_LIBRARIES} ${MXML_LIBRARIE
 set_target_properties(core PROPERTIES PREFIX "")
 install(TARGETS core LIBRARY DESTINATION ${LSDBUS_INST_DIR})
 
-install(FILES lua/init.lua lua/proxy.lua lua/server.lua DESTINATION
-  ${CMAKE_INSTALL_PREFIX}/share/lua/${LUA_VERSION_MAJOR}.${LUA_VERSION_MINOR}/lsdbus/
+install(FILES
+  lua/init.lua
+  lua/proxy.lua
+  lua/server.lua
+  lua/common.lua
+  lua/error.lua
+  DESTINATION ${CMAKE_INSTALL_PREFIX}/share/lua/${LUA_VERSION_MAJOR}.${LUA_VERSION_MINOR}/lsdbus/
   )

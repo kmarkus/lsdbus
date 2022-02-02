@@ -282,13 +282,6 @@ out:
 	return ret;
 }
 
-static int lsdbus_loop(lua_State *L)
-{
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
-	evl_loop(L, b);
-	return 0;
-}
-
 static int lsdbus_bus_request_name(lua_State *L)
 {
 	int ret;
@@ -379,7 +372,8 @@ static const luaL_Reg lsdbus_bus_m [] = {
 	{ "emit_properties_changed", lsdbus_emit_prop_changed },
 	{ "emit_signal", lsdbus_emit_signal },
 	{ "context", lsdbus_context },
-	{ "loop", lsdbus_loop },
+	{ "loop", evl_loop },
+	{ "run", evl_run },
 	{ "exit_loop", evl_exit },
 	{ "add_signal", evl_add_signal },
 	{ "add_periodic", evl_add_periodic },

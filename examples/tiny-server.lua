@@ -14,7 +14,7 @@
 
 local lsdb = require("lsdbus")
 
-local b
+local b, srv
 local greeting = "Hello"
 local cnt = 0
 
@@ -28,6 +28,7 @@ local demo_if = {
 	    local msg = greeting.." "..what
 	    print(msg)
 	    cnt = cnt + 1
+	    srv:emit('Yell', cnt, what)
 	    return msg
 	 end
       },
@@ -64,5 +65,5 @@ local demo_if = {
 
 b = lsdb.open('user')
 b:request_name("lsdbus.demo")
-b:add_object_vtable("/", demo_if)
+srv = lsdb.server:new(b, "/", demo_if)
 b:loop()

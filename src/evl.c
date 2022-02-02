@@ -67,15 +67,36 @@ void evl_cleanup(sd_bus *bus)
 		sd_event_unref(loop);
 }
 
-void evl_loop(lua_State *L, sd_bus *bus)
+int evl_loop(lua_State *L)
 {
 	int ret;
-	sd_event *loop = evl_get(L, bus);
+	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_event *loop = evl_get(L, b);
 
 	ret = sd_event_loop(loop);
 
 	if(ret<0)
 		luaL_error(L, "sd_event_loop exited with error %s", strerror(-ret));
+
+	return 0;
+}
+
+int evl_run(lua_State *L)
+{
+	int ret;
+	uint64_t usec;
+
+	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_event *loop = evl_get(L, b);
+
+	usec = luaL_optinteger(L, 2, 0);
+
+	ret = sd_event_run(loop, usec);
+
+	if(ret<0)
+		luaL_error(L, "sd_event_run exited with error %s", strerror(-ret));
+
+	return 0;
 }
 
 /* call sd_event_exit */

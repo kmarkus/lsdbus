@@ -7,5 +7,6 @@ local lsdbus = require "lsdbus.core"
 
 lsdbus.proxy = require("lsdbus.proxy")
 lsdbus.server = require("lsdbus.server")
+lsdbus.error = require("lsdbus.error")
 
 return lsdbus

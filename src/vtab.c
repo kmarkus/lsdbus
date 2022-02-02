@@ -279,26 +279,16 @@ static void vtable_resize(lua_State *L, sd_bus_vtable **vtp, int i)
 	*vtp = vt;
 }
 
-/* resize ptr but free it if it fails */
-void* realloc2(char**ptr, size_t size)
-{
-	void *tmp = realloc(*ptr, size);
-	if (tmp==NULL) {
-		dbg("realloc2 failed");
-		free(*ptr);
-	}
-	return tmp;
-}
-
-/* like lua_getfield, but expects the value to be a string whose value
- * is returned
- * WARNING: the returned string is only valid as long as
- * the string value stored in the table exists!
+/* like lua_getfield, but expects the value to be a string of which a
+ * copy is returned. The memory must be freed by the caller. In case
+ * of error NULL is returned and an error is pushed on the stack.
  */
-const char* lua_getstrfield(lua_State *L, int index,
+char* lua_getstrfield(lua_State *L, int index,
 		      const char* field, size_t* len, const char* member)
 {
-	const char *res;
+	size_t l;
+	char *res;
+	const char *tmp;
 
 	int typ = lua_getfield(L, index, field);
 
@@ -308,49 +298,43 @@ const char* lua_getstrfield(lua_State *L, int index,
 		return NULL;
 	}
 
-	res = lua_tolstring(L, -1, len);
+	tmp = lua_tolstring(L, -1, &l);
 	lua_pop(L, 1);
+
+	dbg("%s: l: %u, s: %s", __func__, l, tmp);
+
+	res = calloc(1, l+1);
+
+	if (res == NULL) {
+		lua_pushfstring(L, "%s: failed to alloc memory for field %s value", member, field);
+		return NULL;
+	}
+
+	dbg("res: %p", res);
+	memcpy(res, tmp, l);
+	if (len != NULL)
+		*len = l;
+
+	dbg("%s: s: %s", __func__, res);
 	return res;
 }
 
 static int vtable_add_signal(lua_State *L, sd_bus_vtable *vt, int slotref)
 {
-	int ret=-1, typ, sig_len=0, names_len=0;
 	char *sig=NULL, *names=NULL, *member = NULL;
 
-	size_t num_args = lua_rawlen(L, 6);
-
-	member = strdup(lua_tostring(L, 5));
-
-	for (unsigned int i=1; i<=num_args; i++) {
-		const char *name, *type;
-		size_t name_len, type_len;
-
-		typ = lua_rawgeti(L, -1, i);
-		if (typ != LUA_TTABLE) {
-			lua_pushfstring(L, "signal %s: expected arg table but got %s",
-					member, lua_typename(L, typ));
-			goto out_free;
-		}
-
-		name = lua_getstrfield(L, -1, "name", &name_len, member);
-		type = lua_getstrfield(L, -1, "type", &type_len, member);
-
-		sig = realloc2(&sig, sig_len + type_len + 1);
-		if (sig == NULL) goto alloc_failure;
-		strcpy(sig + sig_len, type);
-		sig_len += type_len;
-
-		names = realloc2(&names, names_len + name_len + 1);
-		if (names==NULL) goto alloc_failure;
-		strcpy(names + names_len, name);
-		names_len += name_len + 1; /* include '\0' */
-
-		lua_pop(L, 1); /* argtab */
+	if ((member = strdup(lua_tostring(L, 5))) == NULL) {
+		lua_pushfstring(L, "failed to allocate memory for signal member");
+		goto fail;
 	}
 
-	names = realloc2(&names, names_len+1);
-	names[names_len] = '\0';
+	dbg("adding signal %s", member);
+
+	if ((sig = lua_getstrfield(L, 6, "sig", NULL, member)) == NULL)
+		goto fail;
+
+	if ((names = lua_getstrfield(L, 6, "names", NULL, member)) == NULL)
+		goto fail;
 
 	*vt = (sd_bus_vtable) SD_BUS_SIGNAL_WITH_NAMES(member, sig, names, 0);
 
@@ -364,17 +348,14 @@ static int vtable_add_signal(lua_State *L, sd_bus_vtable *vt, int slotref)
 	lua_pop(L, 1);                          /* pop slottab */
 
 	/* all ok */
-	ret = 0;
-	goto out;
+	lua_settop(L, 6);
+	return 0;
 
-alloc_failure:
-	lua_pushfstring(L, "vtable allocation failed");
-out_free:
+fail:
+	free(member);
 	free(sig);
 	free(names);
-out:
-	lua_settop(L, 6);
-	return ret;
+	return -1;
 }
 
 /**
@@ -384,15 +365,25 @@ out:
  */
 static int vtable_add_property(lua_State *L, sd_bus_vtable *vt, int slotref)
 {
-	int ret=-1, typ;
-	const char* access, *type;
+	int typ;
+	char *type, *member;
+	const char *access;
 
 	sd_bus_property_get_t getter = NULL;
 	sd_bus_property_set_t setter = NULL;
 
-	const char *member = strdup(lua_tostring(L, 5));
+	if ((member = strdup(lua_tostring(L, 5))) == NULL) {
+		lua_pushfstring(L, "failed to allocate memory for property member");
+		goto fail;
+	}
 
-	access = lua_getstrfield(L, 6,	"access", NULL, member);
+	if ((typ = lua_getfield(L, 6, "access")) != LUA_TSTRING) {
+		lua_pushfstring(L, "%s: invalid access, expected string, got %s",
+				member,	lua_typename(L, typ));
+		goto fail;
+	}
+	access = lua_tostring(L, -1);
+	lua_pop(L, 1);
 
 	if(!strcmp(access, "read")) {
 		getter = prop_get_handler;
@@ -403,7 +394,7 @@ static int vtable_add_property(lua_State *L, sd_bus_vtable *vt, int slotref)
 		setter = prop_set_handler;
 	} else {
 		lua_pushfstring(L, "%s: invalid access %s", member, access);
-		goto out;
+		goto fail;
 	}
 
 	type = lua_getstrfield(L, 6, "type", NULL, member);
@@ -422,7 +413,7 @@ static int vtable_add_property(lua_State *L, sd_bus_vtable *vt, int slotref)
 		if (typ != LUA_TFUNCTION) {
 			lua_pushfstring(L, "%s: invalid get, expected function, got %s",
 					member,	lua_typename(L, typ));
-			goto out;
+			goto fail;
 		}
 
 		lua_rawseti(L, -2, 2);                   /* ptab[2] = get */
@@ -434,7 +425,7 @@ static int vtable_add_property(lua_State *L, sd_bus_vtable *vt, int slotref)
 		if (typ != LUA_TFUNCTION) {
 			lua_pushfstring(L, "%s: invalid set, expected function, got %s",
 					member,	lua_typename(L, typ));
-			goto out;
+			goto fail;
 		}
 
 		lua_rawseti(L, -2, 3);			/* ptab[3] = set */
@@ -443,10 +434,10 @@ static int vtable_add_property(lua_State *L, sd_bus_vtable *vt, int slotref)
 	dbg("adding property %s (%s)", member, access);
 
 	if(!setter) {
-		*vt = (sd_bus_vtable) SD_BUS_PROPERTY( member, strdup(type), getter, 0,
+		*vt = (sd_bus_vtable) SD_BUS_PROPERTY( member, type, getter, 0,
 						       SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE);
 	} else {
-		*vt = (sd_bus_vtable) SD_BUS_WRITABLE_PROPERTY( member, strdup(type), getter, setter, 0,
+		*vt = (sd_bus_vtable) SD_BUS_WRITABLE_PROPERTY( member, type, getter, setter, 0,
 								SD_BUS_VTABLE_UNPRIVILEGED |
 								SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE);
 	}
@@ -456,11 +447,12 @@ static int vtable_add_property(lua_State *L, sd_bus_vtable *vt, int slotref)
 	lua_pop(L, 1);                              /* pop slottab */
 
 	/* all ok */
-	ret = 0;
-
-out:
 	lua_settop(L, 6);
-	return ret;
+	return 0;
+fail:
+	free(member);
+	free(type);
+	return -1;
 }
 
 /**
@@ -470,98 +462,27 @@ out:
  */
 static int vtable_add_method(lua_State *L, sd_bus_vtable *vt, int slotref)
 {
-	int ret=-1, typ;
-	char *sig=NULL, *res=NULL, *in_names=NULL, *out_names=NULL;
-	size_t sig_len = 0, res_len = 0, in_names_len=0, out_names_len=0;
+	int typ;
+	char *member=NULL, *sig=NULL, *res=NULL, *names=NULL;
 
-	const char *member = lua_tostring(L, 5);
+	if ((member = strdup(lua_tostring(L, 5))) == NULL) {
+		lua_pushfstring(L, "failed to allocate memory for method member");
+		goto fail;
+	}
+
 	dbg("adding method %s", member);
 
-	size_t num_args = lua_rawlen(L, 6);
+	if ((sig = lua_getstrfield(L, 6, "sig", NULL, member)) == NULL)
+		goto fail;
 
-	for (unsigned int i=1; i<=num_args; i++) {
-		size_t name_len, type_len;
-		const char *dir, *name, *type;
+	if ((res = lua_getstrfield(L, 6, "res", NULL, member)) == NULL)
+		goto fail;
 
-		/* push the the #i arg table on the stack { direction='in', name="foo", type="x" } */
-		typ = lua_rawgeti(L, -1, i);
-		if (typ != LUA_TTABLE) {
-			lua_pushfstring(L, "method %s: expected table but got %s", member, lua_typename(L, typ));
-			goto out_free;
-		}
+	if ((names = lua_getstrfield(L, 6, "names", NULL, member)) == NULL)
+		goto fail;
 
-		/* direction */
-		typ = lua_getfield(L, -1, "direction");
-		if (typ != LUA_TSTRING) {
-			lua_pushfstring(L, "method %s: arg direction not a string but %s", member, lua_typename(L, typ));
-			goto out_free;
-		}
-		dir = lua_tostring(L, -1);
-
-		/* argument name */
-		typ = lua_getfield(L, -2, "name");
-		if (typ != LUA_TSTRING) {
-			lua_pushfstring(L, "method %s: arg name not a string but %s", member, lua_typename(L, typ));
-			goto out_free;
-		}
-		name = lua_tolstring(L, -1, &name_len);
-
-		/* type */
-		typ = lua_getfield(L, -3, "type");
-		if (typ != LUA_TSTRING) {
-			lua_pushfstring(L, "method %s: arg type not a string but %s", member, lua_typename(L, typ));
-			goto out_free;
-		}
-		type = lua_tolstring(L, -1, &type_len);
-
-		/* construct in/out typestr and \0 separeted parameter names */
-		if (strcmp(dir,	"in") == 0) {
-			dbg("  added in arg %s (%s)", name, type);
-			sig = realloc2(&sig, sig_len + type_len + 1);
-			if (sig == NULL) goto alloc_failure;
-			strcpy(sig + sig_len, type);
-			sig_len += type_len;
-
-			in_names = realloc2(&in_names, in_names_len + name_len + 1);
-			if (in_names==NULL) goto alloc_failure;
-			strcpy(in_names + in_names_len, name);
-			in_names_len +=	name_len + 1; /* include '\0' */
-
-		} else if (strcmp(dir,	"out") == 0) {
-			dbg("  added out arg %s (%s)", name, type);
-			res = realloc2(&res, res_len + type_len + 1);
-			if (res==NULL) goto alloc_failure;
-			strcpy(res + res_len, type);
-			res_len += type_len;
-
-			out_names = realloc2(&out_names, out_names_len + name_len + 1);
-			if (out_names==NULL) goto alloc_failure;
-			strcpy(out_names + out_names_len, name);
-			out_names_len += name_len + 1; /* include '\0' */
-		} else {
-			lua_pushfstring(L, "method %s: invalid direction %s", member, dir);
-			goto out_free;
-		}
-
-		/* pop type, name, direction and argtab */
-		lua_pop(L, 4);
-	}
-
-	/* append out_names to in_names and free the former */
-	dbg("  in_names_len: %zu, out_names_len: %zu", in_names_len, out_names_len);
-	if (in_names_len + out_names_len) {
-		in_names = realloc2(&in_names, in_names_len+out_names_len+1); /* +1 is for an extra \0 */
-		if (in_names==NULL) goto alloc_failure;
-		memcpy(in_names+in_names_len, out_names, out_names_len);
-		in_names[in_names_len+out_names_len]='\0';
-		free(out_names);
-		out_names = NULL;
-	}
-
-	*vt = (sd_bus_vtable) SD_BUS_METHOD(
-		strdup(member), sig, res, method_handler, SD_BUS_VTABLE_UNPRIVILEGED);
-
-	vt->x.method.names = in_names;
+	*vt = (sd_bus_vtable) SD_BUS_METHOD(member, sig, res, method_handler, SD_BUS_VTABLE_UNPRIVILEGED);
+	vt->x.method.names = names;
 
 	/* store information in slottab */
 	lua_rawgeti(L, LUA_REGISTRYINDEX, slotref); /* slottab @ 7 */
@@ -578,27 +499,23 @@ static int vtable_add_method(lua_State *L, sd_bus_vtable *vt, int slotref)
 
 	if (typ != LUA_TFUNCTION) {
 		dbg("method %s: invalid handler, expected function, got %s",
-		    member,	lua_typename(L, typ));
+		    member, lua_typename(L, typ));
 		lua_pushfstring(L, "method %s: invalid handler, expected function, got %s",
-				member,	lua_typename(L, typ));
-		goto out; /* cleanup via vtable_free */
+				member, lua_typename(L, typ));
+		goto fail;
 	}
 	lua_rawseti(L, -2, 3);                      /* mtab[3] = handler */
 	lua_rawset(L, 7);                           /* slottab[m#member] = mtab */
 	lua_pop(L, 1);                              /* pop slottab */
 
-	ret = 0;
-	goto out;
+	return 0;
 
-alloc_failure:
-	lua_pushfstring(L, "vtable allocation failed");
-out_free:
+fail:
+	free(member);
+	free(names);
 	free(sig);
 	free(res);
-	free(in_names);
-	free(out_names);
-out:
-	return ret;
+	return -1;
 }
 
 /* create and populate a vtable from the equivalent Lua table at the
@@ -637,16 +554,15 @@ int lsdbus_add_object_vtable(lua_State *L)
 
 	lua_pushnil(L);
 	while (lua_next(L, 4) != 0) {
-
 		if(lua_type(L, -1) != LUA_TTABLE) {
 			lua_pushfstring(L, "method %s: expected table but got %s",
 					lua_tostring(L, -2), lua_typename(L, ret));
 			goto fail;
 		}
-
 		vtable_resize(L, &vt, ++vt_len);
 		if (vtable_add_method(L, &vt[vt_len], slotref) != 0)
 			goto fail;
+
 		lua_pop(L, 1); /* pop method table */
 	}
 

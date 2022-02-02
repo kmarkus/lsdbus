@@ -1,6 +1,6 @@
 local u = require("utils")
 local lsdb = require("lsdbus")
-local b = lsdb.open('default_system')
+local b = lsdb.open('user')
 
 local function exit(sig)
    print("exiting on", sig)
