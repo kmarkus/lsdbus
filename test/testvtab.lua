@@ -10,29 +10,29 @@ function TestVtab:setup()
 end
 
 function TestVtab:TestRegObjInvalidVtab()
-   local function test1() b:add_object_vtable("/", {}) end
-   local function test2() b:add_object_vtable("/", { name=33 }) end
-   local function test3() b:add_object_vtable("/", { name="a.b", methods="garg" }) end
-   local function test4() b:add_object_vtable("/", { name="a.b", methods={ frub=0} }) end
-   local function test5() b:add_object_vtable("/", { name="a.b", methods={ frub={}} }) end
-   local function test6() b:add_object_vtable(
+   local function test1() lsdb.server:new(b, "/", {}) end
+   local function test2() lsdb.server:new(b, "/", { name=33 }) end
+   local function test3() lsdb.server:new(b, "/", { name="a.b", methods="garg" }) end
+   local function test4() lsdb.server:new(b, "/", { name="a.b", methods={ frub=0} }) end
+   local function test5() lsdb.server:new(b, "/", { name="a.b", methods={ frub={}} }) end
+   local function test6() lsdb.server:new(b,
 	 "/", { name="a.b", methods={ frub={ handler=function() end, {direction={}}}} }) end
-   local function test7() b:add_object_vtable(
+   local function test7() lsdb.server:new(b,
 	 "/", { name="a.b", methods={ frub={ handler=function() end, {direction='in', name=true}}} }) end
-   local function test8() b:add_object_vtable(
+   local function test8() lsdb.server:new(b,
 	 "/", { name="a.b", methods={ frub={ handler=function() end, {direction='in', name='foo', type=true}}} }) end
-   local function test9() b:add_object_vtable(
+   local function test9() lsdb.server:new(b,
 	 "/", { name="a.b", methods={ frub={ handler=function() end, {direction='pony', name='foo', type='i'}}} }) end
 
-   lu.assertErrorMsgContains("name: expected (interface) string but got nil", test1)
-   lu.assertErrorMsgContains("name: expected (interface) string but got number", test2)
-   lu.assertErrorMsgContains("methods: expected table but got string", test3)
-   lu.assertErrorMsgContains("method frub: expected table but got table", test4)
-   lu.assertErrorMsgContains("method frub: invalid handler, expected function, got nil", test5)
-   lu.assertErrorMsgContains("method frub: arg direction not a string but table", test6)
-   lu.assertErrorMsgContains("method frub: arg name not a string but boolean", test7)
-   lu.assertErrorMsgContains("method frub: arg type not a string but boolean", test8)
-   lu.assertErrorMsgContains("method frub: invalid direction pony", test9)
+   lu.assertErrorMsgContains("invalid name: expected string, got nil", test1)
+   lu.assertErrorMsgContains("invalid name: expected string, got number", test2)
+   lu.assertErrorMsgContains("invalid methods: expected table, got string", test3)
+   lu.assertErrorMsgContains("method frub: expected table, got number", test4)
+   lu.assertErrorMsgContains("method frub: invalid handler: expected function, got nil", test5)
+   lu.assertErrorMsgContains("method frub, arg 1: invalid direction: expected string, got table", test6)
+   lu.assertErrorMsgContains("method frub, arg 1: invalid name: expected string, got boolean", test7)
+   lu.assertErrorMsgContains("method frub: arg 1: invalid type: expected string, got boolean", test8)
+   lu.assertErrorMsgContains("method frub, arg 1: invalid direction pony", test9)
 end
 
 
@@ -87,10 +87,10 @@ function TestVtab:TestRegObjValidVtab()
 	 },
       }
    }
-   b:add_object_vtable("/", intf)
-   b:add_object_vtable("/", { name="a.b.c" })
-   b:add_object_vtable("/", { name="a.b.c", methods={}, })
-   b:add_object_vtable("/", { name="a.b.c", methods={ ick={handler=function() end}}, })
+   lsdb.server:new(b, "/", intf)
+   lsdb.server:new(b, "/", { name="a.b.c" })
+   lsdb.server:new(b, "/", { name="a.b.c", methods={}, })
+   lsdb.server:new(b, "/", { name="a.b.c", methods={ ick={handler=function() end}}, })
 end
 
 return TestVtab

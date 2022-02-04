@@ -9,6 +9,7 @@ local u = require("utils")
 
 local b
 local bar
+local vt
 
 local interface = {
    name="lsdbus.test.testintf0",
@@ -119,5 +120,5 @@ local interface = {
 
 b = lsdb.open('user')
 b:request_name("lsdbus.test")
-b:add_object_vtable("/", interface)
+vt = lsdb.server:new(b, "/", interface)
 b:loop()
