@@ -179,7 +179,6 @@ function proxy.introspect(bus, srv, obj)
 end
 
 function proxy:new(bus, srv, obj, intf)
-
    if type(intf) == 'string' then
       local node = proxy.introspect(bus, srv, obj)
       for _,i in ipairs(node) do
@@ -190,6 +189,8 @@ function proxy:new(bus, srv, obj, intf)
       end
       proxy.error(nil, err.UNKNOWN_INTERFACE, fmt("unkown interface %s on %s, %s", intf, srv, obj))
    end
+
+   common.check_intf(intf)
 
    ::continue::
    intf.methods = intf.methods or {}

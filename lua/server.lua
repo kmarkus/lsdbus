@@ -10,7 +10,10 @@ function srv.__index(_, k)
    return srv[k]
 end
 
+-- create the compact vtab format required by bus:add_object_vtable
 local function intf_to_vtab(intf)
+   common.check_intf(intf)
+
    local methods = {}
    for n,m in pairs(intf.methods or {}) do
       methods[n] = { sig=met2its(m), res=met2ots(m), names=met2names(m), handler=m.handler }
