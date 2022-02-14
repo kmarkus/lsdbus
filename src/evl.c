@@ -7,17 +7,17 @@
 
 #define REG_EVSRC_TABLE		"lsdbus.evsrc_table"
 
-static int evl_evsrc_tostring(lua_State *L)
+static int evsrc_tostring(lua_State *L)
 {
 	int ret;
 	const char *desc;
 	sd_event_source *evsrc = *((sd_event_source**) luaL_checkudata(L, -1, EVSRC_MT));
 	ret = sd_event_source_get_description(evsrc, &desc);
-	lua_pushfstring(L, "event_source: %s (%p)", (ret<0)?"":desc, evsrc);
+	lua_pushfstring(L, "event_source [%s] %p", (ret<0)?"unkown":desc, evsrc);
 	return 1;
 }
 
-static int evl_evsrc_set_enabled(lua_State *L)
+static int evsrc_set_enabled(lua_State *L)
 {
 	int ret, enabled;
 
@@ -32,11 +32,46 @@ static int evl_evsrc_set_enabled(lua_State *L)
 	return 0;
 }
 
+static int evsrc_gc(lua_State *L)
+{
+	int ret;
+	sd_event_source *evsrc = *((sd_event_source**) luaL_checkudata(L, 1, EVSRC_MT));
+
+	/* signal evsrc ? */
+	ret = sd_event_source_get_signal(evsrc);
+	if (ret>0) {
+		sigset_t ss;
+		sigemptyset(&ss);
+		sigaddset(&ss, ret);
+		sigprocmask(SIG_UNBLOCK, &ss, NULL);
+	}
+
+	sd_event_source_unref(evsrc);
+	return 0;
+}
+
+static int evsrc_unref(lua_State *L)
+{
+	evsrc_gc(L);
+	lua_newtable(L);
+	lua_setmetatable(L, -2);
+	return 0;
+}
+
+
+const luaL_Reg lsdbus_evsrc_m [] = {
+	{ "set_enabled", evsrc_set_enabled },
+	{ "unref", evsrc_unref },
+	{ "__tostring", evsrc_tostring },
+	/* { "__gc", evsrc_gc }, */
+	{ NULL, NULL }
+};
+
 
 /**
  * evl_get: return event loop (and create if it doesn't exist)
  */
-static sd_event* evl_get(lua_State *L, sd_bus *bus)
+sd_event* evl_get(lua_State *L, sd_bus *bus)
 {
 	int ret;
 	sd_event *loop;
@@ -195,6 +230,7 @@ int evl_add_signal(lua_State *L)
 
 	luaL_getmetatable(L, EVSRC_MT);
 	lua_setmetatable(L, -2);
+	sd_event_source_set_description(source, "unix_signal");
 
 	return 1;
 }
@@ -276,15 +312,10 @@ int evl_add_periodic(lua_State *L)
 
 	evsrcp = (sd_event_source**) lua_newuserdata(L, sizeof(sd_event_source*));
 	*evsrcp = evsrc;
+	sd_event_source_set_description(evsrc, "periodic");
 
 	luaL_getmetatable(L, EVSRC_MT);
 	lua_setmetatable(L, -2);
 
 	return 1;
 }
-
-const luaL_Reg lsdbus_evsrc_m [] = {
-	{ "set_enabled", evl_evsrc_set_enabled },
-	{ "__tostring", evl_evsrc_tostring },
-	{ NULL, NULL }
-};

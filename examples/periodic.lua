@@ -1,4 +1,3 @@
-local u = require("utils")
 local lsdb = require("lsdbus")
 
 local evsrc

@@ -29,8 +29,8 @@ end
 
 function srv:new(bus, path, intf)
    local vtab =	intf_to_vtab(intf)
-   bus:add_object_vtable(path, vtab)
-   local o = { bus=bus, path=path, intf=intf, vtab=vtab }
+   local slot = bus:add_object_vtable(path, vtab)
+   local o = { bus=bus, slot=slot, path=path, intf=intf, vtab=vtab }
    setmetatable(o, self)
    return o
 end

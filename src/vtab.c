@@ -661,7 +661,8 @@ reg_vtab:
 	regtab_store(L, REG_SLOT_TABLE, slot, -1);
 	luaL_unref(L, LUA_REGISTRYINDEX, slotref);
 
-	return 0;
+	sd_bus_slot_set_description(slot, "vtab");
+	return lsdbus_slot_push(L, slot);
 
 fail:
 	vtable_free(vt);
@@ -784,3 +785,44 @@ void vtable_cleanup(lua_State *L)
 	lua_pushnil(L);
 	lua_setfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE);
 }
+
+int lsdbus_slot_push(lua_State *L, sd_bus_slot *slot)
+{
+	sd_bus_slot **slotp = (sd_bus_slot**) lua_newuserdata(L, sizeof(sd_bus_slot*));
+	*slotp = slot;
+	luaL_getmetatable(L, SLOT_MT);
+	lua_setmetatable(L, -2);
+	return 1;
+}
+
+int lsdbus_slot_tostring(lua_State *L)
+{
+	const char *desc = NULL;
+	sd_bus_slot *slot = *((sd_bus_slot**) luaL_checkudata(L, 1, SLOT_MT));
+	sd_bus_slot_get_description(slot, &desc);
+	lua_pushfstring(L, "slot [%s] %p", (desc!=NULL)?desc:"unknown", slot);
+	return 1;
+}
+
+int lsdbus_slot_gc(lua_State *L)
+{
+	sd_bus_slot *slot = *((sd_bus_slot**) luaL_checkudata(L, 1, SLOT_MT));
+	sd_bus_slot_unref(slot);
+	return 0;
+}
+
+int lsdbus_slot_unref(lua_State *L)
+{
+	lsdbus_slot_gc(L);
+	/* invalidate slot userdata */
+	lua_newtable(L);
+	lua_setmetatable(L, -2);
+	return 0;
+}
+
+const luaL_Reg lsdbus_slot_m [] = {
+	{ "unref", lsdbus_slot_unref },
+	{ "__tostring", lsdbus_slot_tostring },
+	/* { "__gc", lsdbus_slot_gc }, */
+	{ NULL, NULL }
+};

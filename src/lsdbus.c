@@ -209,7 +209,8 @@ static int lsdbus_match_signal(lua_State *L)
 		luaL_error(L, "failed to install signal match rule: %s", strerror(-ret));
 
 	regtab_store(L,	REG_SLOT_TABLE, slot, 6);
-	return 0;
+	sd_bus_slot_set_description(slot, "match");
+	return lsdbus_slot_push(L, slot);
 }
 
 static int lsdbus_match(lua_State *L)
@@ -238,7 +239,8 @@ static int lsdbus_match(lua_State *L)
 
 	lua_pushvalue(L, 3);
 	lua_rawsetp(L, -2, slot);
-	return 0;
+	sd_bus_slot_set_description(slot, "match");
+	return lsdbus_slot_push(L, slot);
 }
 
 static int lsdbus_testmsg(lua_State *L)
@@ -317,8 +319,8 @@ static int lsdbus_bus_tostring(lua_State *L)
 static int lsdbus_bus_set_method_call_timeout(lua_State *L)
 {
 	int ret;
-	sd_bus *b = *((sd_bus**) lua_touserdata(L, -2));
-	uint64_t timeout = lua_tointeger(L, -1);
+	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	uint64_t timeout = lua_tointeger(L, 2);
 
 	ret = sd_bus_set_method_call_timeout(b,	timeout);
 
@@ -332,7 +334,7 @@ static int lsdbus_bus_get_method_call_timeout(lua_State *L)
 {
 	int ret;
 	uint64_t timeout;
-	sd_bus *b = *((sd_bus**) lua_touserdata(L, 1));
+	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
 
 	ret = sd_bus_get_method_call_timeout(b,	&timeout);
 
@@ -345,12 +347,10 @@ static int lsdbus_bus_get_method_call_timeout(lua_State *L)
 
 static int lsdbus_bus_gc(lua_State *L)
 {
-	sd_bus *b = *((sd_bus**) lua_touserdata(L, 1));
+	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
 	evl_cleanup(b);
 	vtable_cleanup(L);
-	sd_bus_flush(b);
-	sd_bus_close(b);
-	sd_bus_unref(b);
+	sd_bus_flush_close_unref(b);
 	return 0;
 }
 
@@ -395,6 +395,11 @@ int luaopen_lsdbus_core(lua_State *L)
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -1, "__index");
 	luaL_setfuncs(L, lsdbus_evsrc_m, 0);
+
+	luaL_newmetatable(L, SLOT_MT);
+	lua_pushvalue(L, -1);
+	lua_setfield(L, -1, "__index");
+	luaL_setfuncs(L, lsdbus_slot_m, 0);
 
 	luaL_newlib(L, lsdbus_f);
 	return 1;
