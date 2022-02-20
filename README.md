@@ -1,18 +1,13 @@
 # lsdbus
 
-The `lsdbus` module provides Lua bindings to the `sd_bus` D-Bus client
-library. This extension marries the two single greatest achievements
-of mankind: `Lua` and `D-Bus`.
-
-The goal is to provide a compact yet useful subset of the `sd_bus` and
-`sd_event` APIs to cover typical use-cases.
-
-*The `L` stands for 'likeable'.
+lsdbus is a simple to use D-Bus binding for Lua based on the sd-bus
+and sd-event APIs.
 
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
 **Table of Contents**
 
 - [Installing](#installing)
+- [Quickstart](#quickstart)
 - [Usage](#usage)
     - [Bus connection](#bus-connection)
     - [Type mapping](#type-mapping)
@@ -27,6 +22,14 @@ The goal is to provide a compact yet useful subset of the `sd_bus` and
         - [D-Bus signal matching and callbacks](#d-bus-signal-matching-and-callbacks)
         - [Periodic callbacks](#periodic-callbacks)
         - [Unix Signal callbacks](#unix-signal-callbacks)
+        - [Returning D-Bus errors](#returning-d-bus-errors)
+- [API](#api)
+    - [Functions](#functions)
+    - [Bus connection object](#bus-connection-object)
+    - [lsdbus.proxy](#lsdbusproxy)
+    - [lsdbus.server](#lsdbusserver)
+    - [slots](#slots)
+    - [event sources](#event-sources)
 - [Internals](#internals)
     - [Introspection](#introspection)
 - [License](#license)
@@ -37,14 +40,51 @@ The goal is to provide a compact yet useful subset of the `sd_bus` and
 
 ## Installing
 
-First, ensure that the correct packages are installed. For Debian
-based distributions:
+First, ensure that the correct packages are installed. For example:
 
 ```sh
-$ sudo apt-get install build-essential git cmake lua5.3 liblua5.3-dev libsystemd-dev libmxml-dev
+$ sudo apt-get install cmake lua5.3 liblua5.3-dev libsystemd-dev libmxml-dev
 ```
 
-To run the tests, install `lua-unit` or install it directly from here [2].
+To run the tests, install `lua-unit` or install it directly from here
+[2]. Then build via CMake:
+
+```sh
+$ cd lsdbus
+$ mkdir build && cd build
+$ cmake .. && make
+...
+$ sudo make install
+```
+
+## Quickstart
+
+**Server**
+
+```sh
+$ lua -l lsdbus
+Lua 5.3.6  Copyright (C) 1994-2020 Lua.org, PUC-Rio
+> b=lsdbus.open()
+> b:request_name("lsdbus.test")
+> intf = { name="lsdbus.testif", methods={ Hello={ handler=function() print("hi lsdbus!") end }}}
+> s = lsdbus.server:new(b, "/", intf)
+> b:loop()
+```
+
+**Client** (open a second terminal)
+
+```
+$ lua -l lsdbus
+Lua 5.3.6  Copyright (C) 1994-2020 Lua.org, PUC-Rio
+b = lsdbus.open()
+p = lsdbus.proxy:new(b, "lsdbus.test", '/', "lsdbus.testif")
+> p
+srv: lsdbus.test, obj: /, intf: lsdbus.testif
+Methods:
+  Hello () -> 
+> p('Hello')
+> p('Hello')
+```
 
 ## Usage
 
@@ -55,16 +95,6 @@ Before doing anything, it is necessary to connect to a bus:
 ```lua
 lsdb = require("lsdbus")
 b = lsdb.open()
-```
-
-`lsdb.open` accepts an optional string parameter to indicate which bus
-to open: `default`, `system`, `user`, `default_system`, `default_user`
-correspond function as described in `sd_bus_default(3)`.
-
-Optionally, a well-known name can be registered as follows:
-
-```lua
-b:request_name("foo.bar.myservice")
 ```
 
 ### Type mapping
@@ -105,7 +135,7 @@ it and converts it back to Lua (the example below uses the small
 | variant         | `v`                               | `{SPECIFIER, VALUE}` | `'v', {'i', 33 }`            | `33`                |
 | array           | `a`                               | `table` (array part) | `'ai', {1,2,3,9}`            | `{1,2,3,9}`         |
 | struct          | `(...)`                           | `table` (array part) | `'(ibs)', {3, false, "hey"}` | `{3, false, "hey"}` |
-| dictionary      | `a{...}`                          | `table` (dict part)  | `'a{si}', {a=1, b=2}`        | `{a=1, b=2}`        |  
+| dictionary      | `a{...}`                          | `table` (dict part)  | `'a{si}', {a=1, b=2}`        | `{a=1, b=2}`        |
 
 *Notes:*
 
@@ -119,8 +149,8 @@ it and converts it back to Lua (the example below uses the small
 There are two client APIs: the high level `lsdbus.proxy` API uses
 introspection to create a proxy object, that can be used to
 conveniently call methods or get/set properties. The plumbing API
-allows calling methods however more arguments (destination, path,
-interface, member, typestring and args) need to be provided.
+allows the same, however more arguments (destination, path, interface,
+member, typestring and args) need to be provided.
 
 #### lsdb.proxy
 
@@ -163,38 +193,8 @@ name as the first argument:
 > td('ListTimezones')
 ```
 
-Unlike the low-level `call` function, no D-Bus types need to be provided.
-
-**proxy methods**
-
-| Method                                         | Description                                           |
-|------------------------------------------------|-------------------------------------------------------|
-| `prxy = lsdbus.proxy:new(bus, srv, obj, intf)` | constructor                                           |
-| `prxy(method, arg0, ...)`                      | call a D-Bus method                                   |
-| `prxy:call(method, arg0, ...)`                 | same as above, long form                              |
-| `prxy:HasMethod(method)`                       | check if prxy has a method with the given name        |
-| `prxy:callt(method, ARGTAB)`                   | call a method with a table of arguments               |
-| `prxy:Get(name)`                               | get a property                                        |
-| `prxy.name`                                    | short form, same as previous                          |
-| `prxy:Set(name, value)`                        | set a property                                        |
-| `prxy.name = value`                            | short form for setting a property to value            |
-| `prxy:GetAll(filter)`                          | get all properties that match the optional filter     |
-| `prxy:SetAll(t)`                               | set all properties from a table                       |
-| `prxy:HasProperty(prop)`                       | check if prxy has a property of the given name        |
-| `prxy:Ping`                                    | call the `Ping` method on `org.freedesktop.DBus.Peer` |
-| `prxy:error(err, msg)`                         | error handler, override to customize behavior         |
-
-
-*Notes*
-
-- `callt` is a convenience method that can be used for methods with named
-  arguments: `b:callt{argA=2, argB="that"}`.
-- `GetAll` accepts a filter which can be either
-  1. a string [`read`|`readwrite`|`write`] describing the access mode
-  2. a filter function that accepts `(name, value, description)` and
-  returns `true` or `false` depending on whether the value shall be
-  included in the result or not.
-- see *Internals* about how `lsdbus.proxy` works.
+Unlike with the low-level `bus:call`, no D-Bus types need to be
+provided.
 
 #### plumbing API
 
@@ -325,11 +325,11 @@ For further information, take a look at the minimal example
 
 ```lua
 function callback(sender, path, interface, member, arg0...)
-	-- do something
+  -- do something
 end
 
-b:match_signal(sender, path, interface, member, callback)
-b:match(match_expr, callback)
+slot = bus:match_signal(sender, path, interface, member, callback)
+slot = bus:match(match_expr, callback)
 ```
 
 These correspond to `sd_bus_match_signal(3)` and `sd_bus_add_match(3)`
@@ -349,7 +349,7 @@ b:loop()
 
 ```lua
 local function callback()
-	-- do something
+  -- do something
 end
 
 evsrc = b:add_periodic(period, accuracy, callback)
@@ -367,12 +367,130 @@ See `examples/periodic.lua` for an example.
 
 ```
 local function callback(signal)
-	print("received signal " .. signal)
+  print("received signal " .. signal)
 end
 b:add_signal("SIGINT", callback)
 ```
 
 Currently supported are `SIGINT`, `SIGTERM`, `SIGUSR1`, `SIGUSR2`.
+
+#### Returning D-Bus errors
+
+D-Bus errors can be returned by raising a Lua error of the following
+form
+
+```Lua
+error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
+```
+
+## API
+
+### Functions
+
+| Functions             | Description                                      |
+|-----------------------|--------------------------------------------------|
+| `lsdbus.open(NAME)`   | open bus connection                              |
+| `lsdbus.xml_fromfile` | parse a D-Bus XML file and return as Lua table   |
+| `lsdbus.xml_fromstr`  | parse a D-Bus XML string and return as Lua table |
+
+### Bus connection object
+
+| Methods                                                              | Description                                  |
+|----------------------------------------------------------------------|----------------------------------------------|
+| `bus:request_name(NAME)`                                             | see `sd_bus_request_name(3)`                 |
+| `slot = bus:match_signal(sender, path, intf, member, callback)`      | see `sd_bus_add_match(3)`                    |
+| `slot = bus:match(match_expr, handler)`                              | see `sd_bus_add_match(3)`                    |
+| `bus:emit_properties_changed(propA, propB...)`                       | see `sd_bus_emit_properties_changed(3)`      |
+| `bus:emit_signal(path, intf, member, typestr, args...)`              | see `sd_bus_emit_signal(3)`                  |
+| `evsrc = bus:add_signal(SIGNAL)`                                     | see `sd_event_add_signal(3)`                 |
+| `evsrc = bus:add_periodic(period, accuracy, callback)`               | see `sd_event_add_time_relative(3)`          |
+| `bus:loop()`                                                         | see `sd_event_loop(3)`                       |
+| `bus:run(usec)`                                                      | see `sd_event_run(3)`                        |
+| `bus:exit_loop()`                                                    | see `sd_event_exit(3)`                       |
+| `table = bus:context()`                                              | see `sd_bus_message_set_destination(3)` etc. |
+| `number = bus:bus:get_method_call_timeout`                           | see `sd_bus_get_method_call_timeout(3)`      |
+| `bus:bus:set_method_call_timeout`                                    | see `sd_bus_set_method_call_timeout(3)`      |
+| `res = bus:testmsg(typestr, args...)`                                | lua->D-Bus->lua roundtrip test function      |
+| `ret, res... = bus:call(dest, path, intf, member, typestr, args...)` | plumbing, prefer lsdbus.proxy                |
+| `bus:add_object_vtable`                                              | plumbing, use lsdbus.server instead          |
+
+
+*Notes:*
+
+- `lsdb.open` accepts an optional string parameter to indicate which
+  bus to open: `default`, `system`, `user`, `default_system`,
+  `default_user` correspond function as described in
+  `sd_bus_default(3)`.  If not given, default is `'default'`
+
+- `evsrc` (event source) and `slot` objects are not garbage collected
+  but can be used to explicitely remove the respective interface or
+  callbacks (see below).
+
+- bus objects are garbage collected
+
+
+### lsdbus.proxy
+
+| Method                                         | Description                                           |
+|------------------------------------------------|-------------------------------------------------------|
+| `prxy = lsdbus.proxy:new(bus, srv, obj, intf)` | constructor                                           |
+| `prxy(method, arg0, ...)`                      | call a D-Bus method                                   |
+| `prxy:call(method, arg0, ...)`                 | same as above, long form                              |
+| `prxy:HasMethod(method)`                       | check if prxy has a method with the given name        |
+| `prxy:callt(method, ARGTAB)`                   | call a method with a table of arguments               |
+| `prxy:Get(name)`                               | get a properties value                                |
+| `prxy.name`                                    | short form, same as previous                          |
+| `prxy:Set(name, value)`                        | set a property                                        |
+| `prxy.name = value`                            | short form for setting a property to value            |
+| `prxy:GetAll(filter)`                          | get all properties that match the optional filter     |
+| `prxy:SetAll(t)`                               | set all properties from a table                       |
+| `prxy:HasProperty(prop)`                       | check if prxy has a property of the given name        |
+| `prxy:Ping`                                    | call the `Ping` method on `org.freedesktop.DBus.Peer` |
+| `prxy:error(err, msg)`                         | error handler, override to customize behavior         |
+
+*Notes*
+
+- `callt` is a convenience method that can be used for methods with named
+  arguments: `b:callt{argA=2, argB="that"}`.
+- `GetAll` accepts a filter which can be either
+  1. a string [`read`|`readwrite`|`write`] describing the access mode
+  2. a filter function that accepts `(name, value, description)` and
+  returns `true` or `false` depending on whether the value shall be
+  included in the result or not.
+- see *Internals* about how `lsdbus.proxy` works.
+
+### lsdbus.server
+
+| Method                                     | Description                                            |
+|--------------------------------------------|--------------------------------------------------------|
+| `srv = lsdbus.server:new(bus, path, intf)` | create a new obj with the given path and interface     |
+| `emit(signal, args...)`                    | emit a signal that is defined in the servers interface |
+| `error("dbus.error.name\|message")`        | return a D-Bus error and message from a callback       |
+
+*Notes*:
+
+- garbage collected (will unref vtable slot and cleanup resources)
+
+### slots
+
+| Method    | Description                               |
+|-----------|-------------------------------------------|
+| `unref()` | remove slot. calls `sd_bus_slot_unref(3)` |
+
+- Slots are not garbage collected.
+
+### event sources
+
+Corresponds to `sd_event_source`.
+
+| Method                 | Description                                                             |
+|------------------------|-------------------------------------------------------------------------|
+| `set_enabled(enabled)` | `enabled`: 0=OFF, 1=ON, -1 =ONESHOT. see sd_event_source_set_enabled(3) |
+| `unref()`              | remove event source. calls `sd_event_source_unref(3)`                   |
+
+*Notes*
+
+- Event sources are not garbage collected.
 
 ## Internals
 
@@ -427,9 +545,7 @@ Signals:
 LGPLv2. A portion of the lsdbus type conversion is based on code from
 systemd.
 
-
 ## References
 
 [1] https://github.com/bluebird75/luaunit.git  
 [2] https://github.com/kmarkus/uutils.git  
-
