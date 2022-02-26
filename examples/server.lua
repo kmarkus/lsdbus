@@ -86,7 +86,7 @@ local interface = {
 	 set=function(v)
 	    print(v)
 	    bar = v
-	    b:emit_properties_changed("/", "lsdbus.test.testintf0", "Bar", "Date")
+	    vt:emitPropertiesChanged("Bar", "Date")
 	 end
       },
       Date={
@@ -121,4 +121,6 @@ local interface = {
 b = lsdb.open('user')
 b:request_name("lsdbus.test")
 vt = lsdb.server:new(b, "/", interface)
+vt:emitAllPropertiesChanged(
+   function(p, _) if p=="Fail" then return false else return true end end)
 b:loop()

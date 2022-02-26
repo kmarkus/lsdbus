@@ -44,7 +44,7 @@ local demo_if = {
 	       error("org.freedesktop.DBus.Error.InvalidArgs|empty greeting not allowed")
 	    end
 	    greeting = v
-	    b:emit_properties_changed("/", "lsdbus.demo.demoif0", "Greeting")
+	    srv:emitPropertiesChanged("Greeting")
 	 end
       },
 
@@ -66,4 +66,5 @@ local demo_if = {
 b = lsdb.open('user')
 b:request_name("lsdbus.demo")
 srv = lsdb.server:new(b, "/", demo_if)
+srv:emitAllPropertiesChanged()
 b:loop()

@@ -43,4 +43,22 @@ function srv:emit(signal, ...)
    self.bus:emit_signal(self.path, self.intf.name, signal, sigtab.sig, ...)
 end
 
+function srv:emitPropertiesChanged(...)
+   self.bus:emit_properties_changed(self.path, self.intf.name, ...)
+end
+
+function srv:emitAllPropertiesChanged(filter)
+   local props = {}
+   local pred = filter or function() return true end
+
+   if type(pred) ~= 'function' then
+      error(fmt("invalid filter parameter type %s", filter))
+   end
+
+   for p,pt in pairs(self.intf.properties or {}) do
+      if pred(p, pt) then props[#props+1] = p end
+   end
+   self:emitPropertiesChanged(table.unpack(props))
+end
+
 return srv

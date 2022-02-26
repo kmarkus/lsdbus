@@ -408,9 +408,9 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
 | `bus:run(usec)`                                                      | see `sd_event_run(3)`                        |
 | `bus:exit_loop()`                                                    | see `sd_event_exit(3)`                       |
 | `table = bus:context()`                                              | see `sd_bus_message_set_destination(3)` etc. |
-| `number = bus:bus:get_method_call_timeout`                           | see `sd_bus_get_method_call_timeout(3)`      |
-| `bus:bus:set_method_call_timeout`                                    | see `sd_bus_set_method_call_timeout(3)`      |
-| `res = bus:testmsg(typestr, args...)`                                | lua->D-Bus->lua roundtrip test function      |
+| `number = bus:get_method_call_timeout`                               | see `sd_bus_get_method_call_timeout(3)`      |
+| `bus:set_method_call_timeout`                                        | see `sd_bus_set_method_call_timeout(3)`      |
+| `res = bus:testmsg(typestr, args...)`                                | test Lua->D-Bus->Lua message roundtrip       |
 | `ret, res... = bus:call(dest, path, intf, member, typestr, args...)` | plumbing, prefer lsdbus.proxy                |
 | `bus:add_object_vtable`                                              | plumbing, use lsdbus.server instead          |
 
@@ -461,14 +461,20 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
 
 ### lsdbus.server
 
-| Method                                     | Description                                            |
-|--------------------------------------------|--------------------------------------------------------|
-| `srv = lsdbus.server:new(bus, path, intf)` | create a new obj with the given path and interface     |
-| `emit(signal, args...)`                    | emit a signal that is defined in the servers interface |
-| `error("dbus.error.name\|message")`        | return a D-Bus error and message from a callback       |
+| Method                                     | Description                                                |
+|--------------------------------------------|------------------------------------------------------------|
+| `srv = lsdbus.server:new(bus, path, intf)` | create a new obj with the given path and interface         |
+| `emit(signal, args...)`                    | emit a signal that is defined in the servers interface     |
+| `emitPropertiesChanged(signal...)`         | emit a PropertiesChanged signal for one or more properties |
+| `emitAllPropertiesChanged(filter)`         | emit a PropertiesChanged signal for all properties         |
+| `error("dbus.error.name\|message")`        | return a D-Bus error and message from a callback           |
 
 *Notes*:
 
+- The `emitAllPropertiesChanged(filter)` takes an optional filter
+  function which accepts the property name and property table and
+  returns true or false depending on whether the property shall be
+  included in the `PropertiesChanged` signal not.
 - garbage collected (will unref vtable slot and cleanup resources)
 
 ### slots
