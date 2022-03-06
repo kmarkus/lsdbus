@@ -7,7 +7,7 @@ include(GNUInstallDirs)
 
 find_package(Lua REQUIRED)
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(SYSTEMD libsystemd>=236)
+pkg_check_modules(SYSTEMD libsystemd>=242)
 pkg_check_modules(MXML REQUIRED mxml)
 
 if(${LUA_VERSION_STRING} VERSION_LESS "5.3")
