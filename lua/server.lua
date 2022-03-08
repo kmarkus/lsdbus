@@ -56,7 +56,9 @@ function srv:emitAllPropertiesChanged(filter)
    end
 
    for p,pt in pairs(self.intf.properties or {}) do
-      if pred(p, pt) then props[#props+1] = p end
+      if pt.access ~= 'write' then
+	 if pred(p, pt) then props[#props+1] = p end
+      end
    end
    self:emitPropertiesChanged(table.unpack(props))
 end
