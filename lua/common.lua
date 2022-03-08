@@ -20,6 +20,10 @@ function M.met2ots(mtab)
 end
 
 function M.met2names(mtab)
+   local function concat2(tab, sep, lastsep)
+      if #tab == 0 then return "" end
+      return concat(tab, sep) .. lastsep
+   end
    local nin, nout = {}, {}
    for _,m in ipairs(mtab or {}) do
       if not m.name then error("missing argument name") end
@@ -29,7 +33,7 @@ function M.met2names(mtab)
 	 nout[#nout+1] = m.name
       end
    end
-   return concat(nin, '\0') .. '\0' .. concat(nout, '\0') .. '\0\0'
+   return concat2(nin, '\0', '\0') .. concat2(nout, '\0', '\0\0')
 end
 
 function M.signal2ts(stab)
