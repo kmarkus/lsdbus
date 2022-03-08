@@ -68,15 +68,15 @@ function proxy:callt(m, argtab)
       self:error(err.UNKNOWN_METHOD, fmt("callt: no method %s", m))
    end
    for n,a in ipairs(mtab) do
-      if a.direction == 'out' then goto continue end
-      if not a.name then
-	 self:error(err.INVALID_ARGS, fmt("callt: unnamed arg %i of method %s", n, m))
+      if a.direction ~= 'out' then
+	 if not a.name then
+	    self:error(err.INVALID_ARGS, fmt("callt: unnamed arg %i of method %s", n, m))
+	 end
+	 if argtab[a.name] == nil then
+	    self:error(err.INVALID_ARGS, fmt("callt: argument %s missing", a.name))
+	 end
+	 args[#args+1] = argtab[a.name]
       end
-      if argtab[a.name] == nil then
-	 self:error(err.INVALID_ARGS, fmt("callt: argument %s missing", a.name))
-      end
-      args[#args+1] = argtab[a.name]
-      ::continue::
    end
    return self:xcall(self.intf.name, m, met2its(mtab), unpack(args))
 end
@@ -179,20 +179,19 @@ function proxy.introspect(bus, srv, obj)
 end
 
 function proxy:new(bus, srv, obj, intf)
-   if type(intf) == 'string' then
+   local function introspect()
       local node = proxy.introspect(bus, srv, obj)
       for _,i in ipairs(node) do
 	 if i.name == intf then
 	    intf = i
-	    goto continue
+	    return
 	 end
       end
-      proxy.error(nil, err.UNKNOWN_INTERFACE, fmt("unkown interface %s on %s, %s", intf, srv, obj))
+      proxy.error(nil, err.UNKNOWN_INTERFACE, fmt("unknown interface %s on %s, %s", intf, srv, obj))
    end
 
-   common.check_intf(intf)
+   if type(intf) == 'string' then introspect() end
 
-   ::continue::
    intf.methods = intf.methods or {}
    intf.properties = intf.properties or {}
    intf.signals = intf.signals or {}
