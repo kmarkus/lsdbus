@@ -10,8 +10,10 @@
 #include "lua.h"
 #include "lauxlib.h"
 
-#if LUA_VERSION_NUM < 503
-# include "compat-5.3.h"
+#if LUA_VERSION_NUM == 501
+# include "lua5.1/compat-5.3.h"
+#elif LUA_VERSION_NUM == 502
+# include "lua5.2/compat-5.3.h"
 #endif
 
 #define DBUS_NAME_MAXLEN	255
