@@ -76,8 +76,8 @@ Lua 5.3.6  Copyright (C) 1994-2020 Lua.org, PUC-Rio
 ```
 $ lua -l lsdbus
 Lua 5.3.6  Copyright (C) 1994-2020 Lua.org, PUC-Rio
-b = lsdbus.open()
-p = lsdbus.proxy:new(b, "lsdbus.test", '/', "lsdbus.testif")
+> b = lsdbus.open()
+> p = lsdbus.proxy:new(b, "lsdbus.test", '/', "lsdbus.testif")
 > p
 srv: lsdbus.test, obj: /, intf: lsdbus.testif
 Methods:
