@@ -39,12 +39,15 @@ local node = {
 }
 --]]
 
+function proxy:error(err, msg)
+   error(fmt("%s: %s (%s, %s, %s)", err, msg, self.srv, self.obj, self.intf.name))
+end
+
 -- lowlevel plumbing method
 function proxy:xcall(i, m, ts, ...)
    local ret = { self.bus:call(self.srv, self.obj, i, m, ts, ...) }
    if not ret[1] then
-      self:error(ret[2][1], fmt("calling %s (%s) failed: %s (%s, %s, %s)",
-				m, ts, ret[2][2], self.srv, self.obj, i))
+      self:error(ret[2][1], fmt("calling %s(%s) failed: %s", m, ts, ret[2][2]))
    end
    return unpack(ret, 2)
 end
@@ -169,8 +172,6 @@ function proxy:__tostring()
 
    return table.concat(res, "\n")
 end
-
-function proxy.error(_, err, msg) error(fmt("%s: %s", err, msg)) end
 
 function proxy.introspect(bus, srv, obj)
    local ret, xml = bus:call(srv, obj, introspect_if, 'Introspect')
