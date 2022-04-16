@@ -478,7 +478,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 			int ltype = lua_type(L, stpos);
 
 			if (ltype != LUA_TTABLE) {
-				lua_pushfstring(L, "invalid type %s of arg %i, expected table",
+				lua_pushfstring(L, "invalid type %s of arg %I, expected table",
 						lua_typename(L,	ltype),	stpos);
 				return -EINVAL;
 			}
@@ -486,7 +486,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 			r = table_explode(L, stpos, s);
 
 			if (r != 2) {
-				lua_pushfstring(L, "invalid table at stpos %i", stpos);
+				lua_pushfstring(L, "invalid table at stpos %I", stpos);
 				return -EINVAL;
 			}
 
