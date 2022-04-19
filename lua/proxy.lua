@@ -63,6 +63,15 @@ end
 
 function proxy:__call(m, ...) return self:call(m, ...) end
 
+function proxy:call_async(m, cb, ...)
+   local mtab = self.intf.methods[m]
+   if not mtab then
+      self:error(err.UNKNOWN_METHOD, fmt("call_async: no method %s", m))
+   end
+   local its = met2its(mtab)
+   return self.bus:call_async(cb, self.srv, self.obj, self.intf.name, m, its, ...)
+end
+
 -- call with argument table
 function proxy:callt(m, argtab)
    local mtab = self.intf.methods[m]

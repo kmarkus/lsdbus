@@ -795,6 +795,23 @@ int lsdbus_slot_push(lua_State *L, sd_bus_slot *slot)
 	return 1;
 }
 
+int lsdbus_slot_gc(lua_State *L)
+{
+	sd_bus_slot *slot = *((sd_bus_slot**) luaL_checkudata(L, 1, SLOT_MT));
+	regtab_clear(L,	REG_SLOT_TABLE, slot);
+	sd_bus_slot_unref(slot);
+	return 0;
+}
+
+int lsdbus_slot_unref(lua_State *L)
+{
+	lsdbus_slot_gc(L);
+	/* invalidate slot userdata */
+	lua_pushnil(L);
+	lua_setmetatable(L, -2);
+	return 0;
+}
+
 int lsdbus_slot_tostring(lua_State *L)
 {
 	const char *desc = NULL;
@@ -804,25 +821,52 @@ int lsdbus_slot_tostring(lua_State *L)
 	return 1;
 }
 
-int lsdbus_slot_gc(lua_State *L)
-{
-	sd_bus_slot *slot = *((sd_bus_slot**) luaL_checkudata(L, 1, SLOT_MT));
-	sd_bus_slot_unref(slot);
-	return 0;
-}
-
-int lsdbus_slot_unref(lua_State *L)
-{
-	lsdbus_slot_gc(L);
-	/* invalidate slot userdata */
-	lua_newtable(L);
-	lua_setmetatable(L, -2);
-	return 0;
-}
 
 const luaL_Reg lsdbus_slot_m [] = {
 	{ "unref", lsdbus_slot_unref },
 	{ "__tostring", lsdbus_slot_tostring },
-	/* { "__gc", lsdbus_slot_gc }, */
+	{ NULL, NULL }
+};
+
+
+int lsdbus_gcslot_gc(lua_State *L)
+{
+	sd_bus_slot *slot = *((sd_bus_slot**) luaL_checkudata(L, 1, GCSLOT_MT));
+	regtab_clear(L,	REG_SLOT_TABLE, slot);
+	sd_bus_slot_unref(slot);
+	return 0;
+}
+
+int lsdbus_gcslot_push(lua_State *L, sd_bus_slot *slot)
+{
+	sd_bus_slot **slotp = (sd_bus_slot**) lua_newuserdata(L, sizeof(sd_bus_slot*));
+	*slotp = slot;
+	luaL_getmetatable(L, GCSLOT_MT);
+	lua_setmetatable(L, -2);
+	return 1;
+}
+
+int lsdbus_gcslot_unref(lua_State *L)
+{
+	lsdbus_gcslot_gc(L);
+	/* invalidate slot userdata */
+	lua_pushnil(L);
+	lua_setmetatable(L, -2);
+	return 0;
+}
+
+int lsdbus_gcslot_tostring(lua_State *L)
+{
+	const char *desc = NULL;
+	sd_bus_slot *slot = *((sd_bus_slot**) luaL_checkudata(L, 1, GCSLOT_MT));
+	sd_bus_slot_get_description(slot, &desc);
+	lua_pushfstring(L, "slot [%s] %p", (desc!=NULL)?desc:"unknown", slot);
+	return 1;
+}
+
+const luaL_Reg lsdbus_gcslot_m [] = {
+	{ "unref", lsdbus_gcslot_unref },
+	{ "__tostring", lsdbus_gcslot_tostring },
+	{ "__gc", lsdbus_gcslot_gc },
 	{ NULL, NULL }
 };

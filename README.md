@@ -395,24 +395,25 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
 
 ### Bus connection object
 
-| Methods                                                              | Description                                  |
-|----------------------------------------------------------------------|----------------------------------------------|
-| `bus:request_name(NAME)`                                             | see `sd_bus_request_name(3)`                 |
-| `slot = bus:match_signal(sender, path, intf, member, callback)`      | see `sd_bus_add_match(3)`                    |
-| `slot = bus:match(match_expr, handler)`                              | see `sd_bus_add_match(3)`                    |
-| `bus:emit_properties_changed(propA, propB...)`                       | see `sd_bus_emit_properties_changed(3)`      |
-| `bus:emit_signal(path, intf, member, typestr, args...)`              | see `sd_bus_emit_signal(3)`                  |
-| `evsrc = bus:add_signal(SIGNAL)`                                     | see `sd_event_add_signal(3)`                 |
-| `evsrc = bus:add_periodic(period, accuracy, callback)`               | see `sd_event_add_time_relative(3)`          |
-| `bus:loop()`                                                         | see `sd_event_loop(3)`                       |
-| `bus:run(usec)`                                                      | see `sd_event_run(3)`                        |
-| `bus:exit_loop()`                                                    | see `sd_event_exit(3)`                       |
-| `table = bus:context()`                                              | see `sd_bus_message_set_destination(3)` etc. |
-| `number = bus:get_method_call_timeout`                               | see `sd_bus_get_method_call_timeout(3)`      |
-| `bus:set_method_call_timeout`                                        | see `sd_bus_set_method_call_timeout(3)`      |
-| `res = bus:testmsg(typestr, args...)`                                | test Lua->D-Bus->Lua message roundtrip       |
-| `ret, res... = bus:call(dest, path, intf, member, typestr, args...)` | plumbing, prefer lsdbus.proxy                |
-| `bus:add_object_vtable`                                              | plumbing, use lsdbus.server instead          |
+| Methods                                                                       | Description                                  |
+|-------------------------------------------------------------------------------|----------------------------------------------|
+| `bus:request_name(NAME)`                                                      | see `sd_bus_request_name(3)`                 |
+| `slot = bus:match_signal(sender, path, intf, member, callback)`               | see `sd_bus_add_match(3)`                    |
+| `slot = bus:match(match_expr, handler)`                                       | see `sd_bus_add_match(3)`                    |
+| `bus:emit_properties_changed(propA, propB...)`                                | see `sd_bus_emit_properties_changed(3)`      |
+| `bus:emit_signal(path, intf, member, typestr, args...)`                       | see `sd_bus_emit_signal(3)`                  |
+| `evsrc = bus:add_signal(SIGNAL)`                                              | see `sd_event_add_signal(3)`                 |
+| `evsrc = bus:add_periodic(period, accuracy, callback)`                        | see `sd_event_add_time_relative(3)`          |
+| `bus:loop()`                                                                  | see `sd_event_loop(3)`                       |
+| `bus:run(usec)`                                                               | see `sd_event_run(3)`                        |
+| `bus:exit_loop()`                                                             | see `sd_event_exit(3)`                       |
+| `table = bus:context()`                                                       | see `sd_bus_message_set_destination(3)` etc. |
+| `number = bus:get_method_call_timeout`                                        | see `sd_bus_get_method_call_timeout(3)`      |
+| `bus:set_method_call_timeout`                                                 | see `sd_bus_set_method_call_timeout(3)`      |
+| `res = bus:testmsg(typestr, args...)`                                         | test Lua->D-Bus->Lua message roundtrip       |
+| `ret, res... = bus:call(dest, path, intf, member, typestr, args...)`          | plumbing, prefer lsdbus.proxy                |
+| `slot = bus:call_async(callback, dest, path, intf, member, typestr, args...)` | plumbping async method invocation            |
+| `bus:add_object_vtable`                                                       | plumbing, use lsdbus.server instead          |
 
 
 *Notes:*
@@ -422,12 +423,11 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
   `default_user` correspond function as described in
   `sd_bus_default(3)`.  If not given, default is `'default'`
 
-- `evsrc` (event source) and `slot` objects are not garbage collected
-  but can be used to explicitely remove the respective interface or
-  callbacks (see below).
+- `evsrc` (event source) objects are not garbage collected but can be
+  used to explicitely remove the respective interface or callbacks
+  (see below).
 
 - bus objects are garbage collected
-
 
 ### lsdbus.proxy
 
@@ -438,6 +438,7 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
 | `prxy:call(method, arg0, ...)`                 | same as above, long form                              |
 | `prxy:HasMethod(method)`                       | check if prxy has a method with the given name        |
 | `prxy:callt(method, ARGTAB)`                   | call a method with a table of arguments               |
+| `prxy:call_async(method, callback ARGTAB)`     | call a method asynchronously (returns slot)           |
 | `prxy:Get(name)`                               | get a properties value                                |
 | `prxy.name`                                    | short form, same as previous                          |
 | `prxy:Set(name, value)`                        | set a property                                        |
@@ -483,7 +484,8 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
 |-----------|-------------------------------------------|
 | `unref()` | remove slot. calls `sd_bus_slot_unref(3)` |
 
-- Slots are not garbage collected.
+- slots are not garbage collected except for those returned by async
+  calls.
 
 ### event sources
 
@@ -496,7 +498,8 @@ Corresponds to `sd_event_source`.
 
 *Notes*
 
-- Event sources are not garbage collected.
+- Event sources are not garbage collected with the exeption of those
+  returned by asynchronous calls.
 
 ## Internals
 

@@ -55,6 +55,16 @@ int regtab_get(lua_State *L, const char* regtab, void *k)
 	return ret;
 }
 
+/**
+ * regtab[k]=nil
+ */
+void regtab_clear(lua_State *L, const char* regtab, void *k)
+{
+	if (lua_getfield(L, LUA_REGISTRYINDEX, regtab) == LUA_TTABLE) {
+		lua_pushnil(L);
+		lua_rawsetp(L, -2, k);
+	}
+}
 
 /* toplevel functions */
 static int lsdbus_open(lua_State *L)
@@ -243,6 +253,87 @@ static int lsdbus_match(lua_State *L)
 	return lsdbus_slot_push(L, slot);
 }
 
+
+/**
+ * async mesage callback
+ */
+static int method_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error)
+{
+	(void)ret_error;
+	int ret, nargs, top;
+	lua_State *L = (lua_State*) userdata;
+	sd_bus *b = sd_bus_message_get_bus(m);
+	sd_bus_slot *slot = sd_bus_get_current_slot(b);
+
+	top = lua_gettop(L);
+
+	regtab_get(L, REG_SLOT_TABLE, slot);
+
+	nargs = msg_tolua(L, m);
+
+	if(nargs<0)
+		lua_error(L);
+
+	lua_call(L, nargs, 1);
+
+	ret = lua_tointeger(L, -1);
+
+	lua_settop(L, top);
+
+	return ret;
+}
+
+static int lsdbus_call_async(lua_State *L)
+{
+	int ret;
+	uint64_t timeout;
+	const char *dest, *path, *intf, *memb, *types;
+
+	sd_bus_slot *slot;
+	sd_bus_message *m = NULL;
+
+	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+
+	luaL_checktype(L, 2, LUA_TFUNCTION);
+	dest = luaL_checkstring(L, 3);
+	path = luaL_checkstring(L, 4);
+	intf = luaL_checkstring(L, 5);
+	memb = luaL_checkstring(L, 6);
+	types = luaL_optstring(L, 7, NULL);
+
+	ret = sd_bus_message_new_method_call(b, &m, dest, path, intf, memb);
+
+	if (ret < 0)
+		luaL_error(L, "%s: failed to create call message: %s",
+			   __func__, strerror(-ret));
+
+	if (types != NULL) {
+		ret = msg_fromlua(L, m, types, 8);
+
+		if (ret<0)
+			goto out;
+	}
+
+	ret = sd_bus_get_method_call_timeout(b, &timeout);
+
+	if(ret<0)
+		luaL_error(L, "%s: failed to get call timeout: %s", __func__, strerror(-ret));
+
+	sd_bus_message_seal(m, 2, timeout);
+
+	ret = sd_bus_call_async(b, &slot, m, method_callback, L, timeout);
+
+out:
+	sd_bus_message_unref(m);
+
+	if (ret<0)
+		luaL_error(L, "call_async failed: %s", strerror(-ret));
+
+	regtab_store(L,	REG_SLOT_TABLE, slot, 2);
+	sd_bus_slot_set_description(slot, "async");
+	return lsdbus_gcslot_push(L, slot);
+}
+
 static int lsdbus_testmsg(lua_State *L)
 {
 	int ret;
@@ -366,6 +457,7 @@ static const luaL_Reg lsdbus_bus_m [] = {
 	{ "get_method_call_timeout", lsdbus_bus_get_method_call_timeout },
 	{ "set_method_call_timeout", lsdbus_bus_set_method_call_timeout },
 	{ "call", lsdbus_bus_call },
+	{ "call_async", lsdbus_call_async },
 	{ "match_signal", lsdbus_match_signal },
 	{ "match", lsdbus_match },
 	{ "add_object_vtable", lsdbus_add_object_vtable },
@@ -400,6 +492,11 @@ int luaopen_lsdbus_core(lua_State *L)
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -1, "__index");
 	luaL_setfuncs(L, lsdbus_slot_m, 0);
+
+	luaL_newmetatable(L, GCSLOT_MT);
+	lua_pushvalue(L, -1);
+	lua_setfield(L, -1, "__index");
+	luaL_setfuncs(L, lsdbus_gcslot_m, 0);
 
 	luaL_newlib(L, lsdbus_f);
 	return 1;
