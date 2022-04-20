@@ -21,7 +21,14 @@ function pow_cb(...)
 end
 
 
+local function fail_cb(...)
+   u.pp("fail_cb", b:context(), {...})
+   u.pp(tst:call_async('FailWithDBusError', fail_cb))
+end
+
 u.pp(tst:call_async('pow', pow_cb, 0))
+--u.pp(tst:call_async('Fail', fail_cb))
+--u.pp(tst:call_async('FailWithDBusError', fail_cb))
 
 
 b:loop()

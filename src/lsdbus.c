@@ -269,10 +269,17 @@ static int method_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
 
 	regtab_get(L, REG_SLOT_TABLE, slot);
 
-	nargs = msg_tolua(L, m);
+	ret = sd_bus_message_is_method_error(m, NULL);
 
-	if(nargs<0)
-		lua_error(L);
+	if (ret) {
+		lua_pushstring(L, "__error__");
+		const sd_bus_error *e = sd_bus_message_get_error(m);
+		if (e) push_sd_bus_error(L, e);
+		nargs = 2;
+	} else {
+		nargs = msg_tolua(L, m);
+		if (nargs<0) lua_error(L);
+	}
 
 	lua_call(L, nargs, 1);
 
