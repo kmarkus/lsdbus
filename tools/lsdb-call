@@ -1,0 +1,58 @@
+#!/usr/bin/lua
+
+local u = require("utils")
+local lsdb = require("lsdbus")
+
+local b, bus, verbose
+
+local function printf(fmt, ...) print(string.format(fmt, ...)) end
+local function log(...) if verbose then printf(...) end end
+
+local function help()
+   printf([=[
+usage: lsdb-call DEST,PATH,INTERFACE,MEMBER [ARGTAB] [FLAGS]
+
+call a D-Bus method
+examples:
+
+$ lsdb-call org.freedesktop.DBus,/org/freedesktop/DBus,org.freedesktop.DBus,ListNames
+$ lsdb-call org.bluez,/org/bluez/hci0,org.freedesktop.DBus.Properties,GetAll "{interface='org.bluez.Adapter1'}"
+
+flags
+ -s 	system bus
+ -u	session bus
+ -v     verbose
+]=])
+end
+
+local opttab = u.proc_args(arg)
+
+verbose = opttab['-v']
+if opttab['-h'] then help(); os.exit(1) end
+if opttab['-s'] then bus='default_system'
+elseif opttab['-u'] then bus='default_user' end
+
+if opttab[0][1]==nil then
+   printf("missing argument")
+   os.exit(1)
+end
+
+log("using %s bus", bus or 'default')
+b = lsdb.open(bus)
+
+local s,p,i,m = string.match(opttab[0][1], "([^,]*),([^,]*),([^,]*),(.*)")
+local argtab = opttab[0][2] or '{}'
+if s == nil then
+   printf("invalid destination spec")
+   os.exit(1)
+end
+log("calling dest=%s, path=%s, interf=%s, member=%s, payload=%s",
+    s, p, i, m, u.tab2str(argtab))
+local prxy = lsdb.proxy:new(b, s, p, i)
+local ret,tab = u.eval_sandbox("return "..argtab)
+if ret then
+   u.pp(prxy:callt(m, tab))
+else
+   printf("failed to parse argument table: %s", tab)
+   os.exit(1)
+end

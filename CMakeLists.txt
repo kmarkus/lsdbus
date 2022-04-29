@@ -51,3 +51,9 @@ install(FILES
   lua/error.lua
   DESTINATION ${CMAKE_INSTALL_PREFIX}/share/lua/${LUA_VER}/lsdbus/
   )
+
+install(PROGRAMS
+  tools/lsdb-mon
+  tools/lsdb-call
+  tools/lsdb-emit
+  DESTINATION ${CMAKE_INSTALL_BINDIR})

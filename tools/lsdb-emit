@@ -1,0 +1,73 @@
+#!/usr/bin/lua
+
+local u = require("utils")
+local lsdb = require("lsdbus")
+
+local b, bus, verbose
+
+local function printf(fmt, ...) print(string.format(fmt, ...)) end
+local function log(...) if verbose then printf(...) end end
+
+local function help()
+   printf([=[
+usage: lsdb-emit PATH,INTERFACE,MEMBER TYPESTR [ARG [ARG...]] [FLAGS]
+
+emit a D-Bus signal
+examples:
+
+$ lsdb-emit /foo,lsdbus.foo0,WatchOut s 'hello'
+$ lsdb-emit /foo,lsdbus.foo0,WatchOut d 1.8
+$ lsdb-emit /foo,lsdbus.foo0,WatchOut b true
+$ lsdb-emit /foo,lsdbus.foo0,WatchOut 'a{is}' "{'a','b'}"
+$ lsdb-emit /foo,lsdbus.foo0,WatchOut 'a{si}' "{a=1,v=2}"
+
+
+flags
+ -s 	system bus
+ -u	session bus
+ -v     verbose
+]=])
+end
+
+--- convert string args to Lua
+local function proc_args(args)
+   for i,v in ipairs(args) do
+      if string.find(v, '^%w*%b{}%w*$') or
+	 string.find(v, "^%w*true%w*$") or string.find(v, "^%w*false%w*$") or
+      	 string.find(v, "^%w*%d+%w*$") or string.find(v, "^%w*%d+%.%d+%w*$") then
+      _, args[i] = u.eval_sandbox("return "..v)
+      else
+	 args[i] = v
+      end
+   end
+   return args
+end
+
+local opttab = u.proc_args(arg)
+
+verbose = opttab['-v']
+if opttab['-h'] then help(); os.exit(1) end
+if opttab['-s'] then bus='default_system'
+elseif opttab['-u'] then bus='default_user' end
+
+if opttab[0][1]==nil then
+   printf("missing argument")
+   os.exit(1)
+end
+
+log("using %s bus", bus or 'default')
+b = lsdb.open(bus)
+
+local p,i,m = string.match(opttab[0][1], "([^,]*),([^,]*),([^,]*)")
+local typestr = opttab[0][2]
+local args = {}
+
+if typestr then
+   args = proc_args{ table.unpack(opttab[0], 3)}
+end
+
+if p == nil then printf("invalid destination spec"); os.exit(1); end
+log("emitting signal from path=%s, interf=%s, member=%s, typestr=%s, args=%s",
+    p, i, m, typestr, u.tab2str(args))
+
+b:emit_signal(p, i, m, typestr, table.unpack(args))

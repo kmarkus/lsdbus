@@ -1,0 +1,64 @@
+#!/usr/bin/lua
+
+local u = require("utils")
+local lsdb = require("lsdbus")
+
+local b, bus, verbose
+
+local function printf(fmt, ...) print(string.format(fmt, ...)) end
+local function log(...) if verbose then printf(...) end end
+local function _n(x) if x=="" then return nil else return x end end
+
+local function exit(sig)
+   log("caught %s, exiting", sig)
+   b:exit_loop()
+end
+
+local function help()
+   print([=[
+usage: lsdb-mon: COMMAND [ARGS] [FLAGS]
+
+without any args just dump all signals
+ sig      SENDER,PATH,INTERFACE,MEMBER (empty entries are allowed)
+ expr     MATCH-EXPRESSION
+ help     print this
+
+global flags
+ -s 	system bus
+ -u	session bus
+ -v     verbose
+]=])
+end
+
+local opttab = u.proc_args(arg)
+local cmd = opttab[0][1]
+
+verbose = opttab['-v']
+if opttab['-h'] then cmd = 'help' end
+if opttab['-s'] then bus='default_system'
+elseif opttab['-u'] then bus='default_user' end
+
+log("using %s bus", bus or 'default')
+b = lsdb.open(bus)
+
+if not cmd then
+   log('matching all signals')
+   b:match_signal(nil, nil, nil, nil, u.pp)
+elseif cmd == 'sig' then
+   local s,p,i,m = string.match(opttab[0][2], "([^,]*),([^,]*),([^,]*),(.*)")
+   if s == nil then printf("invalid signal spec"); os.exit(1) end
+   log("matching sender=%s, path=%s, interf=%s, member=%s", s, p, i, m)
+   b:match_signal(_n(s), _n(p), _n(i), _n(m), u.pp)
+elseif cmd == 'expr' then
+   log("matching expression %s", opttab[0][2])
+   b:match(opttab[0][2], u.pp)
+elseif cmd == 'help' then
+   help()
+   os.exit()
+else
+   printf("unknown command %s", cmd)
+   os.exit(1)
+end
+
+b:add_signal("SIGINT", exit)
+b:loop()
