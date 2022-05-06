@@ -190,7 +190,7 @@ static int evl_sig_handler(sd_event_source *s, const struct signalfd_siginfo *si
 
 int evl_add_signal(lua_State *L)
 {
-	int ret, sig = -1;
+	int ret, sig;
 	sigset_t ss;
 	sd_event_source *source, **sourcep;
 
@@ -316,6 +316,53 @@ int evl_add_periodic(lua_State *L)
 
 	luaL_getmetatable(L, EVSRC_MT);
 	lua_setmetatable(L, -2);
+
+	return 1;
+}
+
+/* io */
+static int evl_io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata)
+{
+	int top;
+	lua_State *L = (lua_State*) userdata;
+
+	top  = lua_gettop(L);
+	dbg("received io event %i on fd %i", revents, fd);
+	regtab_get(L, REG_EVSRC_TABLE, s);
+
+	lua_pushinteger(L, fd);
+	lua_pushinteger(L, revents);
+	lua_call(L, 2, 0);
+	lua_settop(L, top);
+	return 0;
+}
+
+int evl_add_io(lua_State *L)
+{
+	int fd, ret;
+	uint32_t events;
+	sd_event_source *source, **sourcep;
+
+	sd_bus *bus = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	fd = luaL_checkinteger(L, 2);
+	events = luaL_checkinteger(L, 3);
+	luaL_checktype(L, 4, LUA_TFUNCTION);
+
+	sd_event *loop = evl_get(L, bus);
+
+	ret = sd_event_add_io(loop, &source, fd, events, evl_io_handler, L);
+
+	if (ret<0)
+		luaL_error(L, "adding io event src failed: %s", strerror(-ret));
+
+	regtab_store(L,	REG_EVSRC_TABLE, source, 4);
+
+	sourcep = (sd_event_source**) lua_newuserdata(L, sizeof(sd_event_source*));
+	*sourcep = source;
+
+	luaL_getmetatable(L, EVSRC_MT);
+	lua_setmetatable(L, -2);
+	sd_event_source_set_description(source, "io");
 
 	return 1;
 }

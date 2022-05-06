@@ -46,8 +46,10 @@ int evl_loop(lua_State *L);
 int evl_run(lua_State *L);
 int evl_exit(lua_State *L);
 void evl_cleanup(sd_bus *bus);
+
 int evl_add_signal(lua_State *L);
 int evl_add_periodic(lua_State *L);
+int evl_add_io(lua_State *L);
 
 extern const luaL_Reg lsdbus_evsrc_m [];
 extern const luaL_Reg lsdbus_slot_m [];

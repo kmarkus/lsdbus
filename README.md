@@ -22,6 +22,7 @@ and sd-event APIs.
         - [D-Bus signal matching and callbacks](#d-bus-signal-matching-and-callbacks)
         - [Periodic callbacks](#periodic-callbacks)
         - [Unix Signal callbacks](#unix-signal-callbacks)
+        - [I/O event callback](#io-event-callback)
         - [Returning D-Bus errors](#returning-d-bus-errors)
 - [API](#api)
     - [Functions](#functions)
@@ -365,7 +366,7 @@ See `examples/periodic.lua` for an example.
 
 #### Unix Signal callbacks
 
-```
+```lua
 local function callback(signal)
   print("received signal " .. signal)
 end
@@ -373,6 +374,24 @@ b:add_signal("SIGINT", callback)
 ```
 
 Currently supported are `SIGINT`, `SIGTERM`, `SIGUSR1`, `SIGUSR2`.
+
+#### I/O event callback
+
+Add a callback to be called upon IO activity on the given file
+descriptor (see `sd_event_add_io(3)`) for details:
+
+*Example:*
+
+```Lua
+lsbd = require "lsdbus"
+b:add_io(fd, lsdb.EPOLLIN|lsdb.EPOLLOUT, callback)
+```
+
+`events` are any `EPOLLIN`, `EPOLLOUT`, `EPOLLRDHUP`, `EPOLLPRI` or
+`EPOLLET`.
+
+An example of using this together with the `linotify` [3] library can
+be found under `examples/inotify-io.lua`.
 
 #### Returning D-Bus errors
 
@@ -404,6 +423,7 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
 | `bus:emit_signal(path, intf, member, typestr, args...)`                       | see `sd_bus_emit_signal(3)`                  |
 | `evsrc = bus:add_signal(SIGNAL)`                                              | see `sd_event_add_signal(3)`                 |
 | `evsrc = bus:add_periodic(period, accuracy, callback)`                        | see `sd_event_add_time_relative(3)`          |
+| `evsrc = bus:add_io(fd, mask, callback)`                                      | see `sd_event_add_io(3)`                     |
 | `bus:loop()`                                                                  | see `sd_event_loop(3)`                       |
 | `bus:run(usec)`                                                               | see `sd_event_run(3)`                        |
 | `bus:exit_loop()`                                                             | see `sd_event_exit(3)`                       |
@@ -558,3 +578,4 @@ systemd.
 
 [1] https://github.com/bluebird75/luaunit.git  
 [2] https://github.com/kmarkus/uutils.git  
+[3] https://github.com/hoelzro/linotify  

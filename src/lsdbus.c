@@ -476,12 +476,19 @@ static const luaL_Reg lsdbus_bus_m [] = {
 	{ "exit_loop", evl_exit },
 	{ "add_signal", evl_add_signal },
 	{ "add_periodic", evl_add_periodic },
+	{ "add_io", evl_add_io },
 	{ "request_name", lsdbus_bus_request_name },
 	{ "testmsg", lsdbus_testmsg },
 	{ "__tostring", lsdbus_bus_tostring },
 	{ "__gc", lsdbus_bus_gc },
 	{ NULL, NULL },
 };
+
+/* borrowed from https://github.com/hoelzro/linotify.git,
+   License MIT */
+#define register_constant(s)\
+    lua_pushinteger(L, s);\
+    lua_setfield(L, -2, #s);
 
 int luaopen_lsdbus_core(lua_State *L)
 {
@@ -506,5 +513,13 @@ int luaopen_lsdbus_core(lua_State *L)
 	luaL_setfuncs(L, lsdbus_gcslot_m, 0);
 
 	luaL_newlib(L, lsdbus_f);
+
+	/* constants */
+	register_constant(EPOLLIN);
+	register_constant(EPOLLOUT);
+	register_constant(EPOLLRDHUP);
+	register_constant(EPOLLPRI);
+	register_constant(EPOLLET);
+
 	return 1;
 };
