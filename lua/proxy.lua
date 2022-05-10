@@ -40,7 +40,7 @@ local node = {
 --]]
 
 function proxy:error(err, msg)
-   error(fmt("%s: %s (%s, %s, %s)", err, msg, self.srv, self.obj, self.intf.name))
+   error(fmt("%s: %s (%s, %s, %s)", err, msg or "-", self.srv, self.obj, self.intf.name))
 end
 
 -- lowlevel plumbing method
@@ -182,32 +182,38 @@ function proxy:__tostring()
    return table.concat(res, "\n")
 end
 
-function proxy.introspect(bus, srv, obj)
-   local ret, xml = bus:call(srv, obj, introspect_if, 'Introspect')
-   if not ret then proxy.error(nil, xml[1], fmt("failed to introspect %s, %s: %s", srv, obj, xml[2])) end
+local function proxy_introspect(o)
+   local ret, xml = o.bus:call(o.srv, o.obj, introspect_if, 'Introspect')
+   if not ret then
+      o:error(xml[1], fmt("introspection failed: %s", xml[2]))
+   end
    return core.xml_fromstr(xml)
 end
 
 function proxy:new(bus, srv, obj, intf)
-   local function introspect()
-      local node = proxy.introspect(bus, srv, obj)
+   local function introspect(o)
+      local node = proxy_introspect(o)
       for _,i in ipairs(node) do
 	 if i.name == intf then
-	    intf = i
+	    o.intf = i
 	    return
 	 end
       end
-      proxy.error(nil, err.UNKNOWN_INTERFACE, fmt("unknown interface %s on %s, %s", intf, srv, obj))
+      o:error(err.UNKNOWN_INTERFACE, "no such interface")
    end
-
-   if type(intf) == 'string' then introspect() end
-
-   intf.methods = intf.methods or {}
-   intf.properties = intf.properties or {}
-   intf.signals = intf.signals or {}
 
    local o = { bus=bus, srv=srv, obj=obj, intf=intf }
    setmetatable(o, self)
+
+   if type(intf) == 'string' then
+      o.intf = { name = intf }
+      introspect(o)
+   end
+
+   o.intf.methods = o.intf.methods or {}
+   o.intf.properties = o.intf.properties or {}
+   o.intf.signals = o.intf.signals or {}
+
    return o
 end
 
