@@ -1,8 +1,7 @@
 local u = require("utils")
 local lsdb = require("lsdbus")
-local b = lsdb.open('user')
 
-local function exit(sig)
+local function exit(b, sig)
    print("exiting on", sig)
    b:exit_loop()
 end
@@ -15,6 +14,7 @@ local function safe(func, log)
    end
 end
 
+local b = lsdb.open('user')
 b:add_signal("SIGINT", exit)
-b:match_signal(nil, nil, nil, nil, safe(function() error("something failed") end, print))
+b:match_signal(nil, nil, nil, nil, safe(function(b, ...) u.pp(...) end, print))
 b:loop()

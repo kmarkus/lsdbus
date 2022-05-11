@@ -165,7 +165,7 @@ static struct ev2num sigs[] = {
 	{ .name="SIGUSR2", .sig=SIGUSR2 },
 };
 
-static int evl_sig_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata)
+static int evl_sig_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata)
 {
 	(void) si;
 	int sig, top;
@@ -190,7 +190,7 @@ static int evl_sig_handler(sd_event_source *s, const struct signalfd_siginfo *si
 
 int evl_add_signal(lua_State *L)
 {
-	int ret, sig;
+	int ret, sig=-1;
 	sigset_t ss;
 	sd_event_source *source, **sourcep;
 
@@ -218,7 +218,7 @@ int evl_add_signal(lua_State *L)
 	if (sigprocmask(SIG_BLOCK, &ss, NULL) < 0)
 		luaL_error(L, "sigprocmask failed: %m");
 
-	ret = sd_event_add_signal(loop, &source, sig, evl_sig_handler, L);
+	ret = sd_event_add_signal(loop, &source, sig, evl_sig_callback, L);
 
 	if (ret<0)
 		luaL_error(L, "adding signal failed: %s", strerror(-ret));
@@ -252,7 +252,9 @@ static int timer_callback(sd_event_source *evsrc, uint64_t usec, void* userdata)
 	lua_pop(L, 1);
 
 	lua_rawgeti(L, -1, 1);
-	lua_call(L, 0, 0);
+	lua_pushvalue(L, 1);		/* bus */
+	lua_pushinteger(L, usec);	/* usec */
+	lua_call(L, 2, 0);
 
 	/* rearm */
 	loop = sd_event_source_get_event(evsrc);
@@ -321,7 +323,7 @@ int evl_add_periodic(lua_State *L)
 }
 
 /* io */
-static int evl_io_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata)
+static int evl_io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata)
 {
 	int top;
 	lua_State *L = (lua_State*) userdata;
@@ -330,9 +332,11 @@ static int evl_io_handler(sd_event_source *s, int fd, uint32_t revents, void *us
 	dbg("received io event %i on fd %i", revents, fd);
 	regtab_get(L, REG_EVSRC_TABLE, s);
 
+	lua_pushvalue(L, 1);	/* bus */
 	lua_pushinteger(L, fd);
 	lua_pushinteger(L, revents);
-	lua_call(L, 2, 0);
+
+	lua_call(L, 3, 0);
 	lua_settop(L, top);
 	return 0;
 }
@@ -350,7 +354,7 @@ int evl_add_io(lua_State *L)
 
 	sd_event *loop = evl_get(L, bus);
 
-	ret = sd_event_add_io(loop, &source, fd, events, evl_io_handler, L);
+	ret = sd_event_add_io(loop, &source, fd, events, evl_io_callback, L);
 
 	if (ret<0)
 		luaL_error(L, "adding io event src failed: %s", strerror(-ret));

@@ -175,13 +175,14 @@ static int signal_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
 	(void)ret_error;
 	int ret, nargs, top;
 	lua_State *L = (lua_State*) userdata;
-	sd_bus *b = sd_bus_message_get_bus(m); /* TODO: drop? */
+	sd_bus *b = sd_bus_message_get_bus(m);
 	sd_bus_slot *slot = sd_bus_get_current_slot(b);
 
 	top = lua_gettop(L);
 
 	regtab_get(L, REG_SLOT_TABLE, slot);
 
+	lua_pushvalue(L, 1); /* bus */
 	push_string_or_nil(L, sd_bus_message_get_sender(m));
 	push_string_or_nil(L, sd_bus_message_get_path(m));
 	push_string_or_nil(L, sd_bus_message_get_interface(m));
@@ -192,7 +193,7 @@ static int signal_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
 	if(nargs<0)
 		lua_error(L);
 
-	lua_call(L, nargs+4, 1);
+	lua_call(L, 5+nargs, 1);
 
 	ret = lua_tointeger(L, -1);
 	lua_settop(L, top);
@@ -269,6 +270,8 @@ static int method_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
 
 	regtab_get(L, REG_SLOT_TABLE, slot);
 
+	lua_pushvalue(L, 1); /* bus */
+
 	ret = sd_bus_message_is_method_error(m, NULL);
 
 	if (ret) {
@@ -281,7 +284,7 @@ static int method_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
 		if (nargs<0) lua_error(L);
 	}
 
-	lua_call(L, nargs, 1);
+	lua_call(L, 1+nargs, 1);
 
 	ret = lua_tointeger(L, -1);
 
