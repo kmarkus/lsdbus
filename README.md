@@ -373,7 +373,7 @@ See `examples/periodic.lua` for an example.
 
 ```lua
 local function callback(bus, signal)
-  print("received signal " .. signal)
+  print("received signal:", signal)
 end
 b:add_signal(lsdb.SIGINT, callback)
 ```
@@ -520,10 +520,10 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
 
 Corresponds to `sd_event_source`.
 
-| Method                 | Description                                                                      |
-|------------------------|----------------------------------------------------------------------------------|
-| `set_enabled(enabled)` | `enabled`: `lsdbus.SD_EVENT_[ON\|OFF\|ONESHOT]`. sd_event_source_set_enabled(3)` |
-| `unref()`              | remove event source. calls `sd_event_source_unref(3)`                            |
+| Method                 | Description                                                                           |
+|------------------------|---------------------------------------------------------------------------------------|
+| `set_enabled(enabled)` | `enabled`: `lsdbus.SD_EVENT_[ON\|OFF\|ONESHOT]`. see `sd_event_source_set_enabled(3)` |
+| `unref()`              | remove event source. calls `sd_event_source_unref(3)`                                 |
 
 *Notes*
 
