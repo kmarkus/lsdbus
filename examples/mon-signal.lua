@@ -6,15 +6,15 @@ local function exit(b, sig)
    b:exit_loop()
 end
 
-local function safe(func, log)
+local function nothrow(func, log)
    return function(...)
       local res, ret = pcall(func, ...)
-      if not res then log(ret); return 1 end
+      if not res then log(ret); return 0 end
       return ret
    end
 end
 
 local b = lsdb.open('user')
-b:add_signal("SIGINT", exit)
-b:match_signal(nil, nil, nil, nil, safe(function(b, ...) u.pp(...) end, print))
+b:add_signal(lsdb.SIGINT, exit)
+b:match_signal(nil, nil, nil, nil, nothrow(function(_, ...) u.pp(...) end, print))
 b:loop()

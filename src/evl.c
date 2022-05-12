@@ -156,15 +156,6 @@ int evl_exit(lua_State *L)
 	return 0;
 }
 
-struct ev2num { const char *name; int sig; };
-
-static struct ev2num sigs[] = {
-	{ .name="SIGTERM", .sig=SIGTERM },
-	{ .name="SIGINT",  .sig=SIGINT },
-	{ .name="SIGUSR1", .sig=SIGUSR1 },
-	{ .name="SIGUSR2", .sig=SIGUSR2 },
-};
-
 static int evl_sig_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata)
 {
 	(void) si;
@@ -176,13 +167,10 @@ static int evl_sig_callback(sd_event_source *s, const struct signalfd_siginfo *s
 	dbg("received signal %d", sd_event_source_get_signal(s));
 
 	regtab_get(L, REG_EVSRC_TABLE, s);
+	lua_pushvalue(L, 1);		/* bus */
+	lua_pushinteger(L, sig);	/* signal */
 
-	for(unsigned int i=0; i<ARRAY_SIZE(sigs); i++) {
-		if (sigs[i].sig == sig)
-			lua_pushstring(L, sigs[i].name);
-	}
-
-	lua_call(L, 1, 0);
+	lua_call(L, 2, 0);
 	lua_settop(L, top);
 	return 0;
 }
@@ -190,25 +178,15 @@ static int evl_sig_callback(sd_event_source *s, const struct signalfd_siginfo *s
 
 int evl_add_signal(lua_State *L)
 {
-	int ret, sig=-1;
+	int ret, sig;
 	sigset_t ss;
 	sd_event_source *source, **sourcep;
 
 	sd_bus *bus = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
-	const char *signame = luaL_checkstring(L, 2);
+	sig = luaL_checkinteger(L, 2);
 	luaL_checktype(L, 3, LUA_TFUNCTION);
 
 	sd_event *loop = evl_get(L, bus);
-
-	for(unsigned int i=0; i<ARRAY_SIZE(sigs); i++) {
-		if(strcmp(signame, sigs[i].name) == 0) {
-			sig = sigs[i].sig;
-			break;
-		}
-	}
-
-	if (sig == -1)
-		luaL_error(L, "unsupported signal %s", signame);
 
 	dbg("adding signal %s (%d)", signame, sig);
 

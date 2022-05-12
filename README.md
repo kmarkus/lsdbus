@@ -375,10 +375,11 @@ See `examples/periodic.lua` for an example.
 local function callback(bus, signal)
   print("received signal " .. signal)
 end
-b:add_signal("SIGINT", callback)
+b:add_signal(lsdb.SIGINT, callback)
 ```
 
-Currently supported are `SIGINT`, `SIGTERM`, `SIGUSR1`, `SIGUSR2`.
+The lsdbus module defines the following constants `SIGINT`, `SIGTERM`,
+`SIGUSR1`, `SIGUSR2`.
 
 #### I/O event callback
 
@@ -519,10 +520,10 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
 
 Corresponds to `sd_event_source`.
 
-| Method                 | Description                                                             |
-|------------------------|-------------------------------------------------------------------------|
-| `set_enabled(enabled)` | `enabled`: 0=OFF, 1=ON, -1 =ONESHOT. see sd_event_source_set_enabled(3) |
-| `unref()`              | remove event source. calls `sd_event_source_unref(3)`                   |
+| Method                 | Description                                                                      |
+|------------------------|----------------------------------------------------------------------------------|
+| `set_enabled(enabled)` | `enabled`: `lsdbus.SD_EVENT_[ON\|OFF\|ONESHOT]`. sd_event_source_set_enabled(3)` |
+| `unref()`              | remove event source. calls `sd_event_source_unref(3)`                            |
 
 *Notes*
 

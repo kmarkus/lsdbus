@@ -60,5 +60,5 @@ else
    os.exit(1)
 end
 
-b:add_signal("SIGINT", exit)
+b:add_signal(lsdb.SIGINT, exit)
 b:loop()
