@@ -7,49 +7,45 @@
 local lsdb = require("lsdbus")
 local u = require("utils")
 
-local b
-local bar
-local vt
-
 local interface = {
    name="lsdbus.test.testintf0",
    methods={
       Raise={
-	 handler=function()
+	 handler=function(vt)
 	    print("emiting")
-	    b:emit_signal("/", "lsdbus.test.testintf0", "Alarm", "ia{ss}", 999, {x="one", y="two"})
+	    vt.bus:emit_signal("/", "lsdbus.test.testintf0", "Alarm", "ia{ss}", 999, {x="one", y="two"})
 	 end
       },
       thunk={
-	 handler=function(x) u.pp(b:context()) end
+	 handler=function(vt) u.pp(vt.bus:context()) end
       },
       pow={
 	 {direction="in", name="x", type="i"},
 	 {direction="out", name="result", type="i"},
-	 handler=function(x) print("pow of ", x); return x^2 end
+	 handler=function(_,x) print("pow of ", x); return x^2 end
       },
       twoin={
 	 {direction="in", name="x", type="i"},
 	 {direction="in", name="y", type="a{ss}"},
-	 handler=function(x,y) end
+	 handler=function(_,x,y) end
       },
 
       twoout={
 	 {direction="out", name="x", type="i"},
 	 {direction="out", name="y", type="a{ss}"},
-	 handler=function(x,y) return 333, { a=1, b=2, c=3 } end
+	 handler=function(_) return 333, { a=1, b=2, c=3 } end
       },
 
       concat={
 	 {direction="in", name="a", type="s"},
 	 {direction="in", name="b", type="s"},
 	 {direction="out", name="result", type="s"},
-	 handler=function(a,b) return a..b end
+	 handler=function(_,a,b) return a..b end
       },
       getarray={
 	 {direction="in", name="size", type="i"},
 	 {direction="out", name="result", type="a{is}"},
-	 handler=function(size)
+	 handler=function(_,size)
 	    local x = {}
 	    for i=1,size do x[#x+1]=i end
 	    return x
@@ -58,7 +54,7 @@ local interface = {
       getdict={
 	 {direction="in", name="size", type="i"},
 	 {direction="out", name="result", type="a{ss}"},
-	 handler=function(size)
+	 handler=function(_,size)
 	    local x = {}
 	    for i=1,size do
 	       x['key'..tostring(i)]='value'..tostring(i)
@@ -67,7 +63,7 @@ local interface = {
       },
 
       Shutdown = {
-	 handler=function() print("shutting down"); b:exit_loop() end
+	 handler=function(vt) print("shutting down"); vt.bus:exit_loop() end
       },
 
       Fail={
@@ -82,10 +78,10 @@ local interface = {
       Bar={
 	 access="readwrite",
 	 type="y",
-	 get=function() return bar or 255 end,
-	 set=function(v)
-	    print(v)
-	    bar = v
+	 get=function(vt) return vt.bar or 255 end,
+	 set=function(vt,val)
+	    print("setting Bar to ", val)
+	    vt.bar = val
 	    vt:emitPropertiesChanged("Bar", "Date")
 	 end
       },
@@ -97,13 +93,13 @@ local interface = {
       Wronly={
 	 access="write",
 	 type="s",
-	 set=function(x) print(x) end,
+	 set=function(_, x) print(x) end,
       },
       Fail={
 	 access="readwrite",
 	 type="b",
 	 get=function() error("lsdbus.test.testintf0.BOOM|it exploded") end,
-	 set=function(v) error("lsdbus.test.testintf0.CRASH|it crashed")end
+	 set=function(_,_) error("lsdbus.test.testintf0.CRASH|it crashed")end
       },
    },
 
@@ -118,9 +114,9 @@ local interface = {
 
 }
 
-b = lsdb.open('user')
+local b = lsdb.open('user')
 b:request_name("lsdbus.test")
-vt = lsdb.server:new(b, "/", interface)
+local vt = lsdb.server:new(b, "/", interface)
 vt:emitAllPropertiesChanged(
    function(p, _) if p=="Fail" then return false else return true end end)
 b:loop()

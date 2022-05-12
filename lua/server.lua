@@ -30,21 +30,24 @@ end
 function srv:new(bus, path, intf)
    local vtab =	intf_to_vtab(intf)
    local slot = bus:add_object_vtable(path, vtab)
-   local o = { bus=bus, slot=slot, path=path, intf=intf, vtab=vtab }
-   setmetatable(o, self)
-   return o
+   vtab.bus = bus
+   vtab.slot = slot
+   vtab.path = path
+   vtab.intf = intf
+   setmetatable(vtab, self)
+   return vtab
 end
 
 function srv:emit(signal, ...)
-   local sigtab = self.vtab.signals[signal]
+   local sigtab = self.signals[signal]
    if not sigtab then
-      error(fmt("no signal '%s' on interface %s", signal, self.vtab.name))
+      error(fmt("no signal '%s' on interface %s", signal, self.name))
    end
    self.bus:emit_signal(self.path, self.intf.name, signal, sigtab.sig, ...)
 end
 
 function srv:emitPropertiesChanged(...)
-   self.bus:emit_properties_changed(self.path, self.intf.name, ...)
+   self.bus:emit_properties_changed(self.path, self.name, ...)
 end
 
 function srv:emitAllPropertiesChanged(filter)

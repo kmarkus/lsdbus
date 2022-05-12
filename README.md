@@ -276,8 +276,9 @@ respective `sd_bus_message_get_*(3)` functions).
 #### Registering Interfaces: Properties, Methods and Signal
 
 Server object callbacks can be registered with
-`lsdbus.server:new`. The interface uses the same Lua representation of
-the D-Bus interface XML (see below) decorated with callback functions:
+`vtab=lsdbus.server:new`. The interface uses the same Lua
+representation of the D-Bus interface XML (see below) decorated with
+callback functions:
 
 ```lua
 local interface_table = {
@@ -286,16 +287,16 @@ local interface_table = {
       Method1 = {
              { direction=['in'|'out'], name=ARG0NAME, type=TYPESTR },
                ...
-              handler=function(in0, in1...) return out0, out1... end
+              handler=function(vtab, in0, in1...) return out0, out1... end
       }
    },
    properties  = {
       Property1 = {
          access = ['read'|'readwrite'|'write'],
          type = TYPESTR,
-         get = function() return VALUE end
-         set = function(value)
-                  store(value)
+         get = function(vtab) return VALUE end
+         set = function(vtab, value)
+                  -- store, e.g. vtab.Propterty1=value
                   b:emit_properties_changed(PATH, INTF, Property1)
                 end
       }
@@ -310,13 +311,17 @@ local interface_table = {
 
 local b = lsdb.open('user')
 b:request_name("well.known.name"))
-srv = lsdbs.server:new(b, PATH, interface_table)
+srv = lsdb.server:new(b, PATH, interface_table)
 b:loop()
 ```
 
-Additionally, `lsdbus.server` objects allow emitting the specified
-`signals` conveniently via `srv:emit('Signal1', arg0, ...)` instead of
-the longer `bus:emit_signal(...)`.
+The `vtable` table returned by `lsdb.server:new` has the following
+fields set: `bus`, `slot`, `path` and `intf` and apart from these
+fields can be freely used for storing state such as property values.
+
+Additionally, `vtable` objects allow emitting declared `signals`
+conveniently via `vt:emit('Signal1', arg0, ...)` instead of the longer
+`bus:emit_signal(path, intf, member, ...)`.
 
 For further information, take a look at the minimal example
 `examples/tiny-server.lua` and the more extensive one
@@ -325,7 +330,7 @@ For further information, take a look at the minimal example
 #### D-Bus signal matching and callbacks
 
 ```lua
-function callback(sender, path, interface, member, arg0...)
+function callback(bus, sender, path, interface, member, arg0...)
   -- do something
 end
 
@@ -342,15 +347,15 @@ respectively.
 local u = require("utils")
 local lsdb = require("lsdbus")
 local b = lsdb.open('system')
-b:match_signal(nil, nil, nil, nil, u.pp)
+b:match_signal(nil, nil, nil, nil, function (b,...) u.pp(...) end)
 b:loop()
 ```
 
 #### Periodic callbacks
 
 ```lua
-local function callback()
-  -- do something
+local function callback(bus, usec)
+  -- usec is planned trigger time
 end
 
 evsrc = b:add_periodic(period, accuracy, callback)
@@ -367,7 +372,7 @@ See `examples/periodic.lua` for an example.
 #### Unix Signal callbacks
 
 ```lua
-local function callback(signal)
+local function callback(bus, signal)
   print("received signal " .. signal)
 end
 b:add_signal("SIGINT", callback)
@@ -383,7 +388,10 @@ descriptor (see `sd_event_add_io(3)`) for details:
 *Example:*
 
 ```Lua
-lsbd = require "lsdbus"
+local function callback(bus, fd, revents)
+  print("activity on fd", fd)
+end
+
 b:add_io(fd, lsdb.EPOLLIN|lsdb.EPOLLOUT, callback)
 ```
 

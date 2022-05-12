@@ -14,21 +14,17 @@
 
 local lsdb = require("lsdbus")
 
-local b, srv
-local greeting = "Hello"
-local cnt = 0
-
 local demo_if = {
    name="lsdbus.demo.demoif0",
    methods={
       Hello={
 	 { direction="in", name="what", type="s" },
 	 { direction="out", name="response", type="s" },
-	 handler=function(what)
-	    local msg = greeting.." "..what
+	 handler=function(vt, what)
+	    local msg = (vt.greeting or "Hello").." "..what
 	    print(msg)
-	    cnt = cnt + 1
-	    srv:emit('Yell', cnt, what)
+	    vt.cnt = (vt.cnt or 0) + 1
+	    vt:emit('Yell', vt.cnt, msg)
 	    return msg
 	 end
       },
@@ -38,20 +34,20 @@ local demo_if = {
       Greeting={
 	 access="readwrite",
 	 type="s",
-	 get=function() return greeting end,
-	 set=function(v)
-	    if v == "" then
+	 get=function(vt) return vt.greeting or "Hello" end,
+	 set=function(vt, val)
+	    if val == "" then
 	       error("org.freedesktop.DBus.Error.InvalidArgs|empty greeting not allowed")
 	    end
-	    greeting = v
-	    srv:emitPropertiesChanged("Greeting")
+	    vt.greeting = val
+	    vt:emitPropertiesChanged("Greeting")
 	 end
       },
 
       GreetingCount={
 	 access="read",
 	 type="u",
-	 get=function() return cnt end,
+	 get=function(vt) return vt.cnt or 0 end,
       },
    },
 
@@ -63,8 +59,8 @@ local demo_if = {
    }
 }
 
-b = lsdb.open('user')
+local b = lsdb.open('user')
 b:request_name("lsdbus.demo")
-srv = lsdb.server:new(b, "/", demo_if)
-srv:emitAllPropertiesChanged()
+local vt = lsdb.server:new(b, "/", demo_if)
+vt:emitAllPropertiesChanged()
 b:loop()
