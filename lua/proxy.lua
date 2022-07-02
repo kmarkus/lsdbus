@@ -193,7 +193,7 @@ end
 function proxy:new(bus, srv, obj, intf)
    local function introspect(o)
       local node = proxy_introspect(o)
-      for _,i in ipairs(node) do
+      for _,i in ipairs(node.interfaces) do
 	 if i.name == intf then
 	    o.intf = i
 	    return

@@ -42,7 +42,7 @@
  */
 static int dbus_xml2lua(lua_State *L, mxml_node_t *root)
 {
-	mxml_node_t *node, *intf, *prop, *met, *sig, *arg;
+	mxml_node_t *node, *subnode, *intf, *prop, *met, *sig, *arg;
 
 	node = mxmlFindElement(root, root, "node", NULL, NULL, MXML_DESCEND);
 
@@ -51,7 +51,9 @@ static int dbus_xml2lua(lua_State *L, mxml_node_t *root)
 		luaL_error(L, "failed to find <node> element");
 	}
 
-	lua_newtable(L); /* nodes */
+	lua_newtable(L); /* result */
+	lua_pushstring(L, "interfaces");
+	lua_newtable(L); /* interfaces */
 
 	for(intf = mxmlFindElement(node, node, "interface", NULL, NULL, MXML_DESCEND);
 	    intf != NULL;
@@ -154,9 +156,24 @@ static int dbus_xml2lua(lua_State *L, mxml_node_t *root)
 
 		lua_rawset(L, -3); /* interface.signals = signals */
 
-		/* nodes[#nodes+1] = interface */
+		/* interfaces[#interfaces+1] = interface */
 		lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
 	}
+	lua_rawset(L, -3); /* result.interfaces = interfaces */
+
+	/* subnodes */
+	lua_pushstring(L, "nodes");
+	lua_newtable(L);
+
+	for(subnode = mxmlFindElement(node, node, "node", NULL, NULL, MXML_DESCEND);
+	    subnode != NULL;
+	    subnode = mxmlFindElement(subnode, node, "node", NULL, NULL, MXML_NO_DESCEND)) {
+		dbg("%s", mxmlElementGetAttr(subnode, "name"));
+		lua_pushstring(L, mxmlElementGetAttr(subnode, "name"));
+		lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
+	}
+
+	lua_rawset(L, -3); /* result.nodes = nodes */
 
 	mxmlDelete(root);
 	return 0;

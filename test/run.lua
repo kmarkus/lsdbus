@@ -5,4 +5,6 @@ TestProxy  = require("proxy")
 TestIntrospect  = require("introspect")
 TestVtab = require("testvtab")
 
-os.exit( lu.LuaUnit.run() )
+runner = lu.LuaUnit.new()
+
+os.exit( runner:runSuite() )
