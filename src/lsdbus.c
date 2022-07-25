@@ -523,6 +523,7 @@ int luaopen_lsdbus_core(lua_State *L)
 	register_constant(EPOLLRDHUP);
 	register_constant(EPOLLPRI);
 	register_constant(EPOLLET);
+	register_constant(EPOLLERR);
 
 	register_constant(SD_EVENT_OFF);
 	register_constant(SD_EVENT_ON);

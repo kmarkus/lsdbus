@@ -441,7 +441,7 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
 | `bus:set_method_call_timeout`                                                 | see `sd_bus_set_method_call_timeout(3)`      |
 | `res = bus:testmsg(typestr, args...)`                                         | test Lua->D-Bus->Lua message roundtrip       |
 | `ret, res... = bus:call(dest, path, intf, member, typestr, args...)`          | plumbing, prefer lsdbus.proxy                |
-| `slot = bus:call_async(callback, dest, path, intf, member, typestr, args...)` | plumbping async method invocation            |
+| `slot = bus:call_async(callback, dest, path, intf, member, typestr, args...)` | plumbing async method invocation            |
 | `bus:add_object_vtable`                                                       | plumbing, use lsdbus.server instead          |
 
 
