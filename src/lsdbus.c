@@ -66,6 +66,38 @@ void regtab_clear(lua_State *L, const char* regtab, void *k)
 	}
 }
 
+const char* luaL_checkintf(lua_State *L, int arg)
+{
+	const char* intf = luaL_checkstring (L, arg);
+	if (!sd_bus_interface_name_is_valid(intf))
+		luaL_error(L, "invalid interface %s", intf);
+	return intf;
+}
+
+const char* luaL_checkpath(lua_State *L, int arg)
+{
+	const char* path = luaL_checkstring (L, arg);
+	if (!sd_bus_object_path_is_valid(path))
+		luaL_error(L, "invalid object path %s", path);
+	return path;
+}
+
+const char* luaL_checkmember(lua_State *L, int arg)
+{
+	const char* member = luaL_checkstring (L, arg);
+	if (!sd_bus_member_name_is_valid(member))
+		luaL_error(L, "invalid member name %s", member);
+	return member;
+}
+
+const char* luaL_checkservice(lua_State *L, int arg)
+{
+	const char* service = luaL_checkstring (L, arg);
+	if (!sd_bus_service_name_is_valid(service))
+		luaL_error(L, "invalid service name %s", service);
+	return service;
+}
+
 /* toplevel functions */
 static int lsdbus_open(lua_State *L)
 {
@@ -102,10 +134,10 @@ static int lsdbus_bus_call(lua_State *L)
 
 	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
 
-	dest = luaL_checkstring(L, 2);
-	path = luaL_checkstring(L, 3);
-	intf = luaL_checkstring(L, 4);
-	memb = luaL_checkstring(L, 5);
+	dest = luaL_checkservice(L, 2);
+	path = luaL_checkpath(L, 3);
+	intf = luaL_checkintf(L, 4);
+	memb = luaL_checkmember(L, 5);
 	types = luaL_optstring(L, 6, NULL);
 
 	ret = sd_bus_message_new_method_call(b, &m, dest, path, intf, memb);
@@ -208,10 +240,10 @@ static int lsdbus_match_signal(lua_State *L)
 
 	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
 
-	if (!lua_isnil(L, 2)) sender = luaL_checkstring(L, 2);
-	if (!lua_isnil(L, 3)) path = luaL_checkstring(L, 3);
-	if (!lua_isnil(L, 4)) intf = luaL_checkstring(L, 4);
-	if (!lua_isnil(L, 5)) memb = luaL_checkstring(L, 5);
+	if (!lua_isnil(L, 2)) sender = luaL_checkservice(L, 2);
+	if (!lua_isnil(L, 3)) path = luaL_checkpath(L, 3);
+	if (!lua_isnil(L, 4)) intf = luaL_checkintf(L, 4);
+	if (!lua_isnil(L, 5)) memb = luaL_checkmember(L, 5);
 	luaL_checktype(L, 6, LUA_TFUNCTION);
 
 	ret = sd_bus_match_signal(b, &slot, sender, path, intf, memb, signal_callback, L);
@@ -305,10 +337,10 @@ static int lsdbus_call_async(lua_State *L)
 	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
 
 	luaL_checktype(L, 2, LUA_TFUNCTION);
-	dest = luaL_checkstring(L, 3);
-	path = luaL_checkstring(L, 4);
-	intf = luaL_checkstring(L, 5);
-	memb = luaL_checkstring(L, 6);
+	dest = luaL_checkservice(L, 3);
+	path = luaL_checkpath(L, 4);
+	intf = luaL_checkintf(L, 5);
+	memb = luaL_checkmember(L, 6);
 	types = luaL_optstring(L, 7, NULL);
 
 	ret = sd_bus_message_new_method_call(b, &m, dest, path, intf, memb);

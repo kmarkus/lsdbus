@@ -692,8 +692,8 @@ int lsdbus_emit_prop_changed(lua_State *L)
 	int ret;
 	int nprops = lua_gettop(L) - 3;
 	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
-	const char *path = luaL_checkstring (L, 2);
-	const char *intf = luaL_checkstring (L, 3);
+	const char *path = luaL_checkpath(L, 2);
+	const char *intf = luaL_checkintf(L, 3);
 	const char* props[nprops+1];
 
 	for (int i=0; i<nprops; i++)
@@ -715,9 +715,9 @@ int lsdbus_emit_signal(lua_State *L)
 
 	sd_bus_message *message = NULL;
 	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
-	const char *path = luaL_checkstring (L, 2);
-	const char *intf = luaL_checkstring (L, 3);
-	const char *member = luaL_checkstring (L, 4);
+	const char *path = luaL_checkpath (L, 2);
+	const char *intf = luaL_checkintf (L, 3);
+	const char *member = luaL_checkmember (L, 4);
 	const char *sig = luaL_optstring (L, 5, NULL);
 
 	ret = sd_bus_message_new_signal(b, &message, path, intf, member);

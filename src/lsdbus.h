@@ -70,4 +70,9 @@ void regtab_store(lua_State *L, const char* regtab, void *k, int funidx);
 int regtab_get(lua_State *L, const char* regtab, void *k);
 void regtab_clear(lua_State *L, const char* regtab, void *k);
 
+const char* luaL_checkintf(lua_State *L, int arg);
+const char* luaL_checkpath(lua_State *L, int arg);
+const char* luaL_checkmember(lua_State *L, int arg);
+const char* luaL_checkservice(lua_State *L, int arg);
+
 #endif /* __LSDBUS_H */
