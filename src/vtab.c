@@ -539,7 +539,7 @@ int lsdbus_add_object_vtable(lua_State *L)
 	const char *interface, *path;
 
 	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
-	path = luaL_checkstring (L, 2);
+	path = luaL_checkpath (L, 2);
 	luaL_checktype (L, 3, LUA_TTABLE);
 
 	/* initialize vtable */

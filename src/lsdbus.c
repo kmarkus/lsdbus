@@ -422,7 +422,7 @@ static int lsdbus_bus_request_name(lua_State *L)
 	int ret;
 
 	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
-	const char *name = luaL_checkstring(L, 2);
+	const char *name = luaL_checkservice(L, 2);
 
 	ret = sd_bus_request_name(b, name, 0);
 

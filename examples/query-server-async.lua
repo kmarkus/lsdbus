@@ -9,7 +9,6 @@ local function concat_cb(b, ...)
    u.pp("callback", b:context(), ...)
    u.pp(tst:call_async('pow', pow_cb, cnt))
    cnt = cnt + 1
-
 end
 
 function pow_cb(b, ...)
