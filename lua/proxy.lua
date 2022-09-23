@@ -176,7 +176,7 @@ function proxy:__tostring()
 
    res[#res+1] = "Signals:"
    for n,s in pairs(self.intf.signals) do
-      res[#res+1] = fmt("  %s: %s", n, core.sig2ts(s))
+      res[#res+1] = fmt("  %s: %s", n, common.signal2ts(s))
    end
 
    return table.concat(res, "\n")
@@ -201,6 +201,11 @@ function proxy:new(bus, srv, obj, intf)
       end
       o:error(err.UNKNOWN_INTERFACE, "no such interface")
    end
+
+   assert(type(bus)=='userdata', "missing or invalid bus arg")
+   assert(type(srv)=='string', "missing invalid srv arg")
+   assert(type(obj)=='string', "missing or invalid obj arg")
+   assert(intf~=nil, "missing intf arg")
 
    local o = { bus=bus, srv=srv, obj=obj, intf=intf }
    setmetatable(o, self)
