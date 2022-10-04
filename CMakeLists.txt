@@ -10,7 +10,7 @@ pkg_search_module(LUA lua5.4 lua5.3 luajit lua5.2 lua5.1 lua REQUIRED)
 
 message(STATUS "Found ${LUA_MODULE_NAME}")
 
-pkg_check_modules(SYSTEMD libsystemd>=242)
+pkg_check_modules(SYSTEMD REQUIRED libsystemd>=242)
 pkg_check_modules(MXML REQUIRED mxml)
 
 if ("${LUA_MODULE_NAME}" STREQUAL "luajit")
@@ -38,6 +38,7 @@ set(LSDBUS_INST_DIR
 
 add_library(core SHARED ${LSDBUS_SRCS})
 target_compile_options(core PRIVATE -Wall -Wextra)
+target_compile_definitions(core PRIVATE SYSTEMD_VERSION=${SYSTEMD_VERSION})
 target_include_directories(core PRIVATE ${LUA_INCLUDE_DIRS})
 target_link_libraries(core ${LUA_LIBRARIES} ${SYSTEMD_LIBRARIES} ${MXML_LIBRARIES} )
 set_target_properties(core PROPERTIES PREFIX "")

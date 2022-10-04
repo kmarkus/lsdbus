@@ -69,32 +69,40 @@ void regtab_clear(lua_State *L, const char* regtab, void *k)
 const char* luaL_checkintf(lua_State *L, int arg)
 {
 	const char* intf = luaL_checkstring (L, arg);
+#if LIBSYSTEMD_VERSION>=246
 	if (!sd_bus_interface_name_is_valid(intf))
 		luaL_error(L, "invalid interface %s", intf);
+#endif
 	return intf;
 }
 
 const char* luaL_checkpath(lua_State *L, int arg)
 {
 	const char* path = luaL_checkstring (L, arg);
+#if LIBSYSTEMD_VERSION>=246
 	if (!sd_bus_object_path_is_valid(path))
 		luaL_error(L, "invalid object path %s", path);
+#endif
 	return path;
 }
 
 const char* luaL_checkmember(lua_State *L, int arg)
 {
 	const char* member = luaL_checkstring (L, arg);
+#if LIBSYSTEMD_VERSION>=246
 	if (!sd_bus_member_name_is_valid(member))
 		luaL_error(L, "invalid member name %s", member);
+#endif
 	return member;
 }
 
 const char* luaL_checkservice(lua_State *L, int arg)
 {
 	const char* service = luaL_checkstring (L, arg);
+#if LIBSYSTEMD_VERSION>=246
 	if (!sd_bus_service_name_is_valid(service))
 		luaL_error(L, "invalid service name %s", service);
+#endif
 	return service;
 }
 
