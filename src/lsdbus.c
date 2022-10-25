@@ -130,7 +130,7 @@ static int lsdbus_open(lua_State *L)
 }
 
 /* bus methods */
-static int lsdbus_bus_call(lua_State *L)
+static int __lsdbus_bus_call(lua_State *L, int raw)
 {
 	int ret;
 	uint64_t timeout;
@@ -184,7 +184,7 @@ static int lsdbus_bus_call(lua_State *L)
 	}
 
 	lua_pushboolean(L, 1);
-	ret = msg_tolua(L, reply);
+	ret = msg_tolua(L, reply, raw);
 
 	if (ret >= 0)
 		ret++;
@@ -198,6 +198,9 @@ out:
 
 	return ret;
 }
+
+static int lsdbus_bus_call(lua_State *L) { return __lsdbus_bus_call(L, 0); }
+static int lsdbus_bus_callr(lua_State *L) { return __lsdbus_bus_call(L, 1); }
 
 void push_string_or_nil(lua_State *L, const char* s)
 {
@@ -228,7 +231,7 @@ static int signal_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
 	push_string_or_nil(L, sd_bus_message_get_interface(m));
 	push_string_or_nil(L, sd_bus_message_get_member(m));
 
-	nargs = msg_tolua(L, m);
+	nargs = msg_tolua(L, m, 0);
 
 	if(nargs<0)
 		lua_error(L);
@@ -320,7 +323,7 @@ static int method_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
 		if (e) push_sd_bus_error(L, e);
 		nargs = 2;
 	} else {
-		nargs = msg_tolua(L, m);
+		nargs = msg_tolua(L, m, 0);
 		if (nargs<0) lua_error(L);
 	}
 
@@ -384,7 +387,7 @@ out:
 	return lsdbus_gcslot_push(L, slot);
 }
 
-static int lsdbus_testmsg(lua_State *L)
+static int __lsdbus_testmsg(lua_State *L, int raw)
 {
 	int ret;
 	sd_bus_message *m = NULL;
@@ -414,7 +417,7 @@ static int lsdbus_testmsg(lua_State *L)
 	sd_bus_message_dump(m, stdout, SD_BUS_MESSAGE_DUMP_WITH_HEADER);
 #endif
 	sd_bus_message_rewind(m, 1);
-	ret = msg_tolua(L, m);
+	ret = msg_tolua(L, m, raw);
 
 out:
 	sd_bus_message_unref(m);
@@ -424,6 +427,9 @@ out:
 
 	return ret;
 }
+
+static int lsdbus_testmsg(lua_State *L) { return __lsdbus_testmsg(L, 0); }
+static int lsdbus_testmsgr(lua_State *L) { return __lsdbus_testmsg(L, 1); }
 
 static int lsdbus_bus_request_name(lua_State *L)
 {
@@ -507,6 +513,7 @@ static const luaL_Reg lsdbus_bus_m [] = {
 	{ "get_method_call_timeout", lsdbus_bus_get_method_call_timeout },
 	{ "set_method_call_timeout", lsdbus_bus_set_method_call_timeout },
 	{ "call", lsdbus_bus_call },
+	{ "callr", lsdbus_bus_callr },
 	{ "call_async", lsdbus_call_async },
 	{ "match_signal", lsdbus_match_signal },
 	{ "match", lsdbus_match },
@@ -522,6 +529,7 @@ static const luaL_Reg lsdbus_bus_m [] = {
 	{ "add_io", evl_add_io },
 	{ "request_name", lsdbus_bus_request_name },
 	{ "testmsg", lsdbus_testmsg },
+	{ "testmsgr", lsdbus_testmsgr },
 	{ "__tostring", lsdbus_bus_tostring },
 	{ "__gc", lsdbus_bus_gc },
 	{ NULL, NULL },

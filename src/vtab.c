@@ -97,7 +97,7 @@ static int prop_set_handler(sd_bus *bus,
 	lua_pushstring(L, USER_VTAB);				/* slottab, {type,get,set}, handler, "user-vt" */
 	lua_rawget(L, -4);					/* slottab, {type,get,set}, handler, {} */
 
-	nargs = msg_tolua(L, value);
+	nargs = msg_tolua(L, value, 0);
 
 	if(nargs<0)
 		lua_error(L);
@@ -165,7 +165,7 @@ static int method_handler(sd_bus_message *call, void *userdata, sd_bus_error *re
 
 	push_method(L, slot, mem, &result);
 
-	nargs = msg_tolua(L, call);
+	nargs = msg_tolua(L, call, 0);
 
 	if(nargs<0)
 		lua_error(L);

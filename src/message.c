@@ -582,7 +582,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 	return 1;
 }
 
-static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
+static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 {
 	int r;
 
@@ -629,7 +629,7 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
 				luaL_error(L, "msg_tolua: failed to enter container: %s", strerror(-r));
 
 			lua_newtable(L);
-			__msg_tolua(L, m, type);
+			__msg_tolua(L, m, type, raw);
 			goto update_table;
 
 		} else if (type == SD_BUS_TYPE_DICT_ENTRY) {
@@ -640,7 +640,7 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
                         if (r < 0)
 				luaL_error(L, "msg_tolua: failed to enter container: %s", strerror(-r));
 
-			__msg_tolua(L, m, type);
+			__msg_tolua(L, m, type, raw);
 			dbg("rawset into parent at -3");
 			lua_rawset(L, -3);
 			continue;
@@ -652,8 +652,13 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
 
                         if (r < 0)
 				luaL_error(L, "msg_tolua: failed to enter container: %s", strerror(-r));
+			if (raw) {
+				lua_newtable(L);
+				lua_pushstring(L, contents);
+				lua_rawseti(L, -2, 1);
+			}
 
-			__msg_tolua(L, m, type);
+			__msg_tolua(L, m, type, raw);
 			goto update_table;
 		}
 
@@ -722,8 +727,9 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
                 }
 
 	update_table:
-		if (ctype == SD_BUS_TYPE_ARRAY || ctype == SD_BUS_TYPE_STRUCT) {
-
+		if (ctype == SD_BUS_TYPE_ARRAY ||
+		    ctype == SD_BUS_TYPE_STRUCT ||
+		    (raw && ctype == SD_BUS_TYPE_VARIANT)) {
 			if (lua_type(L, -2) != LUA_TTABLE)
 				luaL_error(L, "%c rawseti: not table at -2", ctype);
 
@@ -735,11 +741,11 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype)
         return 0;
 }
 
-int msg_tolua(lua_State *L, sd_bus_message* m)
+int msg_tolua(lua_State *L, sd_bus_message* m, int raw)
 {
 	int ret, nargs;
 	nargs = lua_gettop(L);
-	ret = __msg_tolua(L, m, 0);
+	ret = __msg_tolua(L, m, 0, raw);
 	if (ret < 0)
 		return ret;
 	return lua_gettop(L) - nargs;

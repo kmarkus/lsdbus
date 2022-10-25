@@ -7,7 +7,7 @@ TestProxy = {}
 local b, td, hn, login
 
 function TestProxy:setup()
-   b = lsdb.open('default_system')
+   b = lsdb.open('system')
 
    td = proxy:new(b, 'org.freedesktop.timedate1', '/org/freedesktop/timedate1', 'org.freedesktop.timedate1')
    hn = proxy:new(b, 'org.freedesktop.hostname1', '/org/freedesktop/hostname1', 'org.freedesktop.hostname1')

@@ -137,24 +137,32 @@ end
 
 function TestMsg:TestVariant()
    local s = "sumpi"
-   local ret = b:testmsg("v", { "s", s })
+   local vin =  { "s", s }
+   local ret = b:testmsg("v", vin)
    lu.assert_equals(ret, s)
+   lu.assert_equals(b:testmsgr("v", vin), vin)
 end
 
 function TestMsg:TestVariantArrayOfInts()
    local arg = { 11, 22, 33, 44, 55, 66 }
-   local ret = b:testmsg("v", { "ai", arg })
+   local vin = { "ai", arg }
+   local ret = b:testmsg("v", vin)
    lu.assert_equals(ret, arg)
+   lu.assert_equals(b:testmsgr("v", vin), vin)
 end
 
 function TestMsg:TestArrayWithVariant1()
-   local ret = b:testmsg("a{iv}", { { 'd', 22.2 }, { 's', "foo"}, { 'b', true} })
+   local vin = { { 'd', 22.2 }, { 's', "foo"}, { 'b', true} }
+   local ret = b:testmsg("a{iv}", vin)
    lu.assert_equals(ret, { 22.2, "foo", true})
+   lu.assert_equals(b:testmsgr("a{iv}", vin), vin)
 end
 
 function TestMsg:TestArrayWithVariant2()
-   local ret = b:testmsg("a{sv}", { foo={'s', "nirk"}, bar={'d', 2.718}, dunk={'b', false}})
+   local vin = { foo={'s', "nirk"}, bar={'d', 2.718}, dunk={'b', false}}
+   local ret = b:testmsg("a{sv}", vin)
    lu.assert_equals(ret, {foo="nirk", bar=2.718, dunk=false})
+   lu.assert_equals(b:testmsgr("a{sv}", vin), vin)
 end
 
 function TestMsg:TestArrayWithVariant3()
@@ -162,6 +170,7 @@ function TestMsg:TestArrayWithVariant3()
    local vout = { foo="nirk", bar={ irg=1, barg=2}}
    local ret = b:testmsg("a{sv}", vin)
    lu.assert_equals(ret, vout)
+   lu.assert_equals(b:testmsgr("a{sv}", vin), vin)
 end
 
 function TestMsg:TestArrayWithVariant4()
@@ -169,6 +178,7 @@ function TestMsg:TestArrayWithVariant4()
    local vout = { foo="nirk", bar={ irg=1, barg='harry'}}
    local ret = b:testmsg("a{sv}", vin)
    lu.assert_equals(ret, vout)
+   lu.assert_equals(b:testmsgr("a{sv}", vin), vin)
 end
 
 function TestMsg:TestArrayOfVariants()
@@ -177,6 +187,7 @@ function TestMsg:TestArrayOfVariants()
 
    local ret, ret2 = b:testmsg("av", vin)
    lu.assert_equals(ret, vout)
+   lu.assert_equals(b:testmsgr("av", vin), vin)
 end
 
 function TestMsg:TestArrayWithVariantNested1()
@@ -188,6 +199,7 @@ function TestMsg:TestArrayWithVariantNested1()
    local vout = { a='nirk', b = {1, "forb"} }
    local ret = b:testmsg("a{sv}", vin)
    lu.assert_equals(ret, vout)
+   lu.assert_equals(b:testmsgr("a{sv}", vin), vin)
 end
 
 function TestMsg:TestArrayWithVariantNested2()
@@ -223,6 +235,7 @@ function TestMsg:TestArrayWithVariantNested2()
 
    local ret = b:testmsg("a{sv}", vin)
    lu.assert_equals(ret, vout)
+   lu.assert_equals(b:testmsgr("a{sv}", vin), vin)
 end
 
 -- TODO:
