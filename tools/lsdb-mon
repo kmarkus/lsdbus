@@ -9,7 +9,7 @@ local function printf(fmt, ...) print(string.format(fmt, ...)) end
 local function log(...) if verbose then printf(...) end end
 local function _n(x) if x=="" then return nil else return x end end
 
-local function exit(sig)
+local function exit(_, sig)
    log("caught %s, exiting", sig)
    b:exit_loop()
 end
