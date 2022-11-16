@@ -124,26 +124,29 @@ it and converts it back to Lua (the example below uses the small
 
 **Type conversions**
 
-| D-Bus Type      | D-Bus specifier                   | Lua                  | Example Lua to D-Bus msg...  | ...and back to Lua  |
-|-----------------|-----------------------------------|----------------------|------------------------------|---------------------|
-| boolean         | `b`                               | `boolean`            | `'b', true`                  | `true`              |
-| integers        | `y`, `n`, `q`, `i`, `u`, `x`, `t` | `number` (integer)   | `'i', 42`                    | `42`                |
-| floating-point  | `d`                               | `number` (double)    | `'d', 3.14`                  | `3.14`              |
-| file descriptor | `h`                               | `number`             |                              |                     |
-| string          | `s`                               | `string`             | `'s', "foo"`                 | `"foo"`             |
-| signature       | `g`                               | `string`             | `'g', "a{sv}"`               | `"a{sv}"`           |
-| object path     | `o`                               | `string`             | `'o', "/a/b/c"`              | `"/a/b/c"`          |
-| variant         | `v`                               | `{SPECIFIER, VALUE}` | `'v', {'i', 33 }`            | `33`                |
-| array           | `a`                               | `table` (array part) | `'ai', {1,2,3,9}`            | `{1,2,3,9}`         |
-| struct          | `(...)`                           | `table` (array part) | `'(ibs)', {3, false, "hey"}` | `{3, false, "hey"}` |
-| dictionary      | `a{...}`                          | `table` (dict part)  | `'a{si}', {a=1, b=2}`        | `{a=1, b=2}`        |
+| D-Bus Type      | D-Bus specifier                   | Lua                  | Example Lua to D-Bus msg...  | ...and back to Lua                |
+|-----------------|-----------------------------------|----------------------|------------------------------|-----------------------------------|
+| boolean         | `b`                               | `boolean`            | `'b', true`                  | `true`                            |
+| integers        | `y`, `n`, `q`, `i`, `u`, `x`, `t` | `number` (integer)   | `'i', 42`                    | `42`                              |
+| floating-point  | `d`                               | `number` (double)    | `'d', 3.14`                  | `3.14`                            |
+| file descriptor | `h`                               | `number`             |                              |                                   |
+| string          | `s`                               | `string`             | `'s', "foo"`                 | `"foo"`                           |
+| signature       | `g`                               | `string`             | `'g', "a{sv}"`               | `"a{sv}"`                         |
+| object path     | `o`                               | `string`             | `'o', "/a/b/c"`              | `"/a/b/c"`                        |
+| variant         | `v`                               | `{SPECIFIER, VALUE}` | `'v', {'i',33 }`             | `33` (or `{'i',33}` with `callr`) |
+| array           | `a`                               | `table` (array part) | `'ai', {1,2,3,9}`            | `{1,2,3,9}`                       |
+| struct          | `(...)`                           | `table` (array part) | `'(ibs)', {3, false, "hey"}` | `{3, false, "hey"}`               |
+| dictionary      | `a{...}`                          | `table` (dict part)  | `'a{si}', {a=1, b=2}`        | `{a=1, b=2}`                      |
 
 *Notes:*
 
 - More examples can be found in the unit tests: `test/message.lua`
 - *Variant* is the only type whose conversion is asymmetrical,
   i.e. the input arguments are not equal the result. This is because
-  the variant is unpacked automatically.
+  the variant is unpacked automatically. However, in some cases it is
+  desirable to get the variant in its raw table form (e.g. when the
+  identical value needs to be returned). For that case, the "raw"
+  methods `callr` (and `testmsgr`) can be used.
 
 ### Client API
 
@@ -415,11 +418,13 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
 
 ### Functions
 
-| Functions             | Description                                      |
-|-----------------------|--------------------------------------------------|
-| `lsdbus.open(NAME)`   | open bus connection                              |
-| `lsdbus.xml_fromfile` | parse a D-Bus XML file and return as Lua table   |
-| `lsdbus.xml_fromstr`  | parse a D-Bus XML string and return as Lua table |
+| Functions                          | Description                                                                    |
+|------------------------------------|--------------------------------------------------------------------------------|
+| `lsdbus.open(NAME)`                | open bus connection                                                            |
+| `lsdbus.xml_fromfile(file)`        | parse a D-Bus XML file and return as Lua table                                 |
+| `lsdbus.xml_fromstr(str)`          | parse a D-Bus XML string and return as Lua table                               |
+| `lsdbus.find_intf(node, interface` | find and return `interface` in the introspection table or `false` if not found |
+
 
 ### Bus connection object
 
@@ -468,6 +473,7 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
 | `prxy:HasMethod(method)`                       | check if prxy has a method with the given name        |
 | `prxy:callt(method, ARGTAB)`                   | call a method with a table of arguments               |
 | `prxy:call_async(method, callback ARGTAB)`     | call a method asynchronously (returns slot)           |
+| `prxy:callr(method, arg0, ...)`                | raw call, will not unpack variants                    |
 | `prxy:Get(name)`                               | get a properties value                                |
 | `prxy.name`                                    | short form, same as previous                          |
 | `prxy:Set(name, value)`                        | set a property                                        |
