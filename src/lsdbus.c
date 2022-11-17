@@ -3,19 +3,21 @@
 
 static const char *const open_opts_lst [] = {
 	"default",
-	"system",
-	"user",
 	"default_system",
 	"default_user",
+	"new",
+	"system",
+	"user",
 	NULL
 };
 
 static int(*open_funcs[])(sd_bus **bus) = {
 	sd_bus_default,
-	sd_bus_open_system,
-	sd_bus_open_user,
 	sd_bus_default_system,
 	sd_bus_default_user,
+	sd_bus_open,
+	sd_bus_open_system,
+	sd_bus_open_user,
 };
 
 

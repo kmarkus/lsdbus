@@ -453,9 +453,15 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
 *Notes:*
 
 - `lsdb.open` accepts an optional string parameter to indicate which
-  bus to open: `default`, `system`, `user`, `default_system`,
-  `default_user` correspond function as described in
-  `sd_bus_default(3)`.  If not given, default is `'default'`
+  bus to open:
+    - `new` (`sd_bus_open`)
+    - `system` (`sd_bus_system`)
+    - `user` (`sd_bus_user`)
+    - `default` (`sd_bus_default`)
+    - `default_system` (`sd_bus_default_system`)
+    - `default_user` (`sd_bus_default_user`)
+
+  If not given, default is `'default'`
 
 - `evsrc` (event source) objects are not garbage collected but can be
   used to explicitely remove the respective interface or callbacks
