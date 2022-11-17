@@ -131,7 +131,9 @@ int evl_run(lua_State *L)
 	if(ret<0)
 		luaL_error(L, "sd_event_run exited with error %s", strerror(-ret));
 
-	return 0;
+	lua_pushinteger(L, ret);
+
+	return 1;
 }
 
 /* call sd_event_exit */
