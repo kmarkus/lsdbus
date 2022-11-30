@@ -1,6 +1,7 @@
 #!/usr/bin/lua
 
 local u = require("utils")
+local ac = require("ansicolors")
 local lsdb = require("lsdbus")
 
 local b, bus, verbose
@@ -12,6 +13,14 @@ local function _n(x) if x=="" then return nil else return x end end
 local function exit(_, sig)
    log("caught %s, exiting", sig)
    b:exit_loop()
+end
+
+local function pp(_, s, p, i, m, ...)
+   u.pp(s, p, i, m, u.tab2str({...}))
+end
+
+local function colorpp(_, s, p, i, m, ...)
+   u.pp(ac.blue(s), ac.green(p), ac.cyan(i), ac.yellow(m), ac.magenta(u.tab2str({...})))
 end
 
 local function help()
@@ -26,6 +35,7 @@ without any args just dump all signals
 global flags
  -s 	system bus
  -u	session bus
+ -c 	colorize output
  -v     verbose
 ]=])
 end
@@ -34,6 +44,7 @@ local opttab = u.proc_args(arg)
 local cmd = opttab[0][1]
 
 verbose = opttab['-v']
+if opttab['-c'] then pp = colorpp end
 if opttab['-h'] then cmd = 'help' end
 if opttab['-s'] then bus='default_system'
 elseif opttab['-u'] then bus='default_user' end
@@ -43,15 +54,15 @@ b = lsdb.open(bus)
 
 if not cmd then
    log('matching all signals')
-   b:match_signal(nil, nil, nil, nil, u.pp)
+   b:match_signal(nil, nil, nil, nil, pp)
 elseif cmd == 'sig' then
    local s,p,i,m = string.match(opttab[0][2], "([^,]*),([^,]*),([^,]*),(.*)")
    if s == nil then printf("invalid signal spec"); os.exit(1) end
    log("matching sender=%s, path=%s, interf=%s, member=%s", s, p, i, m)
-   b:match_signal(_n(s), _n(p), _n(i), _n(m), u.pp)
+   b:match_signal(_n(s), _n(p), _n(i), _n(m), pp)
 elseif cmd == 'expr' then
    log("matching expression %s", opttab[0][2])
-   b:match(opttab[0][2], u.pp)
+   b:match(opttab[0][2], pp)
 elseif cmd == 'help' then
    help()
    os.exit()
