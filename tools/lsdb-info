@@ -1,0 +1,133 @@
+#!/usr/bin/lua
+
+local u = require("utils")
+local ac = require("ansicolors")
+local lsdb = require("lsdbus")
+local common = require("lsdbus.common")
+
+local b, bus, verbose, color, show_stdif
+local dbus_proxy
+
+local function make_colorize(colorize)
+   return function(s) if color then return colorize(s) else return s end end
+end
+
+local blue = make_colorize(ac.blue)
+local bblue = make_colorize(function(s) return ac.bright(ac.blue(s or "")) end)
+local red = make_colorize(ac.red)
+local green = make_colorize(ac.green)
+local cyan = make_colorize(ac.cyan)
+local magenta = make_colorize(ac.magenta)
+local bmagenta = make_colorize(function(s) return ac.bright(ac.magenta(s or "")) end)
+
+local fmt = string.format
+local concat = table.concat
+
+local function log(...) if verbose then printf(...) end end
+
+local function help()
+   print([=[
+usage: lsdb-info: COMMAND [ARGS] [FLAGS]
+
+ list            list all know services
+ show [SERVICE]  show SERVICE
+   -i              show also standard interfaces
+ help            print this
+
+global flags
+ -s 	system bus
+ -u	session bus
+ -c 	colorize output
+ -v     verbose
+]=])
+end
+
+local function get_services()
+   local function cmd_from_pid(pid)
+      local f = assert(io.open(fmt("/proc/%i/comm", pid), 'r'))
+      return string.gsub(f:read('*a'), '\n$', '')
+   end
+
+   local res = {}
+   local names = dbus_proxy('ListNames')
+
+   for _,n in ipairs(names) do
+      local creds = dbus_proxy('GetConnectionCredentials', n)
+      local uid = dbus_proxy('GetNameOwner', n)
+      local cmd = cmd_from_pid(creds.ProcessID)
+      res[#res+1] = { wid=n, uid=uid, cmd=cmd, pid=creds.ProcessID }
+   end
+
+   table.sort(res, function(x, y) return x.wid<y.wid end)
+   return res
+end
+
+
+
+local is_stdif = {
+   ['org.freedesktop.DBus.Properties']=true,
+   ['org.freedesktop.DBus.Introspectable']=true,
+   ['org.freedesktop.DBus.Peer']=true
+}
+
+local function show(service)
+   local m
+   if not service then return end
+   local objects = common.introspect(b, service)
+
+   print(bblue(service))
+   for _,o in ipairs(objects) do
+      print(fmt("  %s", green(o.path)))
+      for _,i in ipairs(o.node.interfaces) do
+	 if is_stdif[i.name] and not show_stdif then goto continue end
+
+	 print(fmt("    %s", cyan(i.name)))
+
+	 print(fmt("      %s", bmagenta("Methods")))
+	 for mname,mtab in pairs(i.methods) do
+	    print(blue(fmt("        %s", common.met_tostr(mname, mtab))))
+	 end
+
+	 print(fmt("      %s", bmagenta("Properties")))
+	 for pname,ptab in pairs(i.properties) do
+	    print(blue(fmt("        %s", common.prop_tostr(pname, ptab))))
+	 end
+
+	 print(fmt("      %s", bmagenta("Signals")))
+	 for sname,stab in pairs(i.signals) do
+	    print(blue(fmt("        %s", common.sig_tostr(sname, stab))))
+	 end
+
+	 ::continue::
+      end
+   end
+end
+
+local opttab = u.proc_args(arg)
+local cmd = opttab[0][1] or 'list'
+
+verbose = opttab['-v']
+if opttab['-c'] then color = true end
+if opttab['-i'] then show_stdif = true end
+if opttab['-h'] then cmd = 'help' end
+if opttab['-s'] then bus='default_system'
+elseif opttab['-u'] then bus='default_user' end
+
+log("using %s bus", bus or 'default')
+b = lsdb.open(bus)
+dbus_proxy = lsdb.proxy:new(b, 'org.freedesktop.DBus', '/', 'org.freedesktop.DBus')
+
+if cmd == 'list' then
+   local services = get_services()
+   local hdr = { 'wid', 'uid', 'cmd', 'pid' }
+   local _, rows = u.tabulate(services, hdr)
+   u.write_table(io.stdout, hdr, rows, {count=false})
+elseif cmd == 'show' then
+   show(opttab[0][2])
+elseif cmd == 'help' then
+   help()
+   os.exit()
+else
+   print(fmt("unknown command %s", cmd))
+   os.exit(1)
+end
