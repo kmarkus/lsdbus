@@ -20,5 +20,8 @@ dependencies = {
 }
 
 build = {
-   type = "cmake"
+   type = "cmake",
+   variables = {
+      CMAKE_INSTALL_PREFIX = "$(PREFIX)"
+   }
 }
