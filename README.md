@@ -58,6 +58,10 @@ $ cmake .. && make
 $ sudo make install
 ```
 
+If you have multiple Lua versions installed, you can force the one to
+be used by setting `CONFIG_LUA_VER` (or pass `-DCONFIG_LUA_VER=X` to
+cmake) to one of `5.4`, `5.3`, `5.2`, `5.1` or `jit`.
+
 ## Quickstart
 
 **Server**

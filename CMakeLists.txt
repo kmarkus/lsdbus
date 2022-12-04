@@ -6,12 +6,16 @@ set(CMAKE_C_STANDARD 11)
 include(GNUInstallDirs)
 
 find_package(PkgConfig REQUIRED)
-pkg_search_module(LUA lua5.4 lua5.3 luajit lua5.2 lua5.1 lua REQUIRED)
-
-message(STATUS "Found ${LUA_MODULE_NAME}")
-
 pkg_check_modules(SYSTEMD REQUIRED libsystemd>=242)
 pkg_check_modules(MXML REQUIRED mxml)
+
+set(CONFIG_LUA_VER "" CACHE STRING "build for exact Lua version")
+
+if(NOT "${CONFIG_LUA_VER}" STREQUAL "")
+  pkg_search_module(LUA "lua${CONFIG_LUA_VER}" REQUIRED)
+else()
+  pkg_search_module(LUA lua5.4 lua5.3 luajit lua5.2 lua5.1 lua REQUIRED)
+endif()
 
 if ("${LUA_MODULE_NAME}" STREQUAL "luajit")
   pkg_get_variable(LUA_VER ${LUA_MODULE_NAME} abiver)
@@ -20,6 +24,8 @@ else()
   pkg_get_variable(LUA_VER ${LUA_MODULE_NAME} version)
   string(REGEX MATCH "^([0-9]+\\.[0-9]+)" LUA_VER ${LUA_VERSION})
 endif()
+
+message(STATUS "Found ${LUA_MODULE_NAME} (${LUA_VER})")
 
 if( "${LUA_VER}" STREQUAL "5.1" OR "${LUA_VER}" STREQUAL "5.2" )
   find_file(COMPAT53 compat-5.3.h PATH_SUFFIXES "lua${LUA_VER}")
