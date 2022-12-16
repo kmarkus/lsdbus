@@ -1,7 +1,78 @@
 local M = {}
 
+local lsdb = require("lsdbus.core")
 local concat = table.concat
 local fmt = string.format
+
+--- recursively enumerate all object paths and their interfaces
+-- the result is of the following form
+-- { { path=PATH, node=NODE }, ... }
+-- @bus
+-- @service service name
+-- @return table of interfaces
+function M.introspect(bus, service)
+   local res = {}
+
+   local function _introspect(path)
+      local ret, xml = bus:call(service, path or '/',
+				'org.freedesktop.DBus.Introspectable', 'Introspect')
+      if not ret then
+	 error(fmt("introspecting %s failed: %s", service, xml[2]))
+      end
+
+      local node = lsdb.xml_fromstr(xml)
+
+      if #node.interfaces > 0 then
+	 res[#res+1] = { path=(path or '/'), node=node }
+      end
+
+      for _,subnode in ipairs(node.nodes) do
+	 nextpath = (path or '') ..'/'..subnode
+	 _introspect(nextpath)
+      end
+   end
+   _introspect()
+   return res
+end
+
+--- Generate a human readable method signature
+-- @name name of the method
+-- @mtab method introspection table
+-- @return string method signature
+function M.met_tostr(name, mtab)
+   local iargs, oargs = {}, {}
+
+   for _,arg in ipairs(mtab) do
+      if arg.direction == 'in' then
+	 iargs[#iargs+1] = fmt("%s[%s]", arg.name, arg.type)
+      end
+
+      if arg.direction =='out' then
+	 oargs[#oargs+1] = fmt("%s[%s]", arg.name, arg.type)
+      end
+   end
+   if #oargs == 0 then
+      return fmt("%s(%s)", name, concat(iargs, ", "))
+   else
+      return fmt("%s(%s) -> %s", name, concat(iargs, ", "), concat(oargs, ', '))
+   end
+end
+
+function M.prop_tostr(name, ptab)
+   return fmt("%s[%s] %s", name, ptab.type, ptab.access)
+end
+
+function M.sig_tostr(name, stab)
+   local args = {}
+   for _,arg in ipairs(stab) do
+      args[#args+1] = fmt("%s[%s]", arg.name, arg.type)
+   end
+   if #args == 0 then
+      return name
+   else
+      return fmt("%s(%s)", name, concat(args, ", "))
+   end
+end
 
 function M.met2its(mtab)
    local i = {}
