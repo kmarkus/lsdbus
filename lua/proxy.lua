@@ -90,6 +90,8 @@ end
 function proxy:callt(m, argtab)
    local mtab = self.intf.methods[m]
    local args = {}
+   argtab = argtab or {}
+
    if not mtab then
       self:error(err.UNKNOWN_METHOD, fmt("callt: no method %s", m))
    end
