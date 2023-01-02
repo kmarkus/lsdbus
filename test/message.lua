@@ -302,4 +302,41 @@ function TestMsg:TestInvalidMissingDictClose()
    lu.assert_error_msg_contains(exp_err, invalid_msg)
 end
 
+function TestMsg:TestCompositeMT()
+   local function typ (x)
+      local t = (getmetatable(x) or {}).__name
+      return t or false
+   end
+
+   lu.assert_equals(typ(b:testmsgr('(ii)', {3, 3})), "lsdbus.struct")
+   lu.assert_equals(typ(b:testmsgr('ai', {1,2,3})), "lsdbus.array")
+   lu.assert_equals(typ(b:testmsgr('v', {'i', 33})), "lsdbus.variant")
+
+   local vin = {
+      a={'s', "nirk"},
+      b={'a{sv}',
+	 {
+	    cc={'i', 1},
+	    ee={'a{sv}',
+		{
+		   ff={'i', 22},
+		   gg={'s', 'sally'}
+		}
+	    },
+	 }
+      }
+   }
+   local ret = b:testmsgr("a{sv}", vin)
+
+   lu.assert_equals(typ(ret.a), "lsdbus.variant")
+   lu.assert_equals(typ(ret.b), "lsdbus.variant")
+   lu.assert_equals(typ(ret.b[2]), "lsdbus.array")
+   lu.assert_equals(typ(ret.b[2].cc), "lsdbus.variant")
+   lu.assert_equals(typ(ret.b[2].ee), "lsdbus.variant")
+   lu.assert_equals(typ(ret.b[2].ee[2]), "lsdbus.array")
+   lu.assert_equals(typ(ret.b[2].ee[2].ff), "lsdbus.variant")
+   lu.assert_equals(typ(ret.b[2].ee[2].gg), "lsdbus.variant")
+
+end
+
 return TestMsg

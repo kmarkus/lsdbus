@@ -629,6 +629,12 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 				luaL_error(L, "msg_tolua: failed to enter container: %s", strerror(-r));
 
 			lua_newtable(L);
+
+			if (type == SD_BUS_TYPE_ARRAY)
+				luaL_setmetatable(L, ARRAY_MT);
+			else
+				luaL_setmetatable(L, STRUCT_MT);
+
 			__msg_tolua(L, m, type, raw);
 			goto update_table;
 
@@ -654,6 +660,7 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 				luaL_error(L, "msg_tolua: failed to enter container: %s", strerror(-r));
 			if (raw) {
 				lua_newtable(L);
+				luaL_setmetatable(L, VARIANT_MT);
 				lua_pushstring(L, contents);
 				lua_rawseti(L, -2, 1);
 			}

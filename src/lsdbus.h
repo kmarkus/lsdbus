@@ -25,6 +25,10 @@
 #define SLOT_MT			"lsdbus.slot"
 #define GCSLOT_MT		"lsdbus.gcslot"
 
+#define VARIANT_MT		"lsdbus.variant"
+#define ARRAY_MT		"lsdbus.array"
+#define STRUCT_MT		"lsdbus.struct"
+
 #define REG_SLOT_TABLE		"lsdbus.slot_table"
 #define REG_EVSRC_TABLE		"lsdbus.evsrc_table"
 

@@ -564,6 +564,12 @@ int luaopen_lsdbus_core(lua_State *L)
 	lua_setfield(L, -1, "__index");
 	luaL_setfuncs(L, lsdbus_gcslot_m, 0);
 
+	luaL_newmetatable(L, VARIANT_MT);
+	luaL_newmetatable(L, ARRAY_MT);
+	luaL_newmetatable(L, STRUCT_MT);
+
+	lua_settop(L, 1);
+
 	luaL_newlib(L, lsdbus_f);
 
 	/* constants */

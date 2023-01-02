@@ -151,6 +151,9 @@ it and converts it back to Lua (the example below uses the small
   desirable to get the variant in its raw table form (e.g. when the
   identical value needs to be returned). For that case, the "raw"
   methods `callr` (and `testmsgr`) can be used.
+- the tables of deserialized arrays, stucts and variants each have a
+  metatable with the `__name` field set to the respective type. This
+  permits identiying the original type after the conversion to Lua.
 
 ### Client API
 
