@@ -27,7 +27,7 @@ function M.introspect(bus, service)
       end
 
       for _,subnode in ipairs(node.nodes) do
-	 nextpath = (path or '') ..'/'..subnode
+	 local nextpath = (path or '') ..'/'..subnode
 	 _introspect(nextpath)
       end
    end
