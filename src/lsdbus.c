@@ -519,6 +519,7 @@ static const luaL_Reg lsdbus_bus_m [] = {
 	{ "add_signal", evl_add_signal },
 	{ "add_periodic", evl_add_periodic },
 	{ "add_io", evl_add_io },
+	{ "add_child", evl_add_child },
 	{ "request_name", lsdbus_bus_request_name },
 	{ "testmsg", lsdbus_testmsg },
 	{ "testmsgr", lsdbus_testmsgr },
@@ -579,6 +580,18 @@ int luaopen_lsdbus_core(lua_State *L)
 	register_constant(SIGINT);
 	register_constant(SIGUSR1);
 	register_constant(SIGUSR2);
+
+	register_constant(WEXITED);
+	register_constant(WSTOPPED);
+	register_constant(WCONTINUED);
+
+	/* siginfo_t.si_code */
+	register_constant(CLD_EXITED);
+	register_constant(CLD_KILLED);
+	register_constant(CLD_DUMPED);
+	register_constant(CLD_STOPPED);
+	register_constant(CLD_TRAPPED);
+	register_constant(CLD_CONTINUED);
 
 	return 1;
 };

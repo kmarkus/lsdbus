@@ -3,38 +3,41 @@
 lsdbus is a simple to use D-Bus binding for Lua based on the sd-bus
 and sd-event APIs.
 
+
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
 **Table of Contents**
 
-- [Installing](#installing)
-- [Quickstart](#quickstart)
-- [Usage](#usage)
-    - [Bus connection](#bus-connection)
-    - [Type mapping](#type-mapping)
-        - [Testmsg](#testmsg)
-    - [Client API](#client-api)
-        - [lsdb.proxy](#lsdbproxy)
-        - [plumbing API](#plumbing-api)
-        - [Emitting signals](#emitting-signals)
-    - [Server API](#server-api)
-        - [Event loop](#event-loop)
-        - [Registering Interfaces: Properties, Methods and Signal](#registering-interfaces-properties-methods-and-signal)
-        - [D-Bus signal matching and callbacks](#d-bus-signal-matching-and-callbacks)
-        - [Periodic callbacks](#periodic-callbacks)
-        - [Unix Signal callbacks](#unix-signal-callbacks)
-        - [I/O event callback](#io-event-callback)
-        - [Returning D-Bus errors](#returning-d-bus-errors)
-- [API](#api)
-    - [Functions](#functions)
-    - [Bus connection object](#bus-connection-object)
-    - [lsdbus.proxy](#lsdbusproxy)
-    - [lsdbus.server](#lsdbusserver)
-    - [slots](#slots)
-    - [event sources](#event-sources)
-- [Internals](#internals)
-    - [Introspection](#introspection)
-- [License](#license)
-- [References](#references)
+- [lsdbus](#lsdbus)
+    - [Installing](#installing)
+    - [Quickstart](#quickstart)
+    - [Usage](#usage)
+        - [Bus connection](#bus-connection)
+        - [Type mapping](#type-mapping)
+            - [Testmsg](#testmsg)
+        - [Client API](#client-api)
+            - [lsdb.proxy](#lsdbproxy)
+            - [plumbing API](#plumbing-api)
+            - [Emitting signals](#emitting-signals)
+        - [Server API](#server-api)
+            - [Event loop](#event-loop)
+            - [Registering Interfaces: Properties, Methods and Signal](#registering-interfaces-properties-methods-and-signal)
+            - [D-Bus signal matching and callbacks](#d-bus-signal-matching-and-callbacks)
+            - [Periodic callbacks](#periodic-callbacks)
+            - [Unix Signal callbacks](#unix-signal-callbacks)
+            - [I/O event callback](#io-event-callback)
+            - [Child pid callback](#child-pid-callback)
+            - [Returning D-Bus errors](#returning-d-bus-errors)
+    - [API](#api)
+        - [Functions](#functions)
+        - [Bus connection object](#bus-connection-object)
+        - [lsdbus.proxy](#lsdbusproxy)
+        - [lsdbus.server](#lsdbusserver)
+        - [slots](#slots)
+        - [event sources](#event-sources)
+    - [Internals](#internals)
+        - [Introspection](#introspection)
+    - [License](#license)
+    - [References](#references)
 
 <!-- markdown-toc end -->
 
@@ -411,6 +414,25 @@ b:add_io(fd, lsdb.EPOLLIN|lsdb.EPOLLOUT, callback)
 
 An example of using this together with the `linotify` [3] library can
 be found under `examples/inotify-io.lua`.
+
+#### Child pid callback
+
+Add a callback to be called upon changes to the given child pid. (see
+`sd_event_add_child(3)` and `waitid(2)`).
+
+```Lua
+local function callback(b, si)
+	utils.pp(si) -- prints {uid=1000,pid=33236,code=2,status=9}
+end
+
+b:add_child(pid, lsdb.WEXITED|lsdb.WSTOPPED|lsdb.WCONTINUED, callback)
+```
+
+- `status` is either exit code (if code is `CLD_EXITED`) or signal
+  otherwise
+- `code`: one of `lsdb.CLD_EXITED`, `lsdb.CLD_KILLED`,
+  `lsdb.CLD_DUMPED`, `lsdb.CLD_STOPPED`, `lsdb.CLD_TRAPPED`,
+  `lsdb.CLD_CONTINUED` (see `si_code` in `waitid(2)` manpage)
 
 #### Returning D-Bus errors
 

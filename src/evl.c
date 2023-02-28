@@ -350,3 +350,73 @@ int evl_add_io(lua_State *L)
 
 	return 1;
 }
+
+static int evl_child_callback(sd_event_source *s, const siginfo_t *si, void *userdata)
+{
+	int top;
+	lua_State *L = (lua_State*) userdata;
+
+	top  = lua_gettop(L);
+	dbg("received wait child event %i on fd %i", revents, fd);
+	regtab_get(L, REG_EVSRC_TABLE, s);
+	lua_pushvalue(L, 1);		/* bus */
+
+	lua_newtable(L);		/* si */
+
+	lua_pushinteger(L, si->si_pid);
+	lua_setfield(L, -2, "pid");
+
+	lua_pushinteger(L, si->si_uid);
+	lua_setfield(L, -2, "uid");
+
+	lua_pushinteger(L, si->si_status);
+	lua_setfield(L, -2, "status");
+
+	lua_pushinteger(L, si->si_code);
+	lua_setfield(L, -2, "code");
+
+	lua_call(L, 2, 0);
+	lua_settop(L, top);
+	return 0;
+}
+
+int evl_add_child(lua_State *L)
+{
+	int options, ret;
+	pid_t pid;
+	sigset_t ss;
+	sd_event_source *source, **sourcep;
+	sd_bus *bus = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+
+	pid = luaL_checkinteger(L, 2);
+	options = luaL_checkinteger(L, 3);
+	luaL_checktype(L, 4, LUA_TFUNCTION);
+
+	sd_event *loop = evl_get(L, bus);
+
+	if (sigemptyset(&ss) < 0 || sigaddset(&ss, SIGCHLD))
+		luaL_error(L, "sigemptyset/sigaddset failed: %m");
+
+	if (sigprocmask(SIG_BLOCK, &ss, NULL) < 0)
+		luaL_error(L, "sigprocmask failed: %m");
+
+	dbg("add callback for pid %s (%0x%x)", pid, options);
+
+	ret = sd_event_add_child(loop, &source, pid, options, evl_child_callback, L);
+
+	if (ret<0)
+		luaL_error(L, "adding child pid event src failed: %s", strerror(-ret));
+
+	regtab_store(L,	REG_EVSRC_TABLE, source, 4);
+
+	sourcep = (sd_event_source**) lua_newuserdata(L, sizeof(sd_event_source*));
+	*sourcep = source;
+
+	sd_event_source_set_enabled(source, SD_EVENT_ON);
+
+	luaL_getmetatable(L, EVSRC_MT);
+	lua_setmetatable(L, -2);
+	sd_event_source_set_description(source, "child_pid");
+
+	return 1;
+}
