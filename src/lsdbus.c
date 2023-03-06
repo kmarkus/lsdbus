@@ -450,16 +450,7 @@ static int lsdbus_bus_request_name(lua_State *L)
 
 static int lsdbus_bus_tostring(lua_State *L)
 {
-	int ret;
-	sd_id128_t id;
-
 	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
-
-	ret = sd_bus_get_bus_id(b, &id);
-
-	if (ret<0)
-		luaL_error(L, "%s: failed to get bus id: %s", __func__, strerror(-ret));
-
 	lua_pushfstring(L, "bus <%p>", b);
 	return 1;
 }
