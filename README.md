@@ -354,6 +354,9 @@ slot = bus:match(match_expr, callback)
 These correspond to `sd_bus_match_signal(3)` and `sd_bus_add_match(3)`
 respectively.
 
+> **Note**: returning 1 will result in no further callbacks matching
+> the same rule to be called (see manpage for details).
+
 **Example**: dump all signals on the system bus:
 
 ```lua
