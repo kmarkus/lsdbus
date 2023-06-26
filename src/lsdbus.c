@@ -580,6 +580,7 @@ int luaopen_lsdbus_core(lua_State *L)
 	register_constant(SIGINT);
 	register_constant(SIGUSR1);
 	register_constant(SIGUSR2);
+	register_constant(SIGHUP);
 
 	register_constant(WEXITED);
 	register_constant(WSTOPPED);
