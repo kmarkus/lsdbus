@@ -23,9 +23,10 @@ $ lsdb-emit /foo,lsdbus.foo0,WatchOut 'a{si}' "{a=1,v=2}"
 
 
 flags
- -s 	system bus
- -u	session bus
- -v     verbose
+ -n NUM    emit the given event NUM times (default: 1)
+ -s        system bus
+ -u        session bus
+ -v        verbose
 ]=])
 end
 
@@ -43,6 +44,7 @@ local function proc_args(args)
    return args
 end
 
+local num = 1
 local opttab = u.proc_args(arg)
 
 verbose = opttab['-v']
@@ -70,4 +72,11 @@ if p == nil then printf("invalid destination spec"); os.exit(1); end
 log("emitting signal from path=%s, interf=%s, member=%s, typestr=%s, args=%s",
     p, i, m, typestr, u.tab2str(args))
 
-b:emit_signal(p, i, m, typestr, table.unpack(args))
+
+if opttab['-n'] and opttab['-n'][1] then
+   num=opttab['-n'][1]
+end
+
+for _=1,num do
+   b:emit_signal(p, i, m, typestr, table.unpack(args))
+end
