@@ -456,7 +456,26 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
 | `lsdbus.xml_fromfile(file)`        | parse a D-Bus XML file and return as Lua table                                 |
 | `lsdbus.xml_fromstr(str)`          | parse a D-Bus XML string and return as Lua table                               |
 | `lsdbus.find_intf(node, interface` | find and return `interface` in the introspection table or `false` if not found |
+| `lsdbus.tovariant(value)`          | encode an arbitray Lua datastructure into a lsdb variant table                 |
 
+
+*Example* for `tovariant`
+
+``` lua
+-- encode a table into a lsdbus variant
+> utils.pp(lsdbus.tovariant{a=1,b={foo='hi'}})
+{"a{sv}",{a={"x",1},b={"a{sv}",{foo={"s","hi"}}}}}
+
+-- do the message roundtrip via a variant
+> utils.pp(b:testmsg('v', lsdbus.tovariant{a=1,b={foo='hi'}}))
+{a=1,b={foo="hi"}}
+```
+
+> *Note*: the only limitation of `tovariant` is that for mixed
+> array/dictionary tables, numeric indices get converted to strings,
+> e.g `{ 1,2, bar='nope' }` becomes `{"1"=1, "2"=2, bar="nope"}`. This
+> is a limitation of D-Bus which doesn't allow dictionaries with
+> heterogeneous keys.
 
 ### Bus connection object
 
