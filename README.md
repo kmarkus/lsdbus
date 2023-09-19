@@ -380,7 +380,7 @@ evsrc = b:add_periodic(period, accuracy, callback)
 The `period` and `accuracy` (both in microseconds) correspond to the
 same parameters in `sd_event_add_time(3)`.
 
-The returned `event_src` object supports a method `set_enable(int)`
+The returned `event_src` object supports a method `set_enabled(int)`
 that allows enabling and disabling the event source.
 
 See `examples/periodic.lua` for an example.
@@ -444,6 +444,8 @@ form
 
 ```Lua
 error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
+-- or using the standard errors lsdbus.errors
+error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 ```
 
 ## API
@@ -558,7 +560,7 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
 |--------------------------------------------|------------------------------------------------------------|
 | `srv = lsdbus.server:new(bus, path, intf)` | create a new obj with the given path and interface         |
 | `emit(signal, args...)`                    | emit a signal that is defined in the servers interface     |
-| `emitPropertiesChanged(signal...)`         | emit a PropertiesChanged signal for one or more properties |
+| `emitPropertiesChanged(prop0, ...)`        | emit a PropertiesChanged signal for one or more properties |
 | `emitAllPropertiesChanged(filter)`         | emit a PropertiesChanged signal for all properties         |
 | `error("dbus.error.name\|message")`        | return a D-Bus error and message from a callback           |
 
