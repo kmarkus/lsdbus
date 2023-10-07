@@ -484,6 +484,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 | Methods                                                                       | Description                                  |
 |-------------------------------------------------------------------------------|----------------------------------------------|
 | `bus:request_name(NAME)`                                                      | see `sd_bus_request_name(3)`                 |
+| `open, ready = bus:state()`                                                   | see `sd_bus_is_open` and `sd_bus_is_ready`   |
 | `slot = bus:match_signal(sender, path, intf, member, callback)`               | see `sd_bus_add_match(3)`                    |
 | `slot = bus:match(match_expr, handler)`                                       | see `sd_bus_add_match(3)`                    |
 | `bus:emit_properties_changed(propA, propB...)`                                | see `sd_bus_emit_properties_changed(3)`      |
@@ -499,7 +500,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 | `bus:set_method_call_timeout`                                                 | see `sd_bus_set_method_call_timeout(3)`      |
 | `res = bus:testmsg(typestr, args...)`                                         | test Lua->D-Bus->Lua message roundtrip       |
 | `ret, res... = bus:call(dest, path, intf, member, typestr, args...)`          | plumbing, prefer lsdbus.proxy                |
-| `slot = bus:call_async(callback, dest, path, intf, member, typestr, args...)` | plumbing async method invocation            |
+| `slot = bus:call_async(callback, dest, path, intf, member, typestr, args...)` | plumbing async method invocation             |
 | `bus:add_object_vtable`                                                       | plumbing, use lsdbus.server instead          |
 
 
@@ -647,6 +648,16 @@ Signals:
 
 LGPLv2. A portion of the lsdbus type conversion is based on code from
 systemd.
+
+## FAQ
+
+### Error `System.Error.ENOTCONN: Transport endpoint is not connected`
+
+This happens when a bus is created (`lsdb.open(...)`) and only used
+after more than ~30s. The exact reason is not clear. The workaround is
+to immediately use the bus (`request_name`, `proxy:new` or
+`server:new`) after opening.
+
 
 ## References
 
