@@ -448,6 +448,21 @@ static int lsdbus_bus_request_name(lua_State *L)
 	return 0;
 }
 
+static int lsdbus_bus_state(lua_State *L)
+{
+	int open, ready;
+
+	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+
+	open = sd_bus_is_open(b);
+	lua_pushboolean(L, open);
+
+	ready = sd_bus_is_ready(b);
+	lua_pushboolean(L, ready);
+
+	return 2;
+}
+
 static int lsdbus_bus_tostring(lua_State *L)
 {
 	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
@@ -523,6 +538,7 @@ static const luaL_Reg lsdbus_bus_m [] = {
 	{ "request_name", lsdbus_bus_request_name },
 	{ "testmsg", lsdbus_testmsg },
 	{ "testmsgr", lsdbus_testmsgr },
+	{ "state", lsdbus_bus_state },
 	{ "__tostring", lsdbus_bus_tostring },
 	{ "__gc", lsdbus_bus_gc },
 	{ NULL, NULL },
