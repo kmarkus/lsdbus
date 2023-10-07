@@ -105,7 +105,7 @@ void evl_cleanup(sd_bus *bus)
 int evl_loop(lua_State *L)
 {
 	int ret;
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 	sd_event *loop = evl_get(L, b);
 
 	ret = sd_event_loop(loop);
@@ -121,7 +121,7 @@ int evl_run(lua_State *L)
 	int ret;
 	uint64_t usec;
 
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 	sd_event *loop = evl_get(L, b);
 
 	usec = luaL_optinteger(L, 2, 0);
@@ -140,12 +140,12 @@ int evl_run(lua_State *L)
 int evl_exit(lua_State *L)
 {
 	int ret, code;
-	sd_bus *bus;
+	sd_bus *b;
 	sd_event *loop;
 
-	bus = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	b = lua_checksdbus(L, 1);
 	code = luaL_optinteger(L, 2, 0);
-	loop = sd_bus_get_event(bus);
+	loop = sd_bus_get_event(b);
 
 	if (loop == NULL)
 		luaL_error(L, "failed to exit loop: bus not attached");
@@ -184,11 +184,11 @@ int evl_add_signal(lua_State *L)
 	sigset_t ss;
 	sd_event_source *source, **sourcep;
 
-	sd_bus *bus = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 	sig = luaL_checkinteger(L, 2);
 	luaL_checktype(L, 3, LUA_TFUNCTION);
 
-	sd_event *loop = evl_get(L, bus);
+	sd_event *loop = evl_get(L, b);
 
 	dbg("adding signal %s (%d)", signame, sig);
 
@@ -262,7 +262,7 @@ int evl_add_periodic(lua_State *L)
 	uint64_t now, usec, accuracy;
 	sd_event_source *evsrc, **evsrcp;
 
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 	usec = luaL_checkinteger(L, 2);
 	accuracy = luaL_optinteger(L, 3, 0);
 	luaL_checktype(L, 4, LUA_TFUNCTION);
@@ -327,12 +327,12 @@ int evl_add_io(lua_State *L)
 	uint32_t events;
 	sd_event_source *source, **sourcep;
 
-	sd_bus *bus = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 	fd = luaL_checkinteger(L, 2);
 	events = luaL_checkinteger(L, 3);
 	luaL_checktype(L, 4, LUA_TFUNCTION);
 
-	sd_event *loop = evl_get(L, bus);
+	sd_event *loop = evl_get(L, b);
 
 	ret = sd_event_add_io(loop, &source, fd, events, evl_io_callback, L);
 

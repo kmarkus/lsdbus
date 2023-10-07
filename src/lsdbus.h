@@ -40,7 +40,16 @@
 # define dbg(fmt, args...)  do {} while (0)
 #endif
 
+#define LSDBUS_BUS_IS_DEFAULT	0x1
+
+struct lsdbus_bus {
+	sd_bus *b;
+	uint32_t flags;
+};
+
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+
+sd_bus* lua_checksdbus(lua_State *L, int index);
 
 int push_sd_bus_error(lua_State* L, const sd_bus_error* err);
 int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos);

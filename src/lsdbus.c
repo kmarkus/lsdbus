@@ -20,7 +20,6 @@ static int(*open_funcs[])(sd_bus **bus) = {
 	sd_bus_open_user,
 };
 
-
 /**
  * store a value in registry.regtab[k] = val
  *
@@ -108,23 +107,38 @@ const char* luaL_checkservice(lua_State *L, int arg)
 	return service;
 }
 
+/* convenience helper from boxed lsdbus_bus to sd_bus */
+sd_bus* lua_checksdbus(lua_State *L, int index)
+{
+	struct lsdbus_bus *lsdbus =
+		(struct lsdbus_bus*) luaL_checkudata(L, index, BUS_MT);
+	return lsdbus->b;
+}
+
+
 /* toplevel functions */
 static int lsdbus_open(lua_State *L)
 {
 	int ret, busidx;
-	sd_bus **b;
+	struct lsdbus_bus *lsdbus;
 
 	busidx = luaL_checkoption(L, 1, "default", open_opts_lst);
 
 	dbg("opening %s bus connection", open_opts_lst[busidx]);
 
-	b = (sd_bus**) lua_newuserdata(L, sizeof(sd_bus*));
+	lsdbus = (struct lsdbus_bus*) lua_newuserdata(L, sizeof(struct lsdbus_bus));
 
-	ret = open_funcs[busidx](b);
+	ret = open_funcs[busidx](&lsdbus->b);
 
 	if (ret<0)
 		luaL_error(L, "%s: failed to connect to %s bus: %s",
 			   __func__, open_opts_lst[busidx], strerror(-ret));
+
+	if (open_funcs[busidx] == sd_bus_default ||
+	    open_funcs[busidx] == sd_bus_default_system ||
+	    open_funcs[busidx] == sd_bus_default_user) {
+		lsdbus->flags =	LSDBUS_BUS_IS_DEFAULT;
+	}
 
 	luaL_getmetatable(L, BUS_MT);
 	lua_setmetatable(L, -2);
@@ -142,7 +156,7 @@ static int __lsdbus_bus_call(lua_State *L, int raw)
 	sd_bus_message *m = NULL;
 	sd_bus_message *reply = NULL;
 
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 
 	dest = luaL_checkservice(L, 2);
 	path = luaL_checkpath(L, 3);
@@ -251,7 +265,7 @@ static int lsdbus_match_signal(lua_State *L)
 	sd_bus_slot *slot;
 	const char *sender=NULL, *path=NULL, *intf=NULL, *memb=NULL;
 
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 
 	if (!lua_isnil(L, 2)) sender = luaL_checkservice(L, 2);
 	if (!lua_isnil(L, 3)) path = luaL_checkpath(L, 3);
@@ -275,7 +289,7 @@ static int lsdbus_match(lua_State *L)
 	sd_bus_slot *slot;
 	const char *match=NULL;
 
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 
 	if (!lua_isnil(L, 2)) match = luaL_checkstring(L, 2);
 	luaL_checktype(L, 3, LUA_TFUNCTION);
@@ -347,7 +361,7 @@ static int lsdbus_call_async(lua_State *L)
 	sd_bus_slot *slot;
 	sd_bus_message *m = NULL;
 
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 
 	luaL_checktype(L, 2, LUA_TFUNCTION);
 	dest = luaL_checkservice(L, 3);
@@ -399,7 +413,7 @@ static int __lsdbus_testmsg(lua_State *L, int raw)
 	const char *intf = "org.lsdb.test";
 	const char *memb = "testmsg";
 
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 	types = luaL_optstring(L, 2, NULL);
 
 	ret = sd_bus_message_new_method_call(b, &m, dest, path, intf, memb);
@@ -437,7 +451,7 @@ static int lsdbus_bus_request_name(lua_State *L)
 {
 	int ret;
 
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 	const char *name = luaL_checkservice(L, 2);
 
 	ret = sd_bus_request_name(b, name, 0);
@@ -452,7 +466,7 @@ static int lsdbus_bus_state(lua_State *L)
 {
 	int open, ready;
 
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 
 	open = sd_bus_is_open(b);
 	lua_pushboolean(L, open);
@@ -465,15 +479,18 @@ static int lsdbus_bus_state(lua_State *L)
 
 static int lsdbus_bus_tostring(lua_State *L)
 {
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
-	lua_pushfstring(L, "bus <%p>", b);
+	struct lsdbus_bus *lsdbus =
+		(struct lsdbus_bus*) luaL_checkudata(L, 1, BUS_MT);
+
+	lua_pushfstring(L, "bus <%p> [def:%d]",
+			lsdbus->b, lsdbus->flags&LSDBUS_BUS_IS_DEFAULT?1:0);
 	return 1;
 }
 
 static int lsdbus_bus_set_method_call_timeout(lua_State *L)
 {
 	int ret;
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 	uint64_t timeout = lua_tointeger(L, 2);
 
 	ret = sd_bus_set_method_call_timeout(b,	timeout);
@@ -488,7 +505,7 @@ static int lsdbus_bus_get_method_call_timeout(lua_State *L)
 {
 	int ret;
 	uint64_t timeout;
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 
 	ret = sd_bus_get_method_call_timeout(b,	&timeout);
 
@@ -501,9 +518,15 @@ static int lsdbus_bus_get_method_call_timeout(lua_State *L)
 
 static int lsdbus_bus_gc(lua_State *L)
 {
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
-	evl_cleanup(b);
-	sd_bus_flush_close_unref(b);
+	struct lsdbus_bus *lsdbus = (struct lsdbus_bus*) luaL_checkudata(L, 1, BUS_MT);
+
+	evl_cleanup(lsdbus->b);
+
+	if ((lsdbus->flags & LSDBUS_BUS_IS_DEFAULT)) {
+		sd_bus_unref(lsdbus->b);
+	} else {
+		sd_bus_flush_close_unref(lsdbus->b);
+	}
 	return 0;
 }
 

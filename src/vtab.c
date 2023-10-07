@@ -538,7 +538,7 @@ int lsdbus_add_object_vtable(lua_State *L)
 	sd_bus_slot *slot;
 	const char *interface, *path;
 
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 	path = luaL_checkpath (L, 2);
 	luaL_checktype (L, 3, LUA_TTABLE);
 
@@ -691,7 +691,7 @@ int lsdbus_emit_prop_changed(lua_State *L)
 {
 	int ret;
 	int nprops = lua_gettop(L) - 3;
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 	const char *path = luaL_checkpath(L, 2);
 	const char *intf = luaL_checkintf(L, 3);
 	const char* props[nprops+1];
@@ -714,7 +714,7 @@ int lsdbus_emit_signal(lua_State *L)
 	int ret;
 
 	sd_bus_message *message = NULL;
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 	const char *path = luaL_checkpath (L, 2);
 	const char *intf = luaL_checkintf (L, 3);
 	const char *member = luaL_checkmember (L, 4);
@@ -746,7 +746,7 @@ int lsdbus_context(lua_State *L)
 {
 	const char *dest, *path, *intf, *member, *sender;
 
-	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *b = lua_checksdbus(L, 1);
 	sd_bus_message* m = sd_bus_get_current_message(b);
 
 	intf = sd_bus_message_get_interface(m);
