@@ -503,7 +503,6 @@ static int lsdbus_bus_gc(lua_State *L)
 {
 	sd_bus *b = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
 	evl_cleanup(b);
-	vtable_cleanup(L);
 	sd_bus_flush_close_unref(b);
 	return 0;
 }
