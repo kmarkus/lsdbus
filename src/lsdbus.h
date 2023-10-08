@@ -23,7 +23,6 @@
 #define MSG_MT	 		"lsdbus.msg"
 #define EVSRC_MT		"lsdbus.evsrc"
 #define SLOT_MT			"lsdbus.slot"
-#define GCSLOT_MT		"lsdbus.gcslot"
 
 #define VARIANT_MT		"lsdbus.variant"
 #define ARRAY_MT		"lsdbus.array"
@@ -47,6 +46,13 @@ struct lsdbus_bus {
 	uint32_t flags;
 };
 
+#define LSDBUS_SLOT_GC		0x1
+
+struct lsdbus_slot {
+	sd_bus_slot *slot;
+	uint32_t flags;
+};
+
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 sd_bus* lua_checksdbus(lua_State *L, int index);
@@ -67,15 +73,13 @@ int evl_add_child(lua_State *L);
 
 extern const luaL_Reg lsdbus_evsrc_m [];
 extern const luaL_Reg lsdbus_slot_m [];
-extern const luaL_Reg lsdbus_gcslot_m [];
 
 int lsdbus_add_object_vtable(lua_State *L);
 void vtable_cleanup(lua_State *L);
 int lsdbus_emit_prop_changed(lua_State *L);
 int lsdbus_emit_signal(lua_State *L);
 int lsdbus_context(lua_State *L);
-int lsdbus_slot_push(lua_State *L, sd_bus_slot *slot);
-int lsdbus_gcslot_push(lua_State *L, sd_bus_slot *slot);
+int lsdbus_slot_push(lua_State *L, sd_bus_slot *slot, uint32_t flags);
 
 int lsdbus_xml_fromfile(lua_State *L);
 int lsdbus_xml_fromstr(lua_State *L);

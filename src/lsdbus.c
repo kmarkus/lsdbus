@@ -115,7 +115,6 @@ sd_bus* lua_checksdbus(lua_State *L, int index)
 	return lsdbus->b;
 }
 
-
 /* toplevel functions */
 static int lsdbus_open(lua_State *L)
 {
@@ -280,7 +279,7 @@ static int lsdbus_match_signal(lua_State *L)
 
 	regtab_store(L,	REG_SLOT_TABLE, slot, 6);
 	sd_bus_slot_set_description(slot, "match");
-	return lsdbus_slot_push(L, slot);
+	return lsdbus_slot_push(L, slot, 0);
 }
 
 static int lsdbus_match(lua_State *L)
@@ -310,7 +309,7 @@ static int lsdbus_match(lua_State *L)
 	lua_pushvalue(L, 3);
 	lua_rawsetp(L, -2, slot);
 	sd_bus_slot_set_description(slot, "match");
-	return lsdbus_slot_push(L, slot);
+	return lsdbus_slot_push(L, slot, 0);
 }
 
 
@@ -400,7 +399,7 @@ out:
 
 	regtab_store(L,	REG_SLOT_TABLE, slot, 2);
 	sd_bus_slot_set_description(slot, "async");
-	return lsdbus_gcslot_push(L, slot);
+	return lsdbus_slot_push(L, slot, LSDBUS_SLOT_GC);
 }
 
 static int __lsdbus_testmsg(lua_State *L, int raw)
@@ -588,11 +587,6 @@ int luaopen_lsdbus_core(lua_State *L)
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -1, "__index");
 	luaL_setfuncs(L, lsdbus_slot_m, 0);
-
-	luaL_newmetatable(L, GCSLOT_MT);
-	lua_pushvalue(L, -1);
-	lua_setfield(L, -1, "__index");
-	luaL_setfuncs(L, lsdbus_gcslot_m, 0);
 
 	luaL_newmetatable(L, VARIANT_MT);
 	luaL_newmetatable(L, ARRAY_MT);
