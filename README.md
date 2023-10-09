@@ -3,41 +3,42 @@
 lsdbus is a simple to use D-Bus binding for Lua based on the sd-bus
 and sd-event APIs.
 
-
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
 **Table of Contents**
 
-- [lsdbus](#lsdbus)
-    - [Installing](#installing)
-    - [Quickstart](#quickstart)
-    - [Usage](#usage)
-        - [Bus connection](#bus-connection)
-        - [Type mapping](#type-mapping)
-            - [Testmsg](#testmsg)
-        - [Client API](#client-api)
-            - [lsdb.proxy](#lsdbproxy)
-            - [plumbing API](#plumbing-api)
-            - [Emitting signals](#emitting-signals)
-        - [Server API](#server-api)
-            - [Event loop](#event-loop)
-            - [Registering Interfaces: Properties, Methods and Signal](#registering-interfaces-properties-methods-and-signal)
-            - [D-Bus signal matching and callbacks](#d-bus-signal-matching-and-callbacks)
-            - [Periodic callbacks](#periodic-callbacks)
-            - [Unix Signal callbacks](#unix-signal-callbacks)
-            - [I/O event callback](#io-event-callback)
-            - [Child pid callback](#child-pid-callback)
-            - [Returning D-Bus errors](#returning-d-bus-errors)
-    - [API](#api)
-        - [Functions](#functions)
-        - [Bus connection object](#bus-connection-object)
-        - [lsdbus.proxy](#lsdbusproxy)
-        - [lsdbus.server](#lsdbusserver)
-        - [slots](#slots)
-        - [event sources](#event-sources)
-    - [Internals](#internals)
-        - [Introspection](#introspection)
-    - [License](#license)
-    - [References](#references)
+- [Installing](#installing)
+- [Quickstart](#quickstart)
+- [Usage](#usage)
+    - [Bus connection](#bus-connection)
+    - [Type mapping](#type-mapping)
+        - [Testmsg](#testmsg)
+    - [Client API](#client-api)
+        - [lsdb.proxy](#lsdbproxy)
+        - [plumbing API](#plumbing-api)
+        - [Emitting signals](#emitting-signals)
+    - [Server API](#server-api)
+        - [Event loop](#event-loop)
+        - [Registering Interfaces: Properties, Methods and Signal](#registering-interfaces-properties-methods-and-signal)
+        - [D-Bus signal matching and callbacks](#d-bus-signal-matching-and-callbacks)
+        - [Periodic callbacks](#periodic-callbacks)
+        - [Unix Signal callbacks](#unix-signal-callbacks)
+        - [I/O event callback](#io-event-callback)
+        - [Child pid callback](#child-pid-callback)
+        - [Returning D-Bus errors](#returning-d-bus-errors)
+- [API](#api)
+    - [Functions](#functions)
+    - [Bus connection object](#bus-connection-object)
+    - [lsdbus.proxy](#lsdbusproxy)
+    - [lsdbus.server](#lsdbusserver)
+    - [slots](#slots)
+    - [event sources](#event-sources)
+- [Internals](#internals)
+    - [Introspection](#introspection)
+- [License](#license)
+- [FAQ](#faq)
+    - [Error `System.Error.ENOTCONN: Transport endpoint is not connected`](#error-systemerrorenotconn-transport-endpoint-is-not-connected)
+- [ChangeLog](#changelog)
+- [References](#references)
 
 <!-- markdown-toc end -->
 
@@ -145,7 +146,7 @@ it and converts it back to Lua (the example below uses the small
 | struct          | `(...)`                           | `table` (array part) | `'(ibs)', {3, false, "hey"}` | `{3, false, "hey"}`               |
 | dictionary      | `a{...}`                          | `table` (dict part)  | `'a{si}', {a=1, b=2}`        | `{a=1, b=2}`                      |
 
-*Notes:*
+**Notes**:
 
 - More examples can be found in the unit tests: `test/message.lua`
 - *Variant* is the only type whose conversion is asymmetrical,
@@ -156,7 +157,7 @@ it and converts it back to Lua (the example below uses the small
   methods `callr` (and `testmsgr`) can be used.
 - the tables of deserialized arrays, stucts and variants each have a
   metatable with the `__name` field set to the respective type. This
-  permits identiying the original type after the conversion to Lua.
+  permits identifying the original type after the conversion to Lua.
 
 ### Client API
 
@@ -484,6 +485,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 | Methods                                                                       | Description                                  |
 |-------------------------------------------------------------------------------|----------------------------------------------|
 | `bus:request_name(NAME)`                                                      | see `sd_bus_request_name(3)`                 |
+| `bus:release_name(NAME)`                                                      | see `sd_bus_release_name(3)`                 |
 | `open, ready = bus:state()`                                                   | see `sd_bus_is_open` and `sd_bus_is_ready`   |
 | `slot = bus:match_signal(sender, path, intf, member, callback)`               | see `sd_bus_add_match(3)`                    |
 | `slot = bus:match(match_expr, handler)`                                       | see `sd_bus_add_match(3)`                    |
@@ -504,7 +506,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 | `bus:add_object_vtable`                                                       | plumbing, use lsdbus.server instead          |
 
 
-*Notes:*
+**Notes**:
 
 - `lsdb.open` accepts an optional string parameter to indicate which
   bus to open:
@@ -521,7 +523,9 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
   used to explicitely remove the respective interface or callbacks
   (see below).
 
-- bus objects are garbage collected
+> **Note**: upon being collected the `default_*` type bus objects are
+> only `unref`ed, whereas on non default (`new`, `system` and `user`)
+> bus objects `sd_bus_flush_close_unref` is called.
 
 ### lsdbus.proxy
 
@@ -565,13 +569,15 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 | `emitAllPropertiesChanged(filter)`         | emit a PropertiesChanged signal for all properties         |
 | `error("dbus.error.name\|message")`        | return a D-Bus error and message from a callback           |
 
-*Notes*:
+**Notes**:
 
 - The `emitAllPropertiesChanged(filter)` takes an optional filter
   function which accepts the property name and property table and
   returns true or false depending on whether the property shall be
   included in the `PropertiesChanged` signal not.
-- garbage collected (will unref vtable slot and cleanup resources)
+- the vtable slot (`srv.slot`) is garbage collected which will remove
+  the respective dbus interface. Call `srv.slot:unref()` to
+  explicitely remove the interface.
 
 ### slots
 
@@ -579,8 +585,9 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 |-----------|-------------------------------------------|
 | `unref()` | remove slot. calls `sd_bus_slot_unref(3)` |
 
-- slots are not garbage collected except for those returned by async
-  calls.
+
+> **Notes**: slots are garbage collected except for those returned by
+> `match` calls.
 
 ### event sources
 
@@ -591,10 +598,8 @@ Corresponds to `sd_event_source`.
 | `set_enabled(enabled)` | `enabled`: `lsdbus.SD_EVENT_[ON\|OFF\|ONESHOT]`. see `sd_event_source_set_enabled(3)` |
 | `unref()`              | remove event source. calls `sd_event_source_unref(3)`                                 |
 
-*Notes*
-
-- Event sources are not garbage collected with the exeption of those
-  returned by asynchronous calls.
+> **Notes**: event sources are not garbage collected with the exeption
+> of those returned by asynchronous calls.
 
 ## Internals
 
@@ -658,6 +663,17 @@ after more than ~30s. The exact reason is not clear. The workaround is
 to immediately use the bus (`request_name`, `proxy:new` or
 `server:new`) after opening.
 
+Of course, this can also happen if a non-default bus (open flags
+`new`, `user` and `system`) goes out of scope and is collected.
+
+## ChangeLog
+
+- added `bus:release_name`
+
+- **vtab slots are now also garbage collected**. So make sure to hold
+  onto the vtab object returned by `server:new` (this itself contains
+  a ref to the slot `.slot`) or the interface will dissappear after
+  the next GC cycle.
 
 ## References
 
