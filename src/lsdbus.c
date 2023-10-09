@@ -459,6 +459,22 @@ static int lsdbus_bus_request_name(lua_State *L)
 	return 0;
 }
 
+static int lsdbus_bus_release_name(lua_State *L)
+{
+	int ret;
+
+	sd_bus *b = lua_checksdbus(L, 1);
+	const char *name = luaL_checkservice(L, 2);
+
+	ret = sd_bus_release_name(b, name);
+
+	if (ret<0)
+		luaL_error(L, "releasing name %s failed: %s", name, strerror(-ret));
+
+	return 0;
+}
+
+
 static int lsdbus_bus_state(lua_State *L)
 {
 	int open, ready;
@@ -555,6 +571,7 @@ static const luaL_Reg lsdbus_bus_m [] = {
 	{ "add_io", evl_add_io },
 	{ "add_child", evl_add_child },
 	{ "request_name", lsdbus_bus_request_name },
+	{ "release_name", lsdbus_bus_release_name },
 	{ "testmsg", lsdbus_testmsg },
 	{ "testmsgr", lsdbus_testmsgr },
 	{ "state", lsdbus_bus_state },
