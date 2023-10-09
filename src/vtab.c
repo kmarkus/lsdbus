@@ -2,7 +2,6 @@
 #include "lsdbus.h"
 
 #define SDBUS_VTAB	"sd_bus_vtable"
-#define USER_VTAB	"user_vtable"
 
 /*
  * parse error message, copy error name into name and return pointer
@@ -21,6 +20,18 @@ static const char* parse_errmsg(const char* errmsg, char* name)
 	strncpy(name, start+2, sep-start-2);
 
 	return sep+1;
+}
+
+/* create the REG_VTAB_USER_ARG tab if it doesn't exist and mark it
+ * weak. This must be run during module init. */
+void init_reg_vtab_user(lua_State *L)
+{
+	lua_newtable(L); 		/* {} push VTAB_USER_ARG table */
+	lua_newtable(L); 		/* {}, {} metatable */
+	lua_pushstring(L, "v"); 	/* {}, {}, "v" */
+	lua_setfield(L, -2, "__mode");  /* {}, { __mode="v" } */
+	lua_setmetatable(L, -2);        /* {} */
+	lua_setfield(L, LUA_REGISTRYINDEX, REG_VTAB_USER_ARG);
 }
 
 static int prop_get_handler(sd_bus *bus,
@@ -47,8 +58,7 @@ static int prop_get_handler(sd_bus *bus,
 
 	assert(lua_rawgeti(L, -1, 2) == LUA_TFUNCTION);         /* slottab, {type,get,set}, get */
 
-	lua_pushstring(L, USER_VTAB);				/* slottab, {type,get,set}, get, "user-vt" */
-	lua_rawget(L, -4);					/* slottab, {type,get,set}, get, {} */
+	regtab_get(L, REG_VTAB_USER_ARG, slot);                 /* slottab, {type,get,set}, get, user-arg */
 
 	ret = lua_pcall(L, 1, 1, 0);
 
@@ -94,8 +104,7 @@ static int prop_set_handler(sd_bus *bus,
 	lua_pushfstring(L, "p#%s", property);
 	assert(lua_rawget(L, -2) == LUA_TTABLE);                /* slottab, {type,get,set} */
 	assert(lua_rawgeti(L, -1, 3) == LUA_TFUNCTION);         /* slottab, {type,get,set}, setter */
-	lua_pushstring(L, USER_VTAB);				/* slottab, {type,get,set}, handler, "user-vt" */
-	lua_rawget(L, -4);					/* slottab, {type,get,set}, handler, {} */
+	regtab_get(L, REG_VTAB_USER_ARG, slot);                 /* slottab, {type,get,set}, setter, user-arg */
 
 	nargs = msg_tolua(L, value, 0);
 
@@ -144,9 +153,7 @@ static void push_method(lua_State *L, sd_bus_slot *slot, const char* member, con
 	lua_pop(L, 1);						/* slottab, {sig,res,hdrl} */
 
 	assert(lua_rawgeti(L, -1, 3) == LUA_TFUNCTION);         /* slottab, {sig,res,hdlr}, handler */
-	lua_pushstring(L, USER_VTAB);				/* slottab, {sig,res,hdlr}, handler, "user-vt" */
-	lua_rawget(L, -4);					/* slottab, {sig,res,hdlr}, handler, {} */
-
+	regtab_get(L, REG_VTAB_USER_ARG, slot);                 /* slottab, {type,get,set}, handler, user-arg */
 	/* remove slottab and memtab */
 	lua_remove(L, -3);
 	lua_remove(L, -3);					/* handler, {} */
@@ -669,9 +676,8 @@ reg_vtab:
 	/* move the slottab from the registry to REG_SLOT_TABLE[slot] */
 	lua_rawgeti(L, LUA_REGISTRYINDEX, slotref);
 
-	/* save user vtable (for passing in ops) */
-	lua_pushvalue(L, 3);
-	lua_setfield(L, -2, USER_VTAB);
+	/* save user arg (to be passed to hooks) */
+	regtab_store(L, REG_VTAB_USER_ARG, slot, 3);
 
 	regtab_store(L, REG_SLOT_TABLE, slot, -1);
 	luaL_unref(L, LUA_REGISTRYINDEX, slotref);
@@ -792,18 +798,16 @@ int lsdbus_slot_gc(lua_State *L)
 {
 	struct lsdbus_slot *s = (struct lsdbus_slot*) luaL_checkudata(L, 1, SLOT_MT);
 
-	printf("inside slot_gc: %p, flags: %u\n", s->slot, s->flags);
+	dbg("slot_gc: <%p>, gc:%i, type:0x%x",
+	    s->slot, (s->flags & LSDBUS_SLOT_GC), (s->flags & LSDBUS_SLOT_TYPE_MASK));
 
 	if (s->flags & LSDBUS_SLOT_GC) {
-		printf("clearing slot table of slot %p\n", s->slot);
 		regtab_clear(L,	REG_SLOT_TABLE, s->slot);
 		sd_bus_slot_unref(s->slot);
 	}
 
-	if ((s->flags & LSDBUS_SLOT_TYPE_MASK) == LSDBUS_SLOT_TYPE_VTAB) {
-		printf("freeing vtab\n");
+	if ((s->flags & LSDBUS_SLOT_TYPE_MASK) == LSDBUS_SLOT_TYPE_VTAB)
 		vtable_free(s->vt);
-	}
 
 	return 0;
 }

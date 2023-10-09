@@ -30,6 +30,7 @@
 
 #define REG_SLOT_TABLE		"lsdbus.slot_table"
 #define REG_EVSRC_TABLE		"lsdbus.evsrc_table"
+#define REG_VTAB_USER_ARG	"lsdbus.vtab_user_arg"
 
 #ifdef DEBUG
 # define dbg(fmt, args...) ( fprintf(stderr, "%s: ", __FUNCTION__), \
@@ -95,6 +96,7 @@ int lsdbus_emit_signal(lua_State *L);
 int lsdbus_context(lua_State *L);
 struct lsdbus_slot* __lsdbus_slot_push(lua_State *L, sd_bus_slot *slot, uint32_t flags);
 int lsdbus_slot_push(lua_State *L, sd_bus_slot *slot, uint32_t flags);
+void init_reg_vtab_user(lua_State *L);
 
 int lsdbus_xml_fromfile(lua_State *L);
 int lsdbus_xml_fromstr(lua_State *L);

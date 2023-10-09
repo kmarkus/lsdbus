@@ -38,6 +38,7 @@ void regtab_store(lua_State *L, const char* regtab, void *k, int validx)
 
 	lua_pushvalue(L, _validx);
 	lua_rawsetp(L, -2, k);
+	lua_pop(L, 1);
 }
 
 /**
@@ -590,6 +591,9 @@ int luaopen_lsdbus_core(lua_State *L)
 	luaL_newmetatable(L, STRUCT_MT);
 
 	lua_settop(L, 1);
+
+	/* create REG_VTAB_USER_ARG reg table as a weak value table */
+	init_reg_vtab_user(L);
 
 	luaL_newlib(L, lsdbus_f);
 
