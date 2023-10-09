@@ -46,11 +46,25 @@ struct lsdbus_bus {
 	uint32_t flags;
 };
 
-#define LSDBUS_SLOT_GC		0x1
+#define LSDBUS_SLOT_TYPE_MASK		0xf	/* 4 bits for slot type */
+
+#define LSDBUS_SLOT_TYPE_VTAB		0x1
+#define LSDBUS_SLOT_TYPE_MATCH		0x2
+#define LSDBUS_SLOT_TYPE_ASYNC		0x3
+
+#define LSDBUS_SLOT_GC			1<<5	/* automatically GC'ed? */
+
+#define LSDBUS_SLOT_FLAGS_VTAB		(LSDBUS_SLOT_TYPE_VTAB|LSDBUS_SLOT_GC)
+#define LSDBUS_SLOT_FLAGS_MATCH  	(LSDBUS_SLOT_TYPE_MATCH)
+#define LSDBUS_SLOT_FLAGS_ASYNC  	(LSDBUS_SLOT_TYPE_ASYNC|LSDBUS_SLOT_GC)
 
 struct lsdbus_slot {
 	sd_bus_slot *slot;
 	uint32_t flags;
+	/* slot type specific data */
+	union {
+		struct sd_bus_vtable *vt;
+	};
 };
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
@@ -79,6 +93,7 @@ void vtable_cleanup(lua_State *L);
 int lsdbus_emit_prop_changed(lua_State *L);
 int lsdbus_emit_signal(lua_State *L);
 int lsdbus_context(lua_State *L);
+struct lsdbus_slot* __lsdbus_slot_push(lua_State *L, sd_bus_slot *slot, uint32_t flags);
 int lsdbus_slot_push(lua_State *L, sd_bus_slot *slot, uint32_t flags);
 
 int lsdbus_xml_fromfile(lua_State *L);

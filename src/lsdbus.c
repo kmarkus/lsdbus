@@ -278,8 +278,7 @@ static int lsdbus_match_signal(lua_State *L)
 		luaL_error(L, "failed to install signal match rule: %s", strerror(-ret));
 
 	regtab_store(L,	REG_SLOT_TABLE, slot, 6);
-	sd_bus_slot_set_description(slot, "match");
-	return lsdbus_slot_push(L, slot, 0);
+	return lsdbus_slot_push(L, slot, LSDBUS_SLOT_FLAGS_MATCH);
 }
 
 static int lsdbus_match(lua_State *L)
@@ -308,8 +307,7 @@ static int lsdbus_match(lua_State *L)
 
 	lua_pushvalue(L, 3);
 	lua_rawsetp(L, -2, slot);
-	sd_bus_slot_set_description(slot, "match");
-	return lsdbus_slot_push(L, slot, 0);
+	return lsdbus_slot_push(L, slot, LSDBUS_SLOT_FLAGS_MATCH);
 }
 
 
@@ -398,8 +396,7 @@ out:
 		luaL_error(L, "call_async failed: %s", strerror(-ret));
 
 	regtab_store(L,	REG_SLOT_TABLE, slot, 2);
-	sd_bus_slot_set_description(slot, "async");
-	return lsdbus_slot_push(L, slot, LSDBUS_SLOT_GC);
+	return lsdbus_slot_push(L, slot, LSDBUS_SLOT_FLAGS_ASYNC);
 }
 
 static int __lsdbus_testmsg(lua_State *L, int raw)

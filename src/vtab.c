@@ -536,6 +536,7 @@ int lsdbus_add_object_vtable(lua_State *L)
 {
 	int ret, slotref;
 	sd_bus_slot *slot;
+	struct lsdbus_slot *s;
 	const char *interface, *path;
 
 	sd_bus *b = lua_checksdbus(L, 1);
@@ -668,10 +669,6 @@ reg_vtab:
 	/* move the slottab from the registry to REG_SLOT_TABLE[slot] */
 	lua_rawgeti(L, LUA_REGISTRYINDEX, slotref);
 
-	/* save sd_bus_vtable (for gc) */
-	lua_pushlightuserdata(L, vt);
-	lua_setfield(L, -2, SDBUS_VTAB);
-
 	/* save user vtable (for passing in ops) */
 	lua_pushvalue(L, 3);
 	lua_setfield(L, -2, USER_VTAB);
@@ -679,9 +676,9 @@ reg_vtab:
 	regtab_store(L, REG_SLOT_TABLE, slot, -1);
 	luaL_unref(L, LUA_REGISTRYINDEX, slotref);
 
-	sd_bus_slot_set_description(slot, "vtab");
-	return lsdbus_slot_push(L, slot, 0);
-
+	s = __lsdbus_slot_push(L, slot, LSDBUS_SLOT_FLAGS_VTAB);
+	s->vt = vt;
+	return 1;
 fail:
 	vtable_free(vt);
 	return lua_error(L);
@@ -775,57 +772,38 @@ int lsdbus_context(lua_State *L)
 	return 1;
 }
 
-void vtable_cleanup(lua_State *L)
-{
-	sd_bus_vtable *vtab;
-
-	if (lua_getfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE) != LUA_TTABLE)
-		return;
-
-	lua_pushnil(L);
-	while (lua_next(L, -2) != 0) {
-		if (lua_type(L, -1) != LUA_TTABLE)
-			goto next;
-
-		if(lua_getfield(L, -1, SDBUS_VTAB) != LUA_TLIGHTUSERDATA)
-			goto pop_vtable;
-
-		vtab = lua_touserdata(L, -1);
-		vtable_free(vtab);
-
-	pop_vtable:
-		lua_pop(L, 1);
-	next:
-		lua_pop(L, 1);
-	}
-
-	/* clear REG_SLOT_TABLE */
-	lua_pushnil(L);
-	lua_setfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE);
-}
-
-int lsdbus_slot_push(lua_State *L, sd_bus_slot *slot, uint32_t flags)
+struct lsdbus_slot* __lsdbus_slot_push(lua_State *L, sd_bus_slot *slot, uint32_t flags)
 {
 	struct lsdbus_slot *s = (struct lsdbus_slot*) lua_newuserdata(L, sizeof(struct lsdbus_slot));
 	s->slot = slot;
 	s->flags = flags;
 	luaL_getmetatable(L, SLOT_MT);
 	lua_setmetatable(L, -2);
-	return 1;
+	return s;
 }
 
-void lsdbus_slot_cleanup(lua_State *L, sd_bus_slot *slot)
+int lsdbus_slot_push(lua_State *L, sd_bus_slot *slot, uint32_t flags)
 {
-	regtab_clear(L,	REG_SLOT_TABLE, slot);
-	sd_bus_slot_unref(slot);
+	__lsdbus_slot_push(L, slot, flags);
+	return 1;
 }
 
 int lsdbus_slot_gc(lua_State *L)
 {
 	struct lsdbus_slot *s = (struct lsdbus_slot*) luaL_checkudata(L, 1, SLOT_MT);
 
-	if (s->flags & LSDBUS_SLOT_GC)
-		lsdbus_slot_cleanup(L, s->slot);
+	printf("inside slot_gc: %p, flags: %u\n", s->slot, s->flags);
+
+	if (s->flags & LSDBUS_SLOT_GC) {
+		printf("clearing slot table of slot %p\n", s->slot);
+		regtab_clear(L,	REG_SLOT_TABLE, s->slot);
+		sd_bus_slot_unref(s->slot);
+	}
+
+	if ((s->flags & LSDBUS_SLOT_TYPE_MASK) == LSDBUS_SLOT_TYPE_VTAB) {
+		printf("freeing vtab\n");
+		vtable_free(s->vt);
+	}
 
 	return 0;
 }
@@ -841,23 +819,31 @@ int lsdbus_rawslot(lua_State *L)
 int lsdbus_slot_unref(lua_State *L)
 {
 	lsdbus_slot_gc(L);
-	/* invalidate slot userdata */
+	/* invalidate lsdbus slot object */
 	lua_pushnil(L);
 	lua_setmetatable(L, -2);
 	return 0;
 }
 
+const char* slot_flags_tostr(int32_t flags)
+{
+	uint8_t t = flags & LSDBUS_SLOT_TYPE_MASK;
+
+	switch(t) {
+	case LSDBUS_SLOT_TYPE_VTAB: return "vtab";
+	case LSDBUS_SLOT_TYPE_MATCH: return "match";
+	case LSDBUS_SLOT_TYPE_ASYNC: return "async";
+	}
+	return "unknown";
+}
+
 int lsdbus_slot_tostring(lua_State *L)
 {
-	const char *desc = NULL;
-
 	struct lsdbus_slot *s = (struct lsdbus_slot*) luaL_checkudata(L, 1, SLOT_MT);
-
-	sd_bus_slot_get_description(s->slot, &desc);
 
 	lua_pushfstring(L, "slot <%p> [%s,%s]",
 			s->slot,
-			(desc!=NULL)?desc:"unknown",
+			slot_flags_tostr(s->flags),
 			(s->flags & LSDBUS_SLOT_GC)?"gc":"nongc");
 	return 1;
 }
