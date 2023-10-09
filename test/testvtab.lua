@@ -1,13 +1,40 @@
 local lu=require("luaunit")
 local lsdb = require("lsdbus")
 
+local MEM_USAGE_MARGIN_KB = 16
+
 local TestVtab = {}
 
 local b
 
 function TestVtab:setup()
-   b = lsdb.open('user')
+   b = lsdb.open('new')
 end
+
+function TestVtab:teardown()
+   b = nil
+end
+
+local test_intf = {
+   name="a.b.c",
+   methods={
+      ick={handler=function() end}
+   },
+   properties = {
+      Foo={
+	 access="readwrite",
+	 type="s",
+	 get=function(vt) return "Foo" end,
+	 set=function(vt, val) end,
+      },
+   },
+   signals = {
+      Boom={
+	 { name="message", type="s" }
+      }
+   }
+}
+
 
 function TestVtab:TestRegObjInvalidVtab()
    local function test1() lsdb.server:new(b, "/", {}) end
@@ -92,5 +119,48 @@ function TestVtab:TestRegObjValidVtab()
    lsdb.server:new(b, "/", { name="a.b.c", methods={}, })
    lsdb.server:new(b, "/", { name="a.b.c", methods={ ick={handler=function() end}}, })
 end
+
+
+function TestVtab:TestVtabCleanup()
+   local vt = lsdb.server:new(b, "/", test_intf)
+   lu.assert_is_table(vt)
+   local rawslot = vt.slot:rawslot()
+   lu.assert_is_table(debug.getregistry()['lsdbus.slot_table'][rawslot])
+
+   -- release and check via that the vt has been removed from the slot
+   -- table
+   vt = nil
+   collectgarbage()
+   lu.assert_is_nil(debug.getregistry()['lsdbus.slot_table'][rawslot])
+end
+
+function TestVtab:TestVtabMemUsage()
+
+   local cnt=0
+   local function make_vtabs(num)
+      for _=1,num do
+	 local vt = lsdb.server:new(b, string.format("/mem_usage/%i", cnt), test_intf)
+	 lu.assert_is_table(vt)
+	 local rawslot = vt.slot:rawslot()
+	 lu.assert_is_table(debug.getregistry()['lsdbus.slot_table'][rawslot])
+	 cnt = cnt + 1
+      end
+   end
+
+   collectgarbage()
+   local mem1 = collectgarbage('count')
+
+   make_vtabs(1000)
+
+   collectgarbage()
+   local mem2 = collectgarbage('count') - MEM_USAGE_MARGIN_KB
+
+   -- test slot_table is empty
+   lu.assert_equals(debug.getregistry()['lsdbus.slot_table'], {})
+
+   -- test mem usage after full GC is more or less the same
+   lu.assert_false(mem2>mem1, string.format("mem2 > mem1 (%s>%s)", mem2, mem1))
+end
+
 
 return TestVtab
