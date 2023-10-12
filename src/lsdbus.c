@@ -536,6 +536,7 @@ static int lsdbus_bus_gc(lua_State *L)
 	evl_cleanup(lsdbus->b);
 
 	if ((lsdbus->flags & LSDBUS_BUS_IS_DEFAULT)) {
+		sd_bus_flush(lsdbus->b);
 		sd_bus_unref(lsdbus->b);
 	} else {
 		sd_bus_flush_close_unref(lsdbus->b);
