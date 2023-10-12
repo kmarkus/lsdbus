@@ -190,7 +190,7 @@ int evl_add_signal(lua_State *L)
 
 	sd_event *loop = evl_get(L, b);
 
-	dbg("adding signal %s (%d)", signame, sig);
+	dbg("adding signal %d", sig);
 
 	if (sigemptyset(&ss) < 0 || sigaddset(&ss, sig))
 		luaL_error(L, "sigemptyset failed: %m");
@@ -357,7 +357,8 @@ static int evl_child_callback(sd_event_source *s, const siginfo_t *si, void *use
 	lua_State *L = (lua_State*) userdata;
 
 	top  = lua_gettop(L);
-	dbg("received wait child event %i on fd %i", revents, fd);
+	dbg("received wait child (pid %i) event", si->si_pid);
+
 	regtab_get(L, REG_EVSRC_TABLE, s);
 	lua_pushvalue(L, 1);		/* bus */
 
@@ -400,7 +401,7 @@ int evl_add_child(lua_State *L)
 	if (sigprocmask(SIG_BLOCK, &ss, NULL) < 0)
 		luaL_error(L, "sigprocmask failed: %m");
 
-	dbg("add callback for pid %s (%0x%x)", pid, options);
+	dbg("add callback for pid %i (%i)", pid, options);
 
 	ret = sd_event_add_child(loop, &source, pid, options, evl_child_callback, L);
 

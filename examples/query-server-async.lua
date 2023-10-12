@@ -13,7 +13,7 @@ end
 
 function pow_cb(b, ...)
    u.pp("callback", b:context(), ...)
-   u.pp(tst:call_async('concat', concat_cb, 'a', 'b'..tostring(cnt)))
+   u.pp(tst:call_async('concat', concat_cb, 'a', 'b', tostring(cnt)))
 end
 
 
