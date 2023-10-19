@@ -822,6 +822,10 @@ int lsdbus_rawslot(lua_State *L)
 
 int lsdbus_slot_unref(lua_State *L)
 {
+	/* explicit unref, force cleanup */
+	struct lsdbus_slot *s = (struct lsdbus_slot*) luaL_checkudata(L, 1, SLOT_MT);
+	s->flags |= LSDBUS_SLOT_GC;
+
 	lsdbus_slot_gc(L);
 	/* invalidate lsdbus slot object */
 	lua_pushnil(L);
