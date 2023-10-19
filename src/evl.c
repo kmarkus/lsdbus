@@ -81,7 +81,7 @@ sd_event* evl_get(lua_State *L, sd_bus *bus)
 	if (loop)
 		goto out;
 
-	ret = sd_event_default(&loop);
+	ret = sd_event_new(&loop);
 
 	if (ret<0)
 		luaL_error(L, "failed to create sd_event_loop: %s", strerror(-ret));
