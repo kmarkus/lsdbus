@@ -28,7 +28,6 @@ function TestSig:TestEmitMatch()
    local cb_ok = false
 
    local function cb(b,s,p,i,m,u,t)
-      print("in cb")
       lu.assert_equals(p, path)
       lu.assert_equals(i, intf)
       lu.assert_equals(m, member)
@@ -41,8 +40,8 @@ function TestSig:TestEmitMatch()
 
    b:emit_signal(path, intf, member, "ua{ss}", arg0, arg1)
 
-   print(b:run(1))
-   print(b:run(1000))
+   b:run(1)
+   b:run(1000)
 
    lu.assert_true(cb_ok)
 end
