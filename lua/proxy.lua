@@ -40,6 +40,9 @@ local node = {
 --]]
 
 function proxy:error(err, msg)
+   if self._error then
+      self._error(self, err, msg)
+   end
    error(fmt("%s: %s (%s, %s, %s)", err, msg or "-", self.srv, self.obj, self.intf.name))
 end
 
@@ -206,7 +209,7 @@ local function proxy_introspect(o)
    return core.xml_fromstr(xml)
 end
 
-function proxy:new(bus, srv, obj, intf)
+function proxy:new(bus, srv, obj, intf, opts)
    local function introspect(o)
       local node = proxy_introspect(o)
       for _,i in ipairs(node.interfaces) do
@@ -218,12 +221,15 @@ function proxy:new(bus, srv, obj, intf)
       o:error(err.UNKNOWN_INTERFACE, "no such interface")
    end
 
+   opts = opts or {}
+
    assert(type(bus)=='userdata', "missing or invalid bus arg")
    assert(type(srv)=='string', "missing invalid srv arg")
    assert(type(obj)=='string', "missing or invalid obj arg")
+   assert(type(opts)=='table', "invalid opts arg")
    assert(intf~=nil, "missing intf arg")
 
-   local o = { bus=bus, srv=srv, obj=obj, intf=intf }
+   local o = { bus=bus, srv=srv, obj=obj, intf=intf, _error=opts.error }
    setmetatable(o, self)
 
    if type(intf) == 'string' then
