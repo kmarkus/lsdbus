@@ -40,9 +40,7 @@ local node = {
 --]]
 
 function proxy:error(err, msg)
-   if self._error then
-      self._error(self, err, msg)
-   end
+   self._error(self, err, msg)
    error(fmt("%s: %s (%s, %s, %s)", err, msg or "-", self._srv, self._obj, self._intf.name))
 end
 
@@ -222,6 +220,7 @@ function proxy:new(bus, srv, obj, intf, opts)
    end
 
    opts = opts or {}
+   opts.error = opts.error or function() return end
 
    assert(type(bus)=='userdata', "missing or invalid bus arg")
    assert(type(srv)=='string', "missing invalid srv arg")
