@@ -135,16 +135,19 @@ function TestVtab:TestVtabCleanup()
 end
 
 function TestVtab:TestVtabExplicitCleanup()
-   local vt = lsdb.server:new(b, "/", test_intf)
-   lu.assert_is_table(vt)
-   local rawslot = vt.slot:rawslot()
-   lu.assert_is_table(debug.getregistry()['lsdbus.slot_table'][rawslot])
+   local function create_destroy()
+      local vt = lsdb.server:new(b, "/", test_intf)
+      lu.assert_is_table(vt)
+      local rawslot = vt.slot:rawslot()
+      lu.assert_is_table(debug.getregistry()['lsdbus.slot_table'][rawslot])
 
-   -- release and check via that the vt has been removed from the slot
-   -- table
-   vt:unref()
-   collectgarbage()
-   lu.assert_is_nil(debug.getregistry()['lsdbus.slot_table'][rawslot])
+      -- release and check via that the vt has been removed from the slot
+      -- table
+      vt.slot:unref()
+      lu.assert_is_nil(debug.getregistry()['lsdbus.slot_table'][rawslot])
+   end
+
+   for _=1,1000 do create_destroy() end
 end
 
 function TestVtab:TestVtabMemUsage()
