@@ -798,6 +798,10 @@ int lsdbus_slot_gc(lua_State *L)
 {
 	struct lsdbus_slot *s = (struct lsdbus_slot*) luaL_checkudata(L, 1, SLOT_MT);
 
+	/* avoid collecting it twice if it has been manually collected already */
+	if(s->slot == NULL)
+		return 0;
+
 	dbg("slot_gc: <%p>, gc:%i, type:0x%x",
 	    s->slot, (s->flags & LSDBUS_SLOT_GC), (s->flags & LSDBUS_SLOT_TYPE_MASK));
 
@@ -809,6 +813,7 @@ int lsdbus_slot_gc(lua_State *L)
 	if ((s->flags & LSDBUS_SLOT_TYPE_MASK) == LSDBUS_SLOT_TYPE_VTAB)
 		vtable_free(s->vt);
 
+	s->slot = NULL;
 	return 0;
 }
 
