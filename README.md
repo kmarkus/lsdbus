@@ -355,7 +355,7 @@ slot = bus:match(match_expr, callback)
 These correspond to `sd_bus_match_signal(3)` and `sd_bus_add_match(3)`
 respectively.
 
-> **Note**: returning 1 will result in no further callbacks matching
+> **Note**: returning `1` will result in no further callbacks matching
 > the same rule to be called (see manpage for details).
 
 **Example**: dump all signals on the system bus:
@@ -474,7 +474,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 {a=1,b={foo="hi"}}
 ```
 
-> *Note*: the only limitation of `tovariant` is that for mixed
+> **Note**: the only limitation of `tovariant` is that for mixed
 > array/dictionary tables, numeric indices get converted to strings,
 > e.g `{ 1,2, bar='nope' }` becomes `{"1"=1, "2"=2, bar="nope"}`. This
 > is a limitation of D-Bus which doesn't allow dictionaries with
@@ -494,6 +494,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 | `evsrc = bus:add_signal(SIGNAL)`                                              | see `sd_event_add_signal(3)`                 |
 | `evsrc = bus:add_periodic(period, accuracy, callback)`                        | see `sd_event_add_time_relative(3)`          |
 | `evsrc = bus:add_io(fd, mask, callback)`                                      | see `sd_event_add_io(3)`                     |
+| `evsrc = bus:add_child(pid, options, callback)`                               | see `sd_event_add_child(3)`                  |
 | `bus:loop()`                                                                  | see `sd_event_loop(3)`                       |
 | `bus:run(usec)`                                                               | see `sd_event_run(3)`                        |
 | `bus:exit_loop()`                                                             | see `sd_event_exit(3)`                       |
@@ -503,7 +504,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 | `res = bus:testmsg(typestr, args...)`                                         | test Lua->D-Bus->Lua message roundtrip       |
 | `ret, res... = bus:call(dest, path, intf, member, typestr, args...)`          | plumbing, prefer lsdbus.proxy                |
 | `slot = bus:call_async(callback, dest, path, intf, member, typestr, args...)` | plumbing async method invocation             |
-| `bus:add_object_vtable`                                                       | plumbing, use lsdbus.server instead          |
+| `slot = bus:add_object_vtable(path, vtab_raw)`                                | plumbing, use lsdbus.server instead          |
 
 
 **Notes**:
@@ -519,13 +520,15 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 
   If not given, default is `'default'`
 
-- `evsrc` (event source) objects are not garbage collected but can be
-  used to explicitely remove the respective interface or callbacks
-  (see below).
+- `evsrc` (event source) objects are **not** cleaned up (`unref`ed)
+  when garbage collected but set to *floating*, which means they will
+  live until the event loop is destroyed. To explicitely destroy an
+  event source, call its `unref` method.
 
 > **Note**: upon being collected the `default_*` type bus objects are
-> only `unref`ed, whereas on non default (`new`, `system` and `user`)
-> bus objects `sd_bus_flush_close_unref` is called.
+> only `flush`ed and `unref`ed, whereas on non default (`new`,
+> `system` and `user`) bus objects `sd_bus_flush_close_unref` is
+> called.
 
 ### lsdbus.proxy
 
@@ -567,6 +570,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 | `emit(signal, args...)`                    | emit a signal that is defined in the servers interface     |
 | `emitPropertiesChanged(prop0, ...)`        | emit a PropertiesChanged signal for one or more properties |
 | `emitAllPropertiesChanged(filter)`         | emit a PropertiesChanged signal for all properties         |
+| `unref()`                                  | remove the interface and release the resources             |
 | `error("dbus.error.name\|message")`        | return a D-Bus error and message from a callback           |
 
 **Notes**:
@@ -576,30 +580,48 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
   returns true or false depending on whether the property shall be
   included in the `PropertiesChanged` signal not.
 - the vtable slot (`srv.slot`) is garbage collected which will remove
-  the respective dbus interface. Call `srv.slot:unref()` to
-  explicitely remove the interface.
+  the respective dbus interface. Call `srv:unref()` to explicitely
+  remove the interface.
 
 ### slots
+
+`slot` (`sd_bus_slot`) objects are returned by `match`,
+`match_signal`, `server:new` and `call_async` calls.
 
 | Method    | Description                               |
 |-----------|-------------------------------------------|
 | `unref()` | remove slot. calls `sd_bus_slot_unref(3)` |
 
+The behavior upon garbage collection depends on the slot type:
 
-> **Notes**: slots are garbage collected except for those returned by
-> `match` calls.
+- `vtable`: `unref`ed, resources freed
+- `match*`: set to floating (i.e. will continue to exist as long as
+  bus does).
+- `call_async`: `unref`ed, resources freed
+
+> **Note**: you must hold a reference to a `vtable` slot to prevent is
+> being garbage collected and removed. Typically one just stores a
+> reference to the `srv` object return by `server:new`.
+
 
 ### event sources
 
-Corresponds to `sd_event_source`.
+`evsrc` (`sd_event_source`) objects are returned by `bus:add_signal`,
+`bus:add_periodic`, `bus:add_io` and `bus:add_child`.
 
 | Method                 | Description                                                                           |
 |------------------------|---------------------------------------------------------------------------------------|
 | `set_enabled(enabled)` | `enabled`: `lsdbus.SD_EVENT_[ON\|OFF\|ONESHOT]`. see `sd_event_source_set_enabled(3)` |
 | `unref()`              | remove event source. calls `sd_event_source_unref(3)`                                 |
 
-> **Notes**: event sources are not garbage collected with the exeption
-> of those returned by asynchronous calls.
+evsrc` (event source) objects are **not** released (`unref`ed) when
+they go out of scope (i.e. are garbage collected) > but are set to
+*floating*. This means they will live until the event > loop is
+destroyed. To explicitely destroy an event source, call its > `unref`
+method.
+
+> **Note** there is no need to store a reference to an `evsrc` object
+> unless you intend to remove it before the program ends.
 
 ## Internals
 
