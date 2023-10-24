@@ -1,9 +1,11 @@
 local lu=require("luaunit")
 local lsdb = require("lsdbus")
 
+local testconf = debug.getregistry()['lsdbus.testconfig']
+
 local unpack = table.unpack or unpack
 
-local b = lsdb.open()
+local b = lsdb.open(testconf.bus)
 
 local srv, obj, intf, met =  'org.lsdb', '/obj', 'org.lsdb', 'met'
 

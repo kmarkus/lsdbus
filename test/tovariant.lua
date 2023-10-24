@@ -1,7 +1,9 @@
 local lu=require("luaunit")
 local lsdb = require("lsdbus")
 
-local b = lsdb.open()
+local testconf = debug.getregistry()['lsdbus.testconfig']
+
+local b = lsdb.open(testconf.bus)
 
 TestToVariant = {}
 

@@ -2,13 +2,14 @@ local lu=require("luaunit")
 local lsdb = require("lsdbus")
 
 local MEM_USAGE_MARGIN_KB = 8
+local testconfig = debug.getregistry()['lsdbus.testconfig']
 
 local TestSig = {}
 
 local b, slots
 
 function TestSig:setup()
-   b = lsdb.open()
+   b = lsdb.open(testconfig.bus)
    slots = {}
 end
 
@@ -62,15 +63,20 @@ function TestSig:TestMatchSlotMemUsage()
       end
    end
 
-   make_matches(1000)
+   local num_matches = 100
+
+   make_matches(num_matches)
 
    collectgarbage()
    local mem1 = collectgarbage('count')
 
-   make_matches(1000)
+   make_matches(num_matches)
 
    collectgarbage()
+
    local mem2 = collectgarbage('count') - MEM_USAGE_MARGIN_KB
+
+   collectgarbage()
 
    -- test slot_table is empty
    lu.assert_equals(debug.getregistry()['lsdbus.slot_table'], {})

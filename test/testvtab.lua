@@ -2,13 +2,14 @@ local lu=require("luaunit")
 local lsdb = require("lsdbus")
 
 local MEM_USAGE_MARGIN_KB = 16
+local testconf = debug.getregistry()['lsdbus.testconfig']
 
 local TestVtab = {}
 
 local b
 
 function TestVtab:setup()
-   b = lsdb.open('new')
+   b = lsdb.open(testconf.bus)
 end
 
 function TestVtab:teardown()
@@ -114,10 +115,13 @@ function TestVtab:TestRegObjValidVtab()
 	 },
       }
    }
-   lsdb.server:new(b, "/", intf)
-   lsdb.server:new(b, "/", { name="a.b.c" })
-   lsdb.server:new(b, "/", { name="a.b.c", methods={}, })
-   lsdb.server:new(b, "/", { name="a.b.c", methods={ ick={handler=function() end}}, })
+   self.count = self.count or 0
+   self.count = self.count + 1
+
+   lsdb.server:new(b, "/a"..tostring(self.count), intf)
+   lsdb.server:new(b, "/b"..tostring(self.count), { name="a.b.c" })
+   lsdb.server:new(b, "/c"..tostring(self.count), { name="a.b.c", methods={}, })
+   lsdb.server:new(b, "/d"..tostring(self.count), { name="a.b.c", methods={ ick={handler=function() end}}, })
 end
 
 
@@ -143,7 +147,7 @@ function TestVtab:TestVtabExplicitCleanup()
 
       -- release and check via that the vt has been removed from the slot
       -- table
-      vt.slot:unref()
+      vt:unref()
       lu.assert_is_nil(debug.getregistry()['lsdbus.slot_table'][rawslot])
    end
 

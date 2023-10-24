@@ -12,7 +12,7 @@ end
 local function loop(...) print(os.date(), ...) end
 local function exit(b, sig) b:exit_loop() end
 
-local b = lsdb.open('user')
+local b = lsdb.open()
 b:add_signal(lsdb.SIGINT, exit)
 b:add_signal(lsdb.SIGUSR1, toggle)
 evsrc = b:add_periodic(1*1000^2, 0, loop)
