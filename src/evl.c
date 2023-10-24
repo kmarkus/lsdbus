@@ -36,8 +36,7 @@ static int evsrc_set_enabled(lua_State *L)
 static int evsrc_gc(lua_State *L)
 {
 	sd_event_source *evsrc = *((sd_event_source**) luaL_checkudata(L, 1, EVSRC_MT));
-	sd_event_source_set_floating(evsrc, 1);
-	printf("set evsrc %p to floating\n", evsrc);
+	assert(sd_event_source_set_floating(evsrc, 1) >= 0);
 	return 0;
 }
 
@@ -93,6 +92,7 @@ sd_event* evl_get(lua_State *L, sd_bus *bus)
 
 	if (ret<0)
 		luaL_error(L, "failed to attach bus to event loop: %s", strerror(-ret));
+
 out:
 	return loop;
 }
@@ -101,8 +101,12 @@ void evl_cleanup(sd_bus *bus)
 {
 	sd_event *loop = sd_bus_get_event(bus);
 
-	if (loop)
+	assert(sd_bus_detach_event(bus) >= 0);
+
+	if (loop) {
 		sd_event_unref(loop);
+	}
+
 }
 
 int evl_loop(lua_State *L)
