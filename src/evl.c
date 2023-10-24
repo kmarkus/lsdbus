@@ -215,8 +215,7 @@ int evl_add_signal(lua_State *L)
 	sourcep = (sd_event_source**) lua_newuserdata(L, sizeof(sd_event_source*));
 	*sourcep = source;
 
-	luaL_getmetatable(L, EVSRC_MT);
-	lua_setmetatable(L, -2);
+	luaL_setmetatable(L, EVSRC_MT);
 	sd_event_source_set_description(source, "unix_signal");
 
 	return 1;
@@ -301,10 +300,9 @@ int evl_add_periodic(lua_State *L)
 
 	evsrcp = (sd_event_source**) lua_newuserdata(L, sizeof(sd_event_source*));
 	*evsrcp = evsrc;
-	sd_event_source_set_description(evsrc, "periodic");
 
-	luaL_getmetatable(L, EVSRC_MT);
-	lua_setmetatable(L, -2);
+	luaL_setmetatable(L, EVSRC_MT);
+	sd_event_source_set_description(evsrc, "periodic");
 
 	return 1;
 }
@@ -351,8 +349,7 @@ int evl_add_io(lua_State *L)
 	sourcep = (sd_event_source**) lua_newuserdata(L, sizeof(sd_event_source*));
 	*sourcep = source;
 
-	luaL_getmetatable(L, EVSRC_MT);
-	lua_setmetatable(L, -2);
+	luaL_setmetatable(L, EVSRC_MT);
 	sd_event_source_set_description(source, "io");
 
 	return 1;
@@ -422,8 +419,7 @@ int evl_add_child(lua_State *L)
 
 	sd_event_source_set_enabled(source, SD_EVENT_ON);
 
-	luaL_getmetatable(L, EVSRC_MT);
-	lua_setmetatable(L, -2);
+	luaL_setmetatable(L, EVSRC_MT);
 	sd_event_source_set_description(source, "child_pid");
 
 	return 1;
