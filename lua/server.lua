@@ -38,6 +38,12 @@ function srv:new(bus, path, intf)
    return vtab
 end
 
+-- remove vtab and invalidate the object
+function srv:unref()
+   self.slot:unref()
+   setmetatable(self, nil)
+end
+
 function srv:emit(signal, ...)
    local sigtab = self.signals[signal]
    if not sigtab then
