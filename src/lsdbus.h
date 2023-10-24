@@ -33,7 +33,7 @@
 #define REG_VTAB_USER_ARG	"lsdbus.vtab_user_arg"
 
 #ifdef DEBUG
-# define dbg(fmt, args...) ( fprintf(stderr, "%s: ", __FUNCTION__), \
+# define dbg(fmt, args...) ( fprintf(stderr, "%s:%u ", __FUNCTION__, __LINE__),	\
 			     fprintf(stderr, fmt, ##args),	    \
 			     fprintf(stderr, "\n") )
 #else
@@ -52,12 +52,6 @@ struct lsdbus_bus {
 #define LSDBUS_SLOT_TYPE_VTAB		0x1
 #define LSDBUS_SLOT_TYPE_MATCH		0x2
 #define LSDBUS_SLOT_TYPE_ASYNC		0x3
-
-#define LSDBUS_SLOT_GC			1<<5	/* automatically GC'ed? */
-
-#define LSDBUS_SLOT_FLAGS_VTAB		(LSDBUS_SLOT_TYPE_VTAB|LSDBUS_SLOT_GC)
-#define LSDBUS_SLOT_FLAGS_MATCH  	(LSDBUS_SLOT_TYPE_MATCH)
-#define LSDBUS_SLOT_FLAGS_ASYNC  	(LSDBUS_SLOT_TYPE_ASYNC|LSDBUS_SLOT_GC)
 
 struct lsdbus_slot {
 	sd_bus_slot *slot;

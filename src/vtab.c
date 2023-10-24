@@ -309,18 +309,21 @@ char* lua_getstrfield(lua_State *L, int index,
 	char *res;
 	const char *tmp;
 
+	dbg("%s: field: %s", member, field);
+
 	int typ = lua_getfield(L, index, field);
 
 	if (typ != LUA_TSTRING) {
 		lua_pushfstring(L, "%s: field %s value not a string but %s",
 				member, field, lua_typename(L, typ));
+		dbg("%s: not a string", member);
 		return NULL;
 	}
 
 	tmp = lua_tolstring(L, -1, &l);
 	lua_pop(L, 1);
 
-	dbg("%s: l: %u, s: %s", __func__, l, tmp);
+	dbg("%s: tolstring len: %zu, tmp: '%s'", member, l, tmp);
 
 	res = calloc(1, l+1);
 
@@ -329,12 +332,12 @@ char* lua_getstrfield(lua_State *L, int index,
 		return NULL;
 	}
 
-	dbg("res: %p", res);
 	memcpy(res, tmp, l);
+
 	if (len != NULL)
 		*len = l;
 
-	dbg("%s: s: %s", __func__, res);
+	dbg("member: %s, res: '%s' <%p>, len: %zu", member, res, res, len!=NULL?*len:0);
 	return res;
 }
 
@@ -658,10 +661,10 @@ reg_vtab:
 	interface = lua_tostring(L, -1);
 
 #ifdef DEBUG
-	dbg("adding obj vtab: path: %s, intf: %s", path, interface);
-	dbg("*** vtable_dump ***");
+	dbg("adding obj vtab: <%p> path: %s, intf: %s", vt, path, interface);
+	dbg("------- vtable_dump -------");
 	vtable_dump(vt);
-	dbg("*** vtable_dump end*** ");
+	dbg("------- vtable_dump end ------- ");
 #endif
 
 	ret = sd_bus_add_object_vtable(b, &slot, path, interface, vt, L);
@@ -670,6 +673,8 @@ reg_vtab:
 		lua_pushfstring(L, "failed to add vtable: %s", strerror(-ret));
 		goto fail;
 	}
+
+	dbg("sd_bus_add_object_vtable slot <%p>", slot);
 
 	lua_pop(L, 1); /* interface */
 
@@ -682,7 +687,7 @@ reg_vtab:
 	regtab_store(L, REG_SLOT_TABLE, slot, -1);
 	luaL_unref(L, LUA_REGISTRYINDEX, slotref);
 
-	s = __lsdbus_slot_push(L, slot, LSDBUS_SLOT_FLAGS_VTAB);
+	s = __lsdbus_slot_push(L, slot, LSDBUS_SLOT_TYPE_VTAB);
 	s->vt = vt;
 	return 1;
 fail:
@@ -783,8 +788,9 @@ struct lsdbus_slot* __lsdbus_slot_push(lua_State *L, sd_bus_slot *slot, uint32_t
 	struct lsdbus_slot *s = (struct lsdbus_slot*) lua_newuserdata(L, sizeof(struct lsdbus_slot));
 	s->slot = slot;
 	s->flags = flags;
-	luaL_getmetatable(L, SLOT_MT);
-	lua_setmetatable(L, -2);
+	luaL_setmetatable(L, SLOT_MT);
+	dbg("slot_push: <%p, %p>, type:0x%x (sz: %lu)",
+	    s, s->slot, (s->flags & LSDBUS_SLOT_TYPE_MASK), sizeof(struct lsdbus_slot));
 	return s;
 }
 
@@ -798,22 +804,29 @@ int lsdbus_slot_gc(lua_State *L)
 {
 	struct lsdbus_slot *s = (struct lsdbus_slot*) luaL_checkudata(L, 1, SLOT_MT);
 
-	/* avoid collecting it twice if it has been manually collected already */
-	if(s->slot == NULL)
-		return 0;
+	uint8_t type = s->flags & LSDBUS_SLOT_TYPE_MASK;
 
-	dbg("slot_gc: <%p>, gc:%i, type:0x%x",
-	    s->slot, (s->flags & LSDBUS_SLOT_GC), (s->flags & LSDBUS_SLOT_TYPE_MASK));
+	dbg("slot_gc: <%p, %p>, type:0x%x", s, s->slot, type);
 
-	if (s->flags & LSDBUS_SLOT_GC) {
+	switch(type) {
+	case LSDBUS_SLOT_TYPE_VTAB:
+	case LSDBUS_SLOT_TYPE_ASYNC:
 		regtab_clear(L,	REG_SLOT_TABLE, s->slot);
 		sd_bus_slot_unref(s->slot);
+
+		if (type == LSDBUS_SLOT_TYPE_VTAB)
+			vtable_free(s->vt);
+
+		s->slot = NULL;
+		s->vt = NULL;
+		break;
+	case LSDBUS_SLOT_TYPE_MATCH:
+		assert(sd_bus_slot_set_floating(s->slot, 1) >= 0);
+		break;
+	default:
+		dbg("invalid slot type (flags 0x%x)", s->flags);
 	}
 
-	if ((s->flags & LSDBUS_SLOT_TYPE_MASK) == LSDBUS_SLOT_TYPE_VTAB)
-		vtable_free(s->vt);
-
-	s->slot = NULL;
 	return 0;
 }
 
@@ -827,14 +840,32 @@ int lsdbus_rawslot(lua_State *L)
 
 int lsdbus_slot_unref(lua_State *L)
 {
-	/* explicit unref, force cleanup */
 	struct lsdbus_slot *s = (struct lsdbus_slot*) luaL_checkudata(L, 1, SLOT_MT);
-	s->flags |= LSDBUS_SLOT_GC;
+	uint8_t type = s->flags & LSDBUS_SLOT_TYPE_MASK;
 
-	lsdbus_slot_gc(L);
-	/* invalidate lsdbus slot object */
+	dbg("slot_unref: <%p, %p>, type:0x%x", s, s->slot, type);
+
+	switch(type) {
+	case LSDBUS_SLOT_TYPE_VTAB:
+	case LSDBUS_SLOT_TYPE_ASYNC:
+	case LSDBUS_SLOT_TYPE_MATCH:
+		regtab_clear(L,	REG_SLOT_TABLE, s->slot);
+		sd_bus_slot_unref(s->slot);
+
+		if (type == LSDBUS_SLOT_TYPE_VTAB)
+			vtable_free(s->vt);
+
+		s->slot = NULL;
+		s->vt = NULL;
+		break;
+	default:
+		dbg("invalid slot type (flags 0x%x)", s->flags);
+	}
+
+	/* invalidate the slot object, this will "deactivate" it for
+	 * the user but also prevent it being gc'ed again */
 	lua_pushnil(L);
-	lua_setmetatable(L, -2);
+	lua_setmetatable(L, 1);
 	return 0;
 }
 
@@ -853,11 +884,7 @@ const char* slot_flags_tostr(int32_t flags)
 int lsdbus_slot_tostring(lua_State *L)
 {
 	struct lsdbus_slot *s = (struct lsdbus_slot*) luaL_checkudata(L, 1, SLOT_MT);
-
-	lua_pushfstring(L, "slot <%p> [%s,%s]",
-			s->slot,
-			slot_flags_tostr(s->flags),
-			(s->flags & LSDBUS_SLOT_GC)?"gc":"nongc");
+	lua_pushfstring(L, "slot <%p> [%s]", s->slot, slot_flags_tostr(s->flags));
 	return 1;
 }
 
