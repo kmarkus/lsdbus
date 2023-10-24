@@ -32,7 +32,16 @@ static int evsrc_set_enabled(lua_State *L)
 	return 0;
 }
 
+/* just set it to floating */
 static int evsrc_gc(lua_State *L)
+{
+	sd_event_source *evsrc = *((sd_event_source**) luaL_checkudata(L, 1, EVSRC_MT));
+	sd_event_source_set_floating(evsrc, 1);
+	printf("set evsrc %p to floating\n", evsrc);
+	return 0;
+}
+
+static int evsrc_unref(lua_State *L)
 {
 	int ret;
 	sd_event_source *evsrc = *((sd_event_source**) luaL_checkudata(L, 1, EVSRC_MT));
@@ -47,23 +56,17 @@ static int evsrc_gc(lua_State *L)
 	}
 
 	sd_event_source_unref(evsrc);
-	return 0;
-}
 
-static int evsrc_unref(lua_State *L)
-{
-	evsrc_gc(L);
 	lua_newtable(L);
 	lua_setmetatable(L, -2);
 	return 0;
 }
 
-
 const luaL_Reg lsdbus_evsrc_m [] = {
 	{ "set_enabled", evsrc_set_enabled },
 	{ "unref", evsrc_unref },
 	{ "__tostring", evsrc_tostring },
-	/* { "__gc", evsrc_gc }, */
+	{ "__gc", evsrc_gc },
 	{ NULL, NULL }
 };
 
