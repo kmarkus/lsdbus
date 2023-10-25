@@ -14,6 +14,7 @@ TestIntrospect  = require("introspect")
 TestVtab = require("testvtab")
 TestToVariant = require("tovariant")
 TestSig = require("testsig")
+TestServer = require("testserver")
 
 runner = lu.LuaUnit.new()
 
