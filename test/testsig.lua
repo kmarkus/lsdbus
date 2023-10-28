@@ -1,5 +1,6 @@
 local lu=require("luaunit")
 local lsdb = require("lsdbus")
+local fmt = string.format
 
 local MEM_USAGE_MARGIN_KB = 8
 local testconfig = debug.getregistry()['lsdbus.testconfig']
@@ -20,9 +21,9 @@ function TestSig:teardown()
    end
 end
 
-function TestSig:TestEmitMatch()
+function TestSig:TestEmitMatchSignal()
    local intf = "lsdbus.test.testemit"
-   local path = "/testsig/emitmatch"
+   local path = "/testsig/emitmatchsignal"
    local member = "TestEmitMatch"
 
    local arg0 = 542
@@ -42,6 +43,39 @@ function TestSig:TestEmitMatch()
    slots[#slots+1] = b:match_signal(nil, path, intf, member, cb)
 
    b:emit_signal(path, intf, member, "ua{ss}", arg0, arg1)
+
+   b:run(1)
+   b:run(1000)
+
+   lu.assert_true(cb_ok)
+end
+
+function TestSig:TestEmitMatch()
+   local intf = "lsdbus.test.testemit"
+   local path = "/testsig/emitmatch"
+   local member = "TestEmitMatch"
+
+   local ts = "ua{si}b"
+   local arg0 = 542
+   local arg1 =  { x=999, y=5555 }
+   local arg2 = true
+
+   local cb_ok = false
+
+   local function cb(b,s,p,i,m,a0,a1,a2)
+      lu.assert_equals(p, path)
+      lu.assert_equals(i, intf)
+      lu.assert_equals(m, member)
+      lu.assert_equals(a0, arg0)
+      lu.assert_equals(a1, arg1)
+      lu.assert_equals(a2, arg2)
+      cb_ok = true
+   end
+
+   local match_expr = fmt("type='signal',path='%s',interface='%s',member='%s'", path, intf, member);
+   slots[#slots+1] = b:match(match_expr, cb)
+
+   b:emit_signal(path, intf, member, ts, arg0, arg1, arg2)
 
    b:run(1)
    b:run(1000)
@@ -82,7 +116,7 @@ function TestSig:TestMatchSlotMemUsage()
    lu.assert_equals(debug.getregistry()['lsdbus.slot_table'], {})
 
    -- test mem usage after full GC is more or less the same
-   lu.assert_false(mem2>mem1, string.format("mem2 > mem1 (%s>%s)", mem2, mem1))
+   lu.assert_false(mem2>mem1, fmt("mem2 > mem1 (%s>%s)", mem2, mem1))
 end
 
 

@@ -7,22 +7,34 @@
 local lsdb = require("lsdbus")
 local u = require("utils")
 
+local DEBUG=false
+
+local function dbg(format, ...)
+   if DEBUG then print(string.format(format, ...)) end
+end
+
+local S = {
+   srv='lsdbus.test',
+   path='/',
+   intf='lsdbus.test.testintf0'
+}
+
 local interface = {
    name="lsdbus.test.testintf0",
    methods={
       Raise={
 	 handler=function(vt)
-	    print("emiting")
-	    vt.bus:emit_signal("/", "lsdbus.test.testintf0", "Alarm", "ia{ss}", 999, {x="one", y="two"})
+	    dbg("emiting testsignal")
+	    vt:emit('HighWater', 567, "HighWaterState")
 	 end
       },
       thunk={
-	 handler=function(vt) u.pp(vt.bus:context()) end
+	 handler=function(vt) dbg(u.tab2str(vt.bus:context())) end
       },
       pow={
 	 {direction="in", name="x", type="i"},
 	 {direction="out", name="result", type="i"},
-	 handler=function(_,x) print("pow of ", x); return x^2 end
+	 handler=function(_,x) dbg("returning pow of %i", x); return x^2 end
       },
       twoin={
 	 {direction="in", name="x", type="i"},
@@ -47,7 +59,9 @@ local interface = {
 	 {direction="out", name="result", type="a{is}"},
 	 handler=function(_,size)
 	    local x = {}
+	    dbg("building array of size %i", size)
 	    for i=1,size do x[#x+1]=i end
+	    dbg("building array done")
 	    return x
 	 end
       },
@@ -63,7 +77,7 @@ local interface = {
       },
 
       Shutdown = {
-	 handler=function(vt) print("shutting down"); vt.bus:exit_loop() end
+	 handler=function(vt) dbg("shutting down"); vt.bus:exit_loop() end
       },
 
       Fail={
@@ -77,23 +91,27 @@ local interface = {
    properties={
       Bar={
 	 access="readwrite",
-	 type="y",
+	 type="i",
 	 get=function(vt) return vt.bar or 255 end,
-	 set=function(vt,val)
-	    print("setting Bar to ", val)
+	 set=function(vt, val)
+	    local ctx = vt.bus:context()
+	    dbg("setting %s Bar to %i", ctx.path, val)
 	    vt.bar = val
-	    vt:emitPropertiesChanged("Bar", "Date")
+	    vt:emitPropertiesChanged("Bar")
 	 end
       },
-      Date={
+      Time={
 	 access="read",
-	 type="s",
-	 get=function() return os.date() end,
+	 type="x",
+	 get=function() return os.time() end,
       },
       Wronly={
 	 access="write",
 	 type="s",
-	 set=function(_, x) print(x) end,
+	 set=function(vt, x)
+	    dbg("Wronly: setting to %s", x)
+	    vt:emitPropertiesChanged("Wronly")
+	 end,
       },
       Fail={
 	 access="readwrite",
@@ -112,10 +130,18 @@ local interface = {
    }
 }
 
+local function emit_time(b)
+   b:emit_signal(S.path, S.intf, "Time", "x", os.time())
+end
+
 local b
 local vt1, vt2, vt3
 
 local function reload()
+   local function filter_props(p, _)
+      if p == 'Fail' then return false end
+      return true
+   end
    if vt1 then vt1:unref() end
    if vt2 then vt2:unref() end
    if vt3 then vt3:unref() end
@@ -123,17 +149,20 @@ local function reload()
    vt1 = lsdb.server:new(b, "/1", interface)
    vt2 = lsdb.server:new(b, "/2", interface)
    vt3 = lsdb.server:new(b, "/3", interface)
+
+   vt1:emitAllPropertiesChanged(filter_props)
+   vt2:emitAllPropertiesChanged(filter_props)
+   vt3:emitAllPropertiesChanged(filter_props)
 end
 
 b = lsdb.open(os.getenv('LSDBUS_BUS') or 'default')
-b:request_name("lsdbus.test")
+b:request_name(S.srv)
 reload()
 
 b:add_signal(lsdb.SIGINT, function () b:exit_loop() end)
 b:add_signal(lsdb.SIGUSR1, function () vt1.var=0 end)
 b:add_signal(lsdb.SIGHUP, reload)
 
-local evsrc = b:add_periodic(
-   1*1000^2, 0, function () vt1.properties.Bar.set(vt1, (vt1.bar or 0) + 1) end)
+b:add_periodic(1*1000^2, 0, emit_time)
 
 b:loop()
