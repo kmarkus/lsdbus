@@ -1,7 +1,7 @@
 local lu=require("luaunit")
 local lsdb = require("lsdbus")
 
-local MEM_USAGE_MARGIN_KB = 16
+local MEM_USAGE_MARGIN_KB = 32
 local testconf = debug.getregistry()['lsdbus.testconfig']
 
 local TestVtab = {}

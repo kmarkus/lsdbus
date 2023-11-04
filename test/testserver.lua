@@ -1,5 +1,7 @@
 local lu=require("luaunit")
 local lsdb = require("lsdbus")
+local utils = require("utils")
+local fmt = string.format
 local proxy = lsdb.proxy
 
 local testconf = debug.getregistry()['lsdbus.testconfig']
@@ -7,6 +9,13 @@ local testconf = debug.getregistry()['lsdbus.testconfig']
 TestServer = {}
 
 local b, p1, p2, p3
+
+-- peer
+local P = {
+   srv='lsdbus.test',
+   path='/',
+   intf='lsdbus.test.testintf0'
+}
 
 function TestServer:setup()
    b = lsdb.open(testconf.bus)
@@ -169,6 +178,65 @@ function TestServer:TestProps()
 end
 
 -- TestServer:TestSignals
+function TestServer:TestPropChanged()
+   local sig = false
+
+   local function assert_sig_recv(s,p,i,m,args)
+      for _=1,10 do
+	 if sig then
+	    if s then lu.assert_equals(sig.s, s) end
+	    if p then lu.assert_equals(sig.p, p) end
+	    if i then lu.assert_equals(sig.i, i) end
+	    if m then lu.assert_equals(sig.m, m) end
+
+	    for _i=1,#args do
+	       lu.assert_equals(sig.args[_i], args[_i])
+	    end
+
+	    sig = false
+	    return true
+	 end
+	 b:run(100*1000)
+      end
+      lu.fail(fmt("failed to receive event %s,%s,%s,%s,args=%s", s,p,i,m,utils.tab2str(args)))
+   end
+
+   local function cb(b,s,p,i,m,...) sig = { s=s, p=p,i=i,m=m,args={...}} end
+
+   local slot = b:match_signal(P.srv, nil, 'org.freedesktop.DBus.Properties', 'PropertiesChanged', cb)
+
+   p1.Bar = 9999
+   assert_sig_recv(nil, "/1", 'org.freedesktop.DBus.Properties', 'PropertiesChanged',
+		   { "lsdbus.test.testintf0", {Bar=9999}, {} })
+   p2.Bar = 13579
+   assert_sig_recv(nil, "/2", 'org.freedesktop.DBus.Properties', 'PropertiesChanged',
+		   { "lsdbus.test.testintf0", {Bar=13579}, {} })
+   p3.Bar = 11111
+   assert_sig_recv(nil, "/3", 'org.freedesktop.DBus.Properties', 'PropertiesChanged',
+		   { "lsdbus.test.testintf0", {Bar=11111}, {} })
+
+
+   slot:unref()
+
+   slot = b:match_signal(P.srv, nil, 'lsdbus.test.testintf0', 'HighWater', cb)
+
+   p1('Raise')
+   assert_sig_recv(nil, "/1", "lsdbus.test.testintf0", 'HighWater', { 567, "HighWaterState"})
+
+   p2('Raise')
+   assert_sig_recv(nil, "/2", "lsdbus.test.testintf0", 'HighWater', { 567, "HighWaterState"})
+
+   p3('Raise')
+   assert_sig_recv(nil, "/3", "lsdbus.test.testintf0", 'HighWater', { 567, "HighWaterState"})
+
+   slot:unref()
+end
+
+function TestServer:TestReload()
+   -- os.execute("pkill -HUP -f peer-testserver.lua")
+   -- expect Propertieschanged with all readable Props
+end
+
 
 function TestServer:TestRemoteFail()
    local function f() p1('Fail') end
