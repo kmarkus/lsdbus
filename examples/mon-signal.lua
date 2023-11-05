@@ -16,6 +16,5 @@ end
 
 local b = lsdb.open('user')
 b:add_signal(lsdb.SIGINT, exit)
---b:match_signal(nil, nil, nil, nil, nothrow(function(_, ...) u.pp(...) end, print))
-b:match_signal(nil, nil, nil, nil, function(_, ...) u.pp(...); error("oh no") end, print)
+b:match_signal(nil, nil, nil, nil, nothrow(function(_, ...) u.pp(...) end, print))
 b:loop()

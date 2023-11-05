@@ -9,7 +9,7 @@ local function toggle()
    evsrc:set_enabled(enabled)
 end
 
-local function loop(...) print(os.date(), ...); error("oh no") end
+local function loop(...) print(os.date(), ...) end
 local function exit(b, sig) b:exit_loop() end
 
 local b = lsdb.open()
