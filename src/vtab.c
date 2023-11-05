@@ -43,9 +43,6 @@ static int prop_get_handler(sd_bus *bus,
 	lua_State *L = (lua_State *) userdata;
 	sd_bus_slot *slot = sd_bus_get_current_slot(bus);
 
-	(void) path;
-	(void) interface;
-
 	dbg("%s, %s, %s, slot: %p", path, interface, property, slot);
 
 	regtab_get(L, REG_SLOT_TABLE, slot);                    /* slottab */
@@ -66,7 +63,13 @@ static int prop_get_handler(sd_bus *bus,
 		char name[DBUS_NAME_MAXLEN] = {0};
 		const char* errmsg = lua_tostring(L, -1);
 		const char* message = parse_errmsg(errmsg, name);
-		lua_settop(L, 1);
+
+		/* unintended error */
+		if (message==NULL)
+			fprintf(stderr, "property %s get failed: %s (%s, %s)\n",
+				property, errmsg?errmsg:"-", path, interface);
+
+                lua_settop(L, 1);
 
 		if(message)
 			return sd_bus_error_set(ret_error, name, message);
@@ -117,6 +120,12 @@ static int prop_set_handler(sd_bus *bus,
 		char name[DBUS_NAME_MAXLEN] = {0};
 		const char* errmsg = lua_tostring(L, -1);
 		const char* message = parse_errmsg(errmsg, name);
+
+		/* unintended error */
+		if (message==NULL)
+			fprintf(stderr, "property %s set failed: %s (%s, %s)\n",
+				property, errmsg?errmsg:"-", path, interface);
+
 		lua_settop(L, 1);
 
 		if(message)
@@ -183,6 +192,14 @@ static int method_handler(sd_bus_message *call, void *userdata, sd_bus_error *re
 		char name[DBUS_NAME_MAXLEN] = {0};
 		const char* errmsg = lua_tostring(L, -1);
 		const char* message = parse_errmsg(errmsg, name);
+
+		/* unintended error */
+		if (message==NULL)
+			fprintf(stderr, "method %s failed: %s (%s, %s) \n",
+				mem, errmsg?errmsg:"-",
+				sd_bus_message_get_path(call),
+				sd_bus_message_get_interface(call));
+
 		lua_settop(L, 1);
 
 		if(message)

@@ -81,7 +81,7 @@ local interface = {
       },
 
       Fail={
-	 handler=function() error("messed up!") end
+	 handler=function() error("unexpectedly messed up!") end
       },
 
       FailWithDBusError={
@@ -119,6 +119,12 @@ local interface = {
 	 get=function() error("lsdbus.test.testintf0.BOOM|it exploded") end,
 	 set=function(_,_) error("lsdbus.test.testintf0.CRASH|it crashed")end
       },
+      Fail2={
+	 access="readwrite",
+	 type="b",
+	 get=function() error("oh no it crashed") end,
+	 set=function(_,_) error("oh no it crashed") end
+      },
    },
 
    signals = {
@@ -132,6 +138,7 @@ local interface = {
 
 local function emit_time(b)
    b:emit_signal(S.path, S.intf, "Time", "x", os.time())
+
 end
 
 local b
@@ -139,7 +146,7 @@ local vt1, vt2, vt3
 
 local function reload()
    local function filter_props(p, _)
-      if p == 'Fail' then return false end
+      if p == 'Fail' or p == 'Fail2' then return false end
       return true
    end
    if vt1 then vt1:unref() end
@@ -161,8 +168,10 @@ reload()
 
 b:add_signal(lsdb.SIGINT, function () b:exit_loop() end)
 b:add_signal(lsdb.SIGUSR1, function () vt1.var=0 end)
+b:add_signal(lsdb.SIGUSR2, function () error("SIGUSR1 caught, deliberately failing") end)
 b:add_signal(lsdb.SIGHUP, reload)
 
 b:add_periodic(1*1000^2, 0, emit_time)
+b:add_periodic(5*1000^2, 0, function () error("test failure in periodic callback") end)
 
 b:loop()

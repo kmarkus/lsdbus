@@ -175,6 +175,14 @@ function TestServer:TestProps()
    lu.assert_error_msg_matches(patt, function() return p3.Fail end)
    patt = ".*lsdbus%.test%.testintf0%.CRASH.*it crashed %(lsdbus%.test, /3, lsdbus%.test%.testintf0%)"
    lu.assert_error_msg_matches(patt, function() p3.Fail = true end)
+
+   -- accidental failure (no | syntax)
+   patt = ".*oh no it crashed %(lsdbus%.test, /1, lsdbus%.test%.testintf0%)"
+   lu.assert_error_msg_matches(patt, function() p1.Fail2 = true end)
+   patt = ".*oh no it crashed %(lsdbus%.test, /2, lsdbus%.test%.testintf0%)"
+   lu.assert_error_msg_matches(patt, function() p2.Fail2 = true end)
+   patt = ".*oh no it crashed %(lsdbus%.test, /3, lsdbus%.test%.testintf0%)"
+   lu.assert_error_msg_matches(patt, function() p3.Fail2 = true end)
 end
 
 -- TestServer:TestSignals
@@ -235,6 +243,13 @@ end
 function TestServer:TestReload()
    -- os.execute("pkill -HUP -f peer-testserver.lua")
    -- expect Propertieschanged with all readable Props
+end
+
+function TestServer:TestReload()
+   -- let it fail in USR2 handler and check it stays alive
+   os.execute("pkill -USR2 -f peer-testserver.lua")
+   local ret, err = p1:Ping()
+   if not ret then lu.assertIsTrue(ret, err[1]..": "..err[2]) end
 end
 
 
