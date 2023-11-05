@@ -27,6 +27,7 @@ function callback(b, ...)
    loop = loop - 1
    collectgarbage('collect')
    print(slot, loop, collectgarbage('count'))
+   error("oh no")
 end
 
 local b = lsdb.open('default_system')

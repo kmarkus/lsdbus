@@ -252,9 +252,16 @@ static int signal_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
 	if(nargs<0)
 		lua_error(L);
 
-	lua_call(L, 5+nargs, 1);
+	ret = lua_pcall(L, 5+nargs, 1, 0);
 
-	ret = lua_tointeger(L, -1);
+	if (ret != LUA_OK) {
+		const char *err = lua_tolstring(L, -1, NULL);
+		fprintf(stderr, "error in signal callback: %s\n", err?err:"-");
+		ret = -1;
+	} else {
+		ret = lua_tointeger(L, -1);
+	}
+
 	lua_settop(L, top);
 	return ret;
 }
@@ -341,9 +348,15 @@ static int method_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
 		if (nargs<0) lua_error(L);
 	}
 
-	lua_call(L, 1+nargs, 1);
+	ret = lua_pcall(L, 1+nargs, 1, 0);
 
-	ret = lua_tointeger(L, -1);
+	if (ret != LUA_OK) {
+		const char *err = lua_tolstring(L, -1, NULL);
+		fprintf(stderr, "error in async callback: %s\n", err?err:"-");
+		ret = -1;
+	} else {
+		ret = lua_tointeger(L, -1);
+	}
 
 	lua_settop(L, top);
 

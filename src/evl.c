@@ -3,6 +3,7 @@
  */
 
 #include "lsdbus.h"
+#include "lua.h"
 #include "string.h"
 
 #define REG_EVSRC_TABLE		"lsdbus.evsrc_table"
@@ -167,6 +168,7 @@ int evl_exit(lua_State *L)
 
 static int evl_sig_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata)
 {
+	int ret;
 	(void) si;
 	int sig, top;
 	sig = sd_event_source_get_signal(s);
@@ -179,7 +181,13 @@ static int evl_sig_callback(sd_event_source *s, const struct signalfd_siginfo *s
 	lua_pushvalue(L, 1);		/* bus */
 	lua_pushinteger(L, sig);	/* signal */
 
-	lua_call(L, 2, 0);
+	ret = lua_pcall(L, 2, 0, 0);
+
+	if (ret != LUA_OK) {
+		const char *err = lua_tolstring(L, -1, NULL);
+		fprintf(stderr, "error in signal callback: %s\n", err?err:"-");
+	}
+
 	lua_settop(L, top);
 	return 0;
 }
@@ -240,7 +248,12 @@ static int timer_callback(sd_event_source *evsrc, uint64_t usec, void* userdata)
 	lua_rawgeti(L, -1, 1);
 	lua_pushvalue(L, 1);		/* bus */
 	lua_pushinteger(L, usec);	/* usec */
-	lua_call(L, 2, 0);
+	ret = lua_pcall(L, 2, 0, 0);
+
+	if (ret != LUA_OK) {
+		const char *err = lua_tolstring(L, -1, NULL);
+		fprintf(stderr, "error in periodic callback: %s\n", err?err:"-");
+	}
 
 	/* rearm */
 	loop = sd_event_source_get_event(evsrc);
@@ -310,7 +323,7 @@ int evl_add_periodic(lua_State *L)
 /* io */
 static int evl_io_callback(sd_event_source *s, int fd, uint32_t revents, void *userdata)
 {
-	int top;
+	int ret, top;
 	lua_State *L = (lua_State*) userdata;
 
 	top  = lua_gettop(L);
@@ -321,7 +334,13 @@ static int evl_io_callback(sd_event_source *s, int fd, uint32_t revents, void *u
 	lua_pushinteger(L, fd);
 	lua_pushinteger(L, revents);
 
-	lua_call(L, 3, 0);
+	ret = lua_pcall(L, 3, 0, 0);
+
+	if (ret != LUA_OK) {
+		const char *err = lua_tolstring(L, -1, NULL);
+		fprintf(stderr, "error in io callback: %s\n", err?err:"-");
+	}
+
 	lua_settop(L, top);
 	return 0;
 }
@@ -357,7 +376,7 @@ int evl_add_io(lua_State *L)
 
 static int evl_child_callback(sd_event_source *s, const siginfo_t *si, void *userdata)
 {
-	int top;
+	int ret, top;
 	lua_State *L = (lua_State*) userdata;
 
 	top  = lua_gettop(L);
@@ -380,7 +399,13 @@ static int evl_child_callback(sd_event_source *s, const siginfo_t *si, void *use
 	lua_pushinteger(L, si->si_code);
 	lua_setfield(L, -2, "code");
 
-	lua_call(L, 2, 0);
+	ret = lua_pcall(L, 2, 0, 0);
+
+	if (ret != LUA_OK) {
+		const char *err = lua_tolstring(L, -1, NULL);
+		fprintf(stderr, "error in child callback: %s\n", err?err:"-");
+	}
+
 	lua_settop(L, top);
 	return 0;
 }
