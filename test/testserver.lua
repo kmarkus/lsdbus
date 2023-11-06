@@ -57,6 +57,40 @@ function TestServer:TestCallWithRet()
    lu.assert_equals(p3('pow', -333), 110889)
 end
 
+function TestServer:TestCallAsync()
+   local function assert_call_async(proxy, func, argtab, restab)
+      local have_res = false
+
+      local function cb (_, ...)
+	 lu.assert_equals({...}, restab)
+	 have_res = true
+      end
+
+      proxy:call_async(func, cb, table.unpack(argtab))
+
+      for _=1,10 do
+	 if have_res then break end
+	 b:run(100*1000)
+      end
+
+      lu.assert_true(have_res, fmt("no async callback for %s", func))
+   end
+
+   assert_call_async(p1, 'pow', {4}, {16})
+   assert_call_async(p1, 'pow', {9}, {81})
+   assert_call_async(p1, 'concat', {"monkey", "puzzle"}, {"monkeypuzzle"})
+   assert_call_async(p1, 'thunk', {}, {})
+   assert_call_async(p1, 'getarray', {10}, {{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10"}})
+   assert_call_async(p1, 'getdict', {5}, {{key1="value1", key2="value2", key3="value3", key4="value4", key5="value5"}})
+
+   assert_call_async(p1, 'FailWithDBusError', {},
+		     {"__error__", {"lsdbus.test.BananaPeelSlip", "argh!"}})
+
+   assert_call_async(p1, 'Fail', {},
+		     { "__error__", { "org.freedesktop.DBus.Error.Failed",
+				      "test/peer-testserver.lua:84: unexpectedly messed up!"}})
+end
+
 function TestServer:TestCallWithInOut()
    local rep = string.rep
    local s1, s2

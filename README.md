@@ -522,8 +522,8 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 
 - `evsrc` (event source) objects are **not** cleaned up (`unref`ed)
   when garbage collected but set to *floating*, which means they will
-  live until the event loop is destroyed. To explicitely destroy an
-  event source, call its `unref` method.
+  live until the event loop is destroyed. To explicitely disable and
+  destroy an event source, call its `unref` method.
 
 > **Note**: upon being collected the `default_*` type bus objects are
 > only `flush`ed and `unref`ed, whereas on non default (`new`,
@@ -539,7 +539,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 | `prxy:call(method, arg0, ...)`                 | same as above, long form                              |
 | `prxy:HasMethod(method)`                       | check if prxy has a method with the given name        |
 | `prxy:callt(method, ARGTAB)`                   | call a method with a table of arguments               |
-| `prxy:call_async(method, callback ARGTAB)`     | call a method asynchronously (returns slot)           |
+| `prxy:call_async(method, callback, ARGTAB)`    | call a method asynchronously (returns slot)           |
 | `prxy:callr(method, arg0, ...)`                | raw call, will not unpack variants                    |
 | `prxy:Get(name)`                               | get a properties value                                |
 | `prxy.name`                                    | short form, same as previous                          |

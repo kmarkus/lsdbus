@@ -21,7 +21,7 @@ static int(*open_funcs[])(sd_bus **bus) = {
 };
 
 /**
- * store a value in registry.regtab[k] = val
+ * store a value in registry.regtab[k] = val [+1, +0, e]
  *
  * if the regtab doesn't exist, create it.
  */
@@ -42,7 +42,7 @@ void regtab_store(lua_State *L, const char* regtab, void *k, int validx)
 }
 
 /**
- * push the value regtab[k] onto the top of the stack
+ * push the value regtab[k] onto the top of the stack [+0, +1, e]
  *
  * @return returns the type of the value
  */
