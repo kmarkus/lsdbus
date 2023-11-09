@@ -79,6 +79,7 @@ int evl_add_signal(lua_State *L);
 int evl_add_periodic(lua_State *L);
 int evl_add_io(lua_State *L);
 int evl_add_child(lua_State *L);
+int evl_get_fd(lua_State *L);
 
 extern const luaL_Reg lsdbus_evsrc_m [];
 extern const luaL_Reg lsdbus_slot_m [];

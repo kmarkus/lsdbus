@@ -579,6 +579,7 @@ static const luaL_Reg lsdbus_bus_m [] = {
 	{ "context", lsdbus_context },
 	{ "loop", evl_loop },
 	{ "run", evl_run },
+	{ "get_fd", evl_get_fd },
 	{ "exit_loop", evl_exit },
 	{ "add_signal", evl_add_signal },
 	{ "add_periodic", evl_add_periodic },

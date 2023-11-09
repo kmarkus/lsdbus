@@ -144,6 +144,14 @@ int evl_run(lua_State *L)
 	return 1;
 }
 
+int evl_get_fd(lua_State *L)
+{
+	sd_bus *b = lua_checksdbus(L, 1);
+	sd_event *loop = evl_get(L, b);
+	lua_pushinteger(L, sd_event_get_fd(loop));
+	return 1;
+}
+
 /* call sd_event_exit */
 int evl_exit(lua_State *L)
 {

@@ -498,6 +498,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 | `bus:loop()`                                                                  | see `sd_event_loop(3)`                       |
 | `bus:run(usec)`                                                               | see `sd_event_run(3)`                        |
 | `bus:exit_loop()`                                                             | see `sd_event_exit(3)`                       |
+| `bus:get_fd()`                                                                | see `sd_event_get_fd(3)`                     |
 | `table = bus:context()`                                                       | see `sd_bus_message_set_destination(3)` etc. |
 | `number = bus:get_method_call_timeout`                                        | see `sd_bus_get_method_call_timeout(3)`      |
 | `bus:set_method_call_timeout`                                                 | see `sd_bus_set_method_call_timeout(3)`      |
