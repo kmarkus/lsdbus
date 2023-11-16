@@ -519,7 +519,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
     - `default_system` (`sd_bus_default_system`)
     - `default_user` (`sd_bus_default_user`)
 
-  If not given, default is `'default'`
+  If not given, default is `new'`
 
 - `evsrc` (event source) objects are **not** cleaned up (`unref`ed)
   when garbage collected but set to *floating*, which means they will
@@ -530,6 +530,11 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 > only `flush`ed and `unref`ed, whereas on non default (`new`,
 > `system` and `user`) bus objects `sd_bus_flush_close_unref` is
 > called.
+
+> **Note**: if there can be other in-process users that use the event
+> loop (i.e. that call `loop` or `run`) in different threads and Lua
+> states, to avoid interference it is advisable to create a new bus
+> and event loop (using the `new`, `system` or `user` open variants).
 
 ### lsdbus.proxy
 
@@ -691,6 +696,11 @@ Of course, this can also happen if a non-default bus (open flags
 
 ## ChangeLog
 
+- `lsdb.open()` now defaults to `new`, i.e. `sd_bus_open(3)`. This is
+  the safer default, since it will not piggy back onto a potentially
+  existing event loop.
+
+- added `bus:get_fd()` (see `sd_event_get_fd(3)`
 - added `bus:release_name`
 
 - **vtab slots are now also garbage collected**. So make sure to hold

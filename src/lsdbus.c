@@ -2,22 +2,22 @@
 #include "lsdbus.h"
 
 static const char *const open_opts_lst [] = {
-	"default",
-	"default_system",
-	"default_user",
 	"new",
 	"system",
 	"user",
+	"default",
+	"default_system",
+	"default_user",
 	NULL
 };
 
 static int(*open_funcs[])(sd_bus **bus) = {
-	sd_bus_default,
-	sd_bus_default_system,
-	sd_bus_default_user,
 	sd_bus_open,
 	sd_bus_open_system,
 	sd_bus_open_user,
+	sd_bus_default,
+	sd_bus_default_system,
+	sd_bus_default_user,
 };
 
 /**
@@ -122,7 +122,7 @@ static int lsdbus_open(lua_State *L)
 	int ret, busidx;
 	struct lsdbus_bus *lsdbus;
 
-	busidx = luaL_checkoption(L, 1, "default", open_opts_lst);
+	busidx = luaL_checkoption(L, 1, "new", open_opts_lst);
 
 	dbg("opening %s bus connection", open_opts_lst[busidx]);
 
