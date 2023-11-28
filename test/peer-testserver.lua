@@ -87,6 +87,11 @@ local interface = {
       FailWithDBusError={
 	 handler=function() error("lsdbus.test.BananaPeelSlip|argh!") end
       },
+
+      FailWithCustomDBusError={
+	 {direction="in", name="error", type="s"},
+	 handler=function(vt, err) error(err) end
+      },
    },
    properties={
       Bar={
@@ -125,6 +130,12 @@ local interface = {
 	 get=function() error("oh no it crashed") end,
 	 set=function(_,_) error("oh no it crashed") end
       },
+      Fail3={
+	 access="readwrite",
+	 type="b",
+	 get=function() error("lsdbus.test.testintf0.BOOM|") end,
+	 set=function(_,_) error("|just a message")end
+      },
    },
 
    signals = {
@@ -146,7 +157,7 @@ local vt1, vt2, vt3
 
 local function reload()
    local function filter_props(p, _)
-      if p == 'Fail' or p == 'Fail2' then return false end
+      if p:match("Fail.*") then return false end
       return true
    end
    if vt1 then vt1:unref() end

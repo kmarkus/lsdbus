@@ -217,6 +217,14 @@ function TestServer:TestProps()
    lu.assert_error_msg_matches(patt, function() p2.Fail2 = true end)
    patt = ".*oh no it crashed %(lsdbus%.test, /3, lsdbus%.test%.testintf0%)"
    lu.assert_error_msg_matches(patt, function() p3.Fail2 = true end)
+
+   -- Fail3 dbus error but no name or message
+   patt = ".*lsdbus%.test%.testintf0%.BOOM:%s*calling Get%(ss%) failed:%s*%(lsdbus%.test, /1, lsdbus%.test%.testintf0%)"
+   lu.assert_error_msg_matches(patt, function() return p1.Fail3 end)
+
+   patt = ".*org%.freedesktop%.DBus%.Error%.Failed: calling Set%(ssv%) failed: test/peer%-testserver%.lua:137: |just a message %(lsdbus%.test, /1, lsdbus%.test%.testintf0%)"
+   lu.assert_error_msg_matches(patt, function() p1.Fail3 = true end)
+
 end
 
 -- TestServer:TestSignals
@@ -312,6 +320,24 @@ function TestServer:TestFailWithDBusError()
 
    local function f() p3('FailWithDBusError') end
    local msg = "lsdbus.test.BananaPeelSlip: calling FailWithDBusError() failed: argh! (lsdbus.test, /3, lsdbus.test.testintf0"
+   lu.assert_error_msg_contains(msg, f)
+end
+
+function TestServer:TestFailWithCustomDBusError()
+   local function f() p3('FailWithCustomDBusError', "e|e") end
+   local msg = "org.freedesktop.DBus.Error.Failed:"
+   lu.assert_error_msg_contains(msg, f)
+
+   local function f() p3('FailWithCustomDBusError', "|asd") end
+   local msg = "org.freedesktop.DBus.Error.Failed:"
+   lu.assert_error_msg_contains(msg, f)
+
+   local function f() p3('FailWithCustomDBusError', "foo.bar|a") end
+   local msg = "foo.bar"
+   lu.assert_error_msg_contains(msg, f)
+
+   local function f() p3('FailWithCustomDBusError', "") end
+   local msg = "org.freedesktop.DBus.Error.Failed:"
    lu.assert_error_msg_contains(msg, f)
 end
 
