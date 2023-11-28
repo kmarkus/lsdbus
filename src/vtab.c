@@ -47,10 +47,9 @@ static int handle_error(lua_State *L,
 		 * message from a table at -1 */
 	}
 
-
-	printf("name=%s, message=%s, valid_name=%i, errmsg=%s\n",
-	       name, message, sd_bus_interface_name_is_valid(name),
-	       errmsg);
+	dbg("name=%s, message=%s, valid_name=%i, errmsg=%s\n",
+	    name, message, sd_bus_interface_name_is_valid(name),
+	    errmsg);
 
 	/* no dbus error, just some failure */
 	if (sd_bus_interface_name_is_valid(name) <= 0) {
