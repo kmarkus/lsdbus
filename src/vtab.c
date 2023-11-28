@@ -11,6 +11,8 @@ static const char* parse_errmsg(const char* errmsg, char* name)
 {
 	const char *start, *sep;
 
+	if (errmsg == NULL) return NULL;
+
 	start = strstr(errmsg, ": ");
 	if (!start) return NULL;
 
@@ -20,6 +22,52 @@ static const char* parse_errmsg(const char* errmsg, char* name)
 	strncpy(name, start+2, sep-start-2);
 
 	return sep+1;
+}
+
+/** handle a callback error.
+ * This function expects the error obj on the top of the stack. It will pop it.
+ *
+ */
+static int handle_error(lua_State *L,
+			const char *ctx,
+			const char *path,
+			const char *intf,
+			const char *member,
+			sd_bus_error *ret_error)
+{
+	int ret=0;
+	const char *errmsg, *message;
+	char name[DBUS_NAME_MAXLEN] = {0};
+
+	if (lua_type(L, -1 == LUA_TSTRING)) {
+		errmsg = lua_tostring(L, -1);
+		message = parse_errmsg(errmsg, name);
+	} else if (lua_type(L, -1) == LUA_TTABLE) {
+		/* not supported yet: if table, retrieve name and
+		 * message from a table at -1 */
+	}
+
+
+	printf("name=%s, message=%s, valid_name=%i, errmsg=%s\n",
+	       name, message, sd_bus_interface_name_is_valid(name),
+	       errmsg);
+
+	/* no dbus error, just some failure */
+	if (sd_bus_interface_name_is_valid(name) <= 0) {
+		fprintf(stderr, "'%s' %s failed: %s (%s, %s)\n",
+			member, ctx, errmsg?errmsg:"-", path, intf);
+
+		ret = sd_bus_error_set(ret_error, SD_BUS_ERROR_FAILED, errmsg);
+		goto out;
+	}
+
+	/* we have a valid dbus error name, perhaps a message */
+	ret = sd_bus_error_set(ret_error, name, message);
+
+out:
+	lua_settop(L, 1);
+	return ret;
+
 }
 
 /* create the REG_VTAB_USER_ARG tab if it doesn't exist and mark it
@@ -59,23 +107,8 @@ static int prop_get_handler(sd_bus *bus,
 
 	ret = lua_pcall(L, 1, 1, 0);
 
-	if (ret != LUA_OK) {
-		char name[DBUS_NAME_MAXLEN] = {0};
-		const char* errmsg = lua_tostring(L, -1);
-		const char* message = parse_errmsg(errmsg, name);
-
-		/* unintended error */
-		if (message==NULL)
-			fprintf(stderr, "property %s get failed: %s (%s, %s)\n",
-				property, errmsg?errmsg:"-", path, interface);
-
-                lua_settop(L, 1);
-
-		if(message)
-			return sd_bus_error_set(ret_error, name, message);
-		else
-			return sd_bus_error_set(ret_error, SD_BUS_ERROR_FAILED, errmsg);
-	}
+	if (ret != LUA_OK)
+		return handle_error(L, "property get", path, interface, property, ret_error);
 
 	ret = msg_fromlua(L, reply, type, -1);
 
@@ -116,23 +149,8 @@ static int prop_set_handler(sd_bus *bus,
 
 	ret = lua_pcall(L, 1+nargs, 0, 0);
 
-	if (ret != LUA_OK) {
-		char name[DBUS_NAME_MAXLEN] = {0};
-		const char* errmsg = lua_tostring(L, -1);
-		const char* message = parse_errmsg(errmsg, name);
-
-		/* unintended error */
-		if (message==NULL)
-			fprintf(stderr, "property %s set failed: %s (%s, %s)\n",
-				property, errmsg?errmsg:"-", path, interface);
-
-		lua_settop(L, 1);
-
-		if(message)
-			return sd_bus_error_set(ret_error, name, message);
-		else
-			return sd_bus_error_set(ret_error, SD_BUS_ERROR_FAILED, errmsg);
-	}
+	if (ret != LUA_OK)
+		return handle_error(L, "property set", path, interface, property, ret_error);
 
 	lua_settop(L, 1);
 
@@ -189,23 +207,10 @@ static int method_handler(sd_bus_message *call, void *userdata, sd_bus_error *re
 	ret = lua_pcall(L, 1+nargs, LUA_MULTRET, 0);
 
 	if (ret != LUA_OK) {
-		char name[DBUS_NAME_MAXLEN] = {0};
-		const char* errmsg = lua_tostring(L, -1);
-		const char* message = parse_errmsg(errmsg, name);
-
-		/* unintended error */
-		if (message==NULL)
-			fprintf(stderr, "method %s failed: %s (%s, %s) \n",
-				mem, errmsg?errmsg:"-",
-				sd_bus_message_get_path(call),
-				sd_bus_message_get_interface(call));
-
-		lua_settop(L, 1);
-
-		if(message)
-			return sd_bus_error_set(ret_error, name, message);
-		else
-			return sd_bus_error_set(ret_error, SD_BUS_ERROR_FAILED, errmsg);
+		return handle_error(L, "method",
+				    sd_bus_message_get_path(call),
+				    sd_bus_message_get_interface(call),
+				    mem, ret_error);
 	}
 
         if (!sd_bus_message_get_expect_reply(call)) {
