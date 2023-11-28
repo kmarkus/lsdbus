@@ -46,7 +46,7 @@ add_library(core SHARED ${LSDBUS_SRCS})
 target_compile_options(core PRIVATE -Wall -Wextra)
 target_compile_definitions(core PRIVATE SYSTEMD_VERSION=${SYSTEMD_VERSION})
 target_include_directories(core PRIVATE ${LUA_INCLUDE_DIRS})
-target_link_libraries(core ${LUA_LIBRARIES} ${SYSTEMD_LIBRARIES} ${MXML_LIBRARIES} )
+target_link_libraries(core ${SYSTEMD_LIBRARIES} ${MXML_LIBRARIES} )
 set_target_properties(core PROPERTIES PREFIX "")
 install(TARGETS core LIBRARY DESTINATION ${LSDBUS_INST_DIR})
 
