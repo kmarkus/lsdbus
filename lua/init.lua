@@ -9,6 +9,8 @@ lsdbus.proxy = require("lsdbus.proxy")
 lsdbus.server = require("lsdbus.server")
 lsdbus.error = require("lsdbus.error")
 
+local fmt = string.format
+
 --- Miscellaneous helpers
 
 --- Find the given interface in a node table
@@ -66,6 +68,10 @@ function lsdbus.tovariant(val)
    else
       error(string.format("unsupported type %s", typ))
    end
+end
+
+function lsdbus.throw(name, format, ...)
+   error({name=name, msg=fmt(format, ...)}, 2)
 end
 
 return lsdbus
