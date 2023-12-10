@@ -694,6 +694,13 @@ to immediately use the bus (`request_name`, `proxy:new` or
 Of course, this can also happen if a non-default bus (open flags
 `new`, `user` and `system`) goes out of scope and is collected.
 
+### `System.Error.ENOTCONN` after exiting loop
+
+For some reason, after exiting the sd_event loop using `exit_loop`,
+the bus is disconnected and can't be used anymore. The simple
+workaround is to perform any actions requiring the bus before exiting
+the loop.
+
 ## ChangeLog
 
 - `lsdb.open()` now defaults to `new`, i.e. `sd_bus_open(3)`. This is
