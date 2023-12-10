@@ -39,9 +39,9 @@ local node = {
 }
 --]]
 
-function proxy:error(err, msg)
-   self._error(self, err, msg)
-   error(fmt("%s: %s (%s, %s, %s)", err, msg or "-", self._srv, self._obj, self._intf.name))
+function proxy:error(err_, msg)
+   self._error(self, err_, msg)
+   error(fmt("%s: %s (%s, %s, %s)", err_, msg or "-", self._srv, self._obj, self._intf.name))
 end
 
 -- lowlevel plumbing method
@@ -142,7 +142,7 @@ function proxy:GetAll(filter)
 
    if ft == 'string' then
       if filter=='read' or filter=='write' or filter=='readwrite' then
-	 pred = function (n,v,d) return d.access == filter end
+	 pred = function (_,_,d) return d.access == filter end
       else
 	 self:error(err.INVALID_ARGS, fmt("GetAll: invalid filter type %s", filter))
       end

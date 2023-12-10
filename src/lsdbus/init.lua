@@ -16,7 +16,7 @@ local fmt = string.format
 --- Find the given interface in a node table
 -- return the interface if found, otherwise false
 function lsdbus.find_intf(node, interface)
-   for i,intf in ipairs(node.interfaces) do
+   for _,intf in ipairs(node.interfaces) do
       if intf.name == interface then
 	 return intf
       end
