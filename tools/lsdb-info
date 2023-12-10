@@ -21,9 +21,8 @@ local magenta = make_colorize(ac.magenta)
 local bmagenta = make_colorize(function(s) return ac.bright(ac.magenta(s or "")) end)
 
 local fmt = string.format
-local concat = table.concat
 
-local function log(...) if verbose then printf(...) end end
+local function log(format, ...) if verbose then print(fmt(format, ...)) end end
 
 local function help()
    print([=[
