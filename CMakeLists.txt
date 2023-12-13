@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.20)
 
 project(sdbus-lua VERSION 0.0.1 LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
@@ -35,6 +35,7 @@ if( "${LUA_VER}" STREQUAL "5.1" OR "${LUA_VER}" STREQUAL "5.2" )
   else()
     message(STATUS "lua-compat53 found")
   endif()
+  cmake_path(GET COMPAT53 PARENT_PATH COMPAT53_DIR)
 endif()
 
 set(LSDBUS_SRCS src/lsdbus.c src/message.c src/introspect.c src/evl.c src/vtab.c)
@@ -45,7 +46,7 @@ set(LSDBUS_INST_DIR
 add_library(core SHARED ${LSDBUS_SRCS})
 target_compile_options(core PRIVATE -Wall -Wextra)
 target_compile_definitions(core PRIVATE SYSTEMD_VERSION=${SYSTEMD_VERSION})
-target_include_directories(core PRIVATE ${LUA_INCLUDE_DIRS})
+target_include_directories(core PRIVATE ${LUA_INCLUDE_DIRS} ${COMPAT53_DIR})
 target_link_libraries(core ${SYSTEMD_LIBRARIES} ${MXML_LIBRARIES} )
 set_target_properties(core PROPERTIES PREFIX "")
 install(TARGETS core LIBRARY DESTINATION ${LSDBUS_INST_DIR})
