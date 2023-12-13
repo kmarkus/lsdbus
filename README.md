@@ -37,6 +37,7 @@ and sd-event APIs.
 - [License](#license)
 - [FAQ](#faq)
     - [Error `System.Error.ENOTCONN: Transport endpoint is not connected`](#error-systemerrorenotconn-transport-endpoint-is-not-connected)
+    - [`System.Error.ENOTCONN` after exiting loop](#systemerrorenotconn-after-exiting-loop)
 - [ChangeLog](#changelog)
 - [References](#references)
 
@@ -620,14 +621,14 @@ The behavior upon garbage collection depends on the slot type:
 | `set_enabled(enabled)` | `enabled`: `lsdbus.SD_EVENT_[ON\|OFF\|ONESHOT]`. see `sd_event_source_set_enabled(3)` |
 | `unref()`              | remove event source. calls `sd_event_source_unref(3)`                                 |
 
-evsrc` (event source) objects are **not** released (`unref`ed) when
-they go out of scope (i.e. are garbage collected) > but are set to
-*floating*. This means they will live until the event > loop is
-destroyed. To explicitely destroy an event source, call its > `unref`
-method.
+> **Note**: `evsrc` (event source) objects are **not** released
+> (`unref`ed) when they go out of scope (i.e. are garbage collected)
+> but are set to *floating*. This means they will live until the event
+> loop is destroyed. To explicitely destroy an event source, call its
+> `unref` method.
 
-> **Note** there is no need to store a reference to an `evsrc` object
-> unless you intend to remove it before the program ends.
+Thus, there is no need to store a reference to an `evsrc` object
+*unless* you intend to remove it before the program ends.
 
 ## Internals
 
@@ -706,8 +707,7 @@ the loop.
 - `lsdb.open()` now defaults to `new`, i.e. `sd_bus_open(3)`. This is
   the safer default, since it will not piggy back onto a potentially
   existing event loop.
-
-- added `bus:get_fd()` (see `sd_event_get_fd(3)`
+- added `bus:get_fd()` (see `sd_event_get_fd(3)`)
 - added `bus:release_name`
 
 - **vtab slots are now also garbage collected**. So make sure to hold
