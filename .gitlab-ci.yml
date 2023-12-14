@@ -1,10 +1,19 @@
-
 image: gcc:bookworm
 
 build:
   stage: build
   before_script:
-  - apt update && apt -y install default-dbus-session-bus default-dbus-system-bus cmake lua5.3 liblua5.3-dev lua-unit libsystemd0 libsystemd-dev libmxml1 libmxml-dev
+    - apt update
+    - apt -y install default-dbus-session-bus default-dbus-system-bus libsystemd0 libsystemd-dev
+    - apt -y install cmake lua-unit libmxml1 libmxml-dev lua-compat53-dev
+    - apt -y install luajit libluajit-5.1-dev
+    - apt -y install lua5.1 liblua5.1-dev
+    - apt -y install lua5.2 liblua5.2-dev
+    - apt -y install lua5.3 liblua5.3-dev
+    - apt -y install lua5.4 liblua5.4-dev
   script:
-    - mkdir build && cd build && cmake .. && make && make install && cd ..
-#    - cd test && lua run.lua -v
+    - echo "building for with $LUA_VERSION"
+    - mkdir build-$LUA_VERSION && cd build-$LUA_VERSION && cmake -DCONFIG_LUA_VER=$LUA_VERSION .. && make && make install && cd ..
+  parallel:
+    matrix:
+      - LUA_VERSION: ['5.1', '5.2', '5.3', '5.4', 'jit']
