@@ -1,3 +1,5 @@
+#!/usr/bin/env lua
+
 local lu=require("luaunit")
 
 -- setup global test parameters
