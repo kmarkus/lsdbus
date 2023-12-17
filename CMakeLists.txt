@@ -52,11 +52,11 @@ set_target_properties(core PROPERTIES PREFIX "")
 install(TARGETS core LIBRARY DESTINATION ${LSDBUS_INST_DIR})
 
 install(FILES
-  lua/init.lua
-  lua/proxy.lua
-  lua/server.lua
-  lua/common.lua
-  lua/error.lua
+  src/lsdbus/init.lua
+  src/lsdbus/proxy.lua
+  src/lsdbus/server.lua
+  src/lsdbus/common.lua
+  src/lsdbus/error.lua
   DESTINATION ${CMAKE_INSTALL_PREFIX}/share/lua/${LUA_VER}/lsdbus/
   )
 
