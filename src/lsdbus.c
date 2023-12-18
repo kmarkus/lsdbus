@@ -20,6 +20,13 @@ static int(*open_funcs[])(sd_bus **bus) = {
 	sd_bus_default_user,
 };
 
+#if LIBSYSTEMD_VERSION < 246
+int sd_bus_interface_name_is_valid(const char *p) { (void) p; return 1; }
+int sd_bus_service_name_is_valid(const char *p) { (void) p; return 1; }
+int sd_bus_member_name_is_valid(const char* p)  { (void) p; return 1; }
+int sd_bus_object_path_is_valid(const char* p)  { (void) p; return 1; }
+#endif
+
 /**
  * store a value in registry.regtab[k] = val [+1, +0, e]
  *
@@ -71,40 +78,40 @@ void regtab_clear(lua_State *L, const char* regtab, void *k)
 const char* luaL_checkintf(lua_State *L, int arg)
 {
 	const char* intf = luaL_checkstring (L, arg);
-#if LIBSYSTEMD_VERSION>=246
-	if (!sd_bus_interface_name_is_valid(intf))
+
+	if (sd_bus_interface_name_is_valid(intf) <= 0)
 		luaL_error(L, "invalid interface %s", intf);
-#endif
+
 	return intf;
 }
 
 const char* luaL_checkpath(lua_State *L, int arg)
 {
 	const char* path = luaL_checkstring (L, arg);
-#if LIBSYSTEMD_VERSION>=246
-	if (!sd_bus_object_path_is_valid(path))
+
+	if (sd_bus_object_path_is_valid(path) <= 0)
 		luaL_error(L, "invalid object path %s", path);
-#endif
+
 	return path;
 }
 
 const char* luaL_checkmember(lua_State *L, int arg)
 {
 	const char* member = luaL_checkstring (L, arg);
-#if LIBSYSTEMD_VERSION>=246
-	if (!sd_bus_member_name_is_valid(member))
+
+	if (sd_bus_member_name_is_valid(member) <= 0)
 		luaL_error(L, "invalid member name %s", member);
-#endif
+
 	return member;
 }
 
 const char* luaL_checkservice(lua_State *L, int arg)
 {
 	const char* service = luaL_checkstring (L, arg);
-#if LIBSYSTEMD_VERSION>=246
-	if (!sd_bus_service_name_is_valid(service))
+
+	if (sd_bus_service_name_is_valid(service) <= 0)
 		luaL_error(L, "invalid service name %s", service);
-#endif
+
 	return service;
 }
 

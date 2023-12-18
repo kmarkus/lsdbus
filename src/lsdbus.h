@@ -101,6 +101,13 @@ void regtab_clear(lua_State *L, const char* regtab, void *k);
 const char* luaL_checkintf(lua_State *L, int arg);
 const char* luaL_checkpath(lua_State *L, int arg);
 const char* luaL_checkmember(lua_State *L, int arg);
-const char* luaL_checkservice(lua_State *L, int arg);
+const char *luaL_checkservice(lua_State *L, int arg);
+
+#if LIBSYSTEMD_VERSION < 246
+int sd_bus_interface_name_is_valid(const char *p);
+int sd_bus_service_name_is_valid(const char *p);
+int sd_bus_member_name_is_valid(const char* p);
+int sd_bus_object_path_is_valid(const char* p);
+#endif
 
 #endif /* __LSDBUS_H */

@@ -681,6 +681,11 @@ reg_vtab:
 
 	interface = lua_tostring(L, -1);
 
+	if (sd_bus_interface_name_is_valid(interface) <= 0) {
+		lua_pushfstring(L, "invalid interface %s", interface);
+		goto fail;
+	}
+
 #ifdef DEBUG
 	dbg("adding obj vtab: <%p> path: %s, intf: %s", vt, path, interface);
 	dbg("------- vtable_dump -------");
