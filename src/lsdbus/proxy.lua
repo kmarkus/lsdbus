@@ -135,7 +135,7 @@ function proxy:GetAll(filter)
    local ft = type(filter)
 
    if ft ~= 'string' and ft ~= 'function' then
-      self:error(err.INVALID_ARGS, fmt("GetAll: invalid filter parameter type %s", filter))
+      self:error(err.INVALID_ARGS, fmt("GetAll: invalid filter parameter type %s", ft))
    end
 
    local pred = filter
@@ -223,7 +223,7 @@ function proxy:new(bus, srv, obj, intf, opts)
    opts.error = opts.error or function() return end
 
    assert(type(bus)=='userdata', "missing or invalid bus arg")
-   assert(type(srv)=='string', "missing invalid srv arg")
+   assert(type(srv)=='string', "missing or invalid srv arg")
    assert(type(obj)=='string', "missing or invalid obj arg")
    assert(type(opts)=='table', "invalid opts arg")
    assert(intf~=nil, "missing intf arg")
