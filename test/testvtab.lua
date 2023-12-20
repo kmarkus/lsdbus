@@ -1,7 +1,7 @@
 local lu=require("luaunit")
 local lsdb = require("lsdbus")
 
-local MEM_USAGE_MARGIN_KB = 128
+local MEM_USAGE_MARGIN_KB = 64
 local testconf = debug.getregistry()['lsdbus.testconfig']
 
 local TestVtab = {}
@@ -167,12 +167,18 @@ function TestVtab:TestVtabMemUsage()
       end
    end
 
+   make_vtabs(3)
+
    collectgarbage()
+   collectgarbage()
+
    local mem1 = collectgarbage('count')
 
    make_vtabs(1000)
 
    collectgarbage()
+   collectgarbage()
+
    local mem2 = collectgarbage('count') - MEM_USAGE_MARGIN_KB
 
    -- test slot_table is empty
