@@ -111,8 +111,11 @@ static int prop_get_handler(sd_bus *bus,
 
 	ret = msg_fromlua(L, reply, type, -1);
 
-	if(ret<0)
-		lua_error(L);
+	if(ret<0) {
+		fprintf(stderr, "property %s get: failed to convert result to %s: %s\n",
+			property, type, lua_tostring(L, -1));
+		sd_bus_error_set(ret_error, SD_BUS_ERROR_FAILED, "invalid return value");
+	}
 
 	lua_settop(L, 1);
 
@@ -143,14 +146,18 @@ static int prop_set_handler(sd_bus *bus,
 
 	nargs = msg_tolua(L, value, 0);
 
-	if(nargs<0)
-		lua_error(L);
+	if(nargs<0) {
+		fprintf(stderr, "property %s set: failed to convert arg to Lua\n", property);
+		sd_bus_error_set(ret_error, SD_BUS_ERROR_FAILED, "invalid arg");
+		goto out;
+	}
 
 	ret = lua_pcall(L, 1+nargs, 0, 0);
 
 	if (ret != LUA_OK)
 		return handle_error(L, "property set", path, interface, property, ret_error);
 
+out:
 	lua_settop(L, 1);
 
 	return 1;
@@ -200,8 +207,11 @@ static int method_handler(sd_bus_message *call, void *userdata, sd_bus_error *re
 
 	nargs = msg_tolua(L, call, 0);
 
-	if(nargs<0)
-		lua_error(L);
+	if(nargs<0) {
+		fprintf(stderr, "method %s: failed to convert arg to Lua\n", mem);
+		sd_bus_error_set(ret_error, SD_BUS_ERROR_FAILED, "invalid arg");
+		goto out;
+        }
 
 	ret = lua_pcall(L, 1+nargs, LUA_MULTRET, 0);
 
@@ -219,20 +229,28 @@ static int method_handler(sd_bus_message *call, void *userdata, sd_bus_error *re
 
         ret = sd_bus_message_new_method_return(call, &reply);
 
-        if (ret < 0)
-		luaL_error(L, "failed to create return message");
+        if (ret < 0) {
+		fprintf(stderr, "method %s: failed to create return message\n", mem);
+		sd_bus_error_set(ret_error, SD_BUS_ERROR_FAILED, "failed to create return message");
+		goto out;
+	}
 
 	if (result != NULL) {
 		ret = msg_fromlua(L, reply, result, 2);
 
-		if(ret<0)
+		if(ret<0) {
+			fprintf(stderr, "method %s: failed to convert result to %s: %s\n",
+				mem, result, lua_tostring(L, -1));
+			sd_bus_error_set(ret_error, SD_BUS_ERROR_INVALID_ARGS, "invalid return value");
 			goto out_unref;
+		}
 	}
 
         ret = sd_bus_send(b, reply, NULL);
 
 	if(ret<0) {
-		lua_pushfstring(L, "sd_bus_send failed: %s", strerror(-ret));
+		fprintf(stderr, "method %s: sd_bus_send failed: %s\n", mem, strerror(-ret));
+		sd_bus_error_set(ret_error, SD_BUS_ERROR_FAILED, "sending reply failed");
 		goto out_unref;
 	}
 
@@ -241,9 +259,6 @@ static int method_handler(sd_bus_message *call, void *userdata, sd_bus_error *re
 out_unref:
 	sd_bus_message_unrefp(&reply);
 out:
-	if (ret<0)
-		lua_error(L);
-
 	lua_settop(L, 1);
 	return 1;
 }

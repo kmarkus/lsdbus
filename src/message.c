@@ -80,18 +80,6 @@ static int dict_explode(lua_State *L, int pos, const char *ctx)
 	return len*2;
 }
 
-
-int luaL_checkboolean (lua_State *L, int index)
-{
-	int t = lua_type(L, index);
-
-	if (t != LUA_TBOOLEAN) {
-		luaL_error(L, "bad argument #%d (boolean expected, got %s)",
-			   index, lua_typename(L, t));
-	}
-	return lua_toboolean(L, index);
-}
-
 int push_sd_bus_error(lua_State* L, const sd_bus_error* err)
 {
 	if (!err)
@@ -350,7 +338,13 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 
                 case SD_BUS_TYPE_BYTE: {
 			uint8_t x;
-			x = luaL_checkinteger(L, stpos);
+			int ok;
+			x = lua_tointegerx(L, stpos, &ok);
+			if (!ok) {
+				lua_pushfstring(L, "failed to convert arg #%d (integer expected, got %s)",
+						stpos, lua_typename(L, lua_type(L, stpos)));
+				return -1;
+			}
 			dbg("append BYTE %c", x);
 			r = sd_bus_message_append_basic(m, *t, &x);
 			lua_remove(L, stpos);
@@ -358,7 +352,13 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 }
 
                 case SD_BUS_TYPE_BOOLEAN: {
-			int x = luaL_checkboolean(L, stpos);
+			int type = lua_type(L, stpos);
+			if (type != LUA_TBOOLEAN) {
+				lua_pushfstring(L, "bad argument #%d (boolean expected, got %s)",
+						stpos, lua_typename(L, type));
+				return -1;
+			}
+			int x = lua_toboolean(L, stpos);
 			dbg("append bool %i", x);
 			r = sd_bus_message_append_basic(m, *t, &x);
 			lua_remove(L, stpos);
@@ -369,8 +369,18 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 case SD_BUS_TYPE_UINT32:
                 case SD_BUS_TYPE_UNIX_FD: {
                         uint32_t x;
+			int ok;
+
 			static_assert(sizeof(int32_t) == sizeof(int), "int != int32_t");
-			x = luaL_checkinteger(L, stpos);
+
+			x = lua_tointegerx(L, stpos, &ok);
+
+			if (!ok) {
+				lua_pushfstring(L, "failed to convert arg #%d (integer expected, got %s)",
+						stpos, lua_typename(L, lua_type(L, stpos)));
+				return -1;
+			}
+
 			dbg("append uint/int/fd %u", x);
 			r = sd_bus_message_append_basic(m, *t, &x);
 			lua_remove(L, stpos);
@@ -379,8 +389,16 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 
                 case SD_BUS_TYPE_INT16:
                 case SD_BUS_TYPE_UINT16: {
+			int ok;
                         uint16_t x;
-			x = luaL_checkinteger(L, stpos);
+			x = lua_tointegerx(L, stpos, &ok);
+
+			if (!ok) {
+				lua_pushfstring(L, "failed to convert arg #%d (integer expected, got %s)",
+						stpos, lua_typename(L, lua_type(L, stpos)));
+				return -1;
+			}
+
 			dbg("append UINT16 %u", x);
                         r = sd_bus_message_append_basic(m, *t, &x);
 			lua_remove(L, stpos);
@@ -389,17 +407,35 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 
                 case SD_BUS_TYPE_INT64:
                 case SD_BUS_TYPE_UINT64: {
+			int ok;
                         uint64_t x;
-			x = luaL_checkinteger(L, stpos);
-			dbg("append UINT64 %lu", x);
+
+			x = lua_tointegerx(L, stpos, &ok);
+
+			if (!ok) {
+				lua_pushfstring(L, "failed to convert arg #%d (integer expected, got %s)",
+						stpos, lua_typename(L, lua_type(L, stpos)));
+				return -1;
+			}
+
+                        dbg("append UINT64 %lu", x);
                         r = sd_bus_message_append_basic(m, *t, &x);
 			lua_remove(L, stpos);
                         break;
                 }
 
                 case SD_BUS_TYPE_DOUBLE: {
+			int ok;
                         double x;
-			x = luaL_checknumber(L, stpos);
+
+			x = lua_tonumberx(L, stpos, &ok);
+
+			if (!ok) {
+				lua_pushfstring(L, "failed to convert arg #%d (number expected, got %s)",
+						stpos, lua_typename(L, lua_type(L, stpos)));
+				return -1;
+			}
+
 			dbg("append DOUBLE %f", x);
                         r = sd_bus_message_append_basic(m, *t, &x);
 			lua_remove(L, stpos);
@@ -409,7 +445,14 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 case SD_BUS_TYPE_STRING:
                 case SD_BUS_TYPE_OBJECT_PATH:
                 case SD_BUS_TYPE_SIGNATURE: {
-                        const char *x =	luaL_checkstring(L, stpos);
+			const char *x = lua_tolstring(L, stpos, NULL);
+
+			if (x == NULL) {
+				lua_pushfstring(L, "bad argument #%d (string expected, got %s)",
+						stpos, lua_typename(L, lua_type(L, stpos)));
+				return -1;
+			}
+
 			dbg("append string %s", x);
                         r = sd_bus_message_append_basic(m, *t, x);
 			lua_remove(L, stpos);

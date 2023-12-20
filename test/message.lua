@@ -252,7 +252,7 @@ function TestMsg:TestInvalidArg()
    local function invalid_msg()
       return b:testmsg("s", false)
    end
-   local exp_err = "bad argument #2 to 'testmsg' (string expected, got boolean)"
+   local exp_err = "bad argument #3 (string expected, got boolean)"
    lu.assert_error_msg_contains(exp_err, invalid_msg)
 end
 
@@ -276,7 +276,7 @@ function TestMsg:TestInvalidTooFewArgs()
    local function invalid_msg()
       return b:testmsg("siq", "grunk", -4711)
    end
-   local exp_err = "(number expected, got no value)"
+   local exp_err = "(integer expected, got no value)"
    lu.assert_error_msg_contains(exp_err, invalid_msg)
 end
 
