@@ -1,5 +1,5 @@
 
-if tonumber(_VERSION:match('Lua (%d%.%d)')) < 5.3 then
+if _VERSION < "Lua 5.3" then
    require("compat53")
 end
 
@@ -36,8 +36,7 @@ end
 -- @return lsdbus variant table
 function lsdbus.tovariant(val)
    local function is_array(t)
-      if type(t) ~= 'table' then return false end
-      for k,_ in pairs(t) do
+      for k in pairs(t) do
 	 if type(k) ~= 'number' then return false end
       end
       return true

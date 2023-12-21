@@ -175,7 +175,7 @@ end
 
 function proxy:__newindex(k, v) self:Set(k, v) end
 
-function proxy.__index(p, k) return proxy[k] or proxy.Get(p, k) end
+function proxy:__index(k) return proxy[k] or proxy.Get(self, k) end
 
 function proxy:__tostring()
    local res = {}
