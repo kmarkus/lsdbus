@@ -37,7 +37,7 @@ end
 function lsdbus.tovariant(val)
    local function is_array(t)
       for k in pairs(t) do
-	 if type(k) ~= 'number' then return false end
+	 if math.type(k) ~= 'integer' then return false end
       end
       return true
    end
@@ -45,7 +45,7 @@ function lsdbus.tovariant(val)
    local typ = type(val)
 
    if typ == 'number' then
-      if math.tointeger(val) then
+      if math.type(val) == 'integer' then
 	 return { 'x', val }
       else
 	 return { 'd', val }
