@@ -14,14 +14,13 @@ local fmt = string.format
 --- Miscellaneous helpers
 
 --- Find the given interface in a node table
--- return the interface if found, otherwise false
+-- return the interface if found
 function lsdbus.find_intf(node, interface)
    for _,intf in ipairs(node.interfaces) do
       if intf.name == interface then
 	 return intf
       end
    end
-   return false
 end
 
 --- encode an arbitrary Lua datastructure into a lsdb variant table
