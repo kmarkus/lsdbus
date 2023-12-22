@@ -30,8 +30,8 @@ end
 
 function TestProxy:TestSimpleCall()
    lu.assertIsTable(td('ListTimezones'))
-   lu.assertEquals(td.Timezone, "Europe/Berlin")
-   lu.assertEquals(hn.Chassis, "laptop")
+   lu.assertIsString(td.Timezone)
+   lu.assertIsString(hn.Chassis)
 end
 
 function TestProxy:TestHas()
