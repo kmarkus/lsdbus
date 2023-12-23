@@ -109,6 +109,7 @@ local function lom2node(doc)
       end
    end
    return {
+      name = doc.attr.name,
       interfaces = interfaces,
       nodes = nodes,
    }
