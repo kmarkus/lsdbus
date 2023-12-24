@@ -67,6 +67,9 @@ const luaL_Reg lsdbus_evsrc_m [] = {
 	{ "unref", evsrc_unref },
 	{ "__tostring", evsrc_tostring },
 	{ "__gc", evsrc_gc },
+#if LUA_VERSION_NUM >= 504
+	{ "__close", evsrc_gc },
+#endif
 	{ NULL, NULL }
 };
 

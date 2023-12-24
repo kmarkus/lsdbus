@@ -603,6 +603,9 @@ static const luaL_Reg lsdbus_bus_m [] = {
 	{ "state", lsdbus_bus_state },
 	{ "__tostring", lsdbus_bus_tostring },
 	{ "__gc", lsdbus_bus_gc },
+#if LUA_VERSION_NUM >= 504
+	{ "__close", lsdbus_bus_gc },
+#endif
 	{ NULL, NULL },
 };
 

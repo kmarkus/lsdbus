@@ -935,5 +935,8 @@ const luaL_Reg lsdbus_slot_m [] = {
 	{ "rawslot", lsdbus_rawslot },
 	{ "__tostring", lsdbus_slot_tostring },
 	{ "__gc", lsdbus_slot_gc },
+#if LUA_VERSION_NUM >= 504
+	{ "__close", lsdbus_slot_gc },
+#endif
 	{ NULL, NULL }
 };
