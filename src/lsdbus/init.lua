@@ -1,5 +1,5 @@
 
-if tonumber(_VERSION:match('Lua (%d%.%d)')) < 5.3 then
+if _VERSION < "Lua 5.3" then
    require("compat53")
 end
 
@@ -14,14 +14,13 @@ local fmt = string.format
 --- Miscellaneous helpers
 
 --- Find the given interface in a node table
--- return the interface if found, otherwise false
+-- return the interface if found
 function lsdbus.find_intf(node, interface)
-   for i,intf in ipairs(node.interfaces) do
+   for _,intf in ipairs(node.interfaces) do
       if intf.name == interface then
 	 return intf
       end
    end
-   return false
 end
 
 --- encode an arbitrary Lua datastructure into a lsdb variant table
@@ -36,9 +35,8 @@ end
 -- @return lsdbus variant table
 function lsdbus.tovariant(val)
    local function is_array(t)
-      if type(t) ~= 'table' then return false end
-      for k,_ in pairs(t) do
-	 if type(k) ~= 'number' then return false end
+      for k in pairs(t) do
+	 if math.type(k) ~= 'integer' then return false end
       end
       return true
    end
@@ -46,7 +44,7 @@ function lsdbus.tovariant(val)
    local typ = type(val)
 
    if typ == 'number' then
-      if math.tointeger(val) then
+      if math.type(val) == 'integer' then
 	 return { 'x', val }
       else
 	 return { 'd', val }

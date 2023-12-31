@@ -39,9 +39,9 @@ local node = {
 }
 --]]
 
-function proxy:error(err, msg)
-   self._error(self, err, msg)
-   error(fmt("%s: %s (%s, %s, %s)", err, msg or "-", self._srv, self._obj, self._intf.name))
+function proxy:error(err_, msg)
+   self._error(self, err_, msg)
+   error(fmt("%s: %s (%s, %s, %s)", err_, msg or "-", self._srv, self._obj, self._intf.name))
 end
 
 -- lowlevel plumbing method
@@ -135,14 +135,14 @@ function proxy:GetAll(filter)
    local ft = type(filter)
 
    if ft ~= 'string' and ft ~= 'function' then
-      self:error(err.INVALID_ARGS, fmt("GetAll: invalid filter parameter type %s", filter))
+      self:error(err.INVALID_ARGS, fmt("GetAll: invalid filter parameter type %s", ft))
    end
 
    local pred = filter
 
    if ft == 'string' then
       if filter=='read' or filter=='write' or filter=='readwrite' then
-	 pred = function (n,v,d) return d.access == filter end
+	 pred = function (_,_,d) return d.access == filter end
       else
 	 self:error(err.INVALID_ARGS, fmt("GetAll: invalid filter type %s", filter))
       end
@@ -175,7 +175,7 @@ end
 
 function proxy:__newindex(k, v) self:Set(k, v) end
 
-function proxy.__index(p, k) return proxy[k] or proxy.Get(p, k) end
+function proxy:__index(k) return proxy[k] or proxy.Get(self, k) end
 
 function proxy:__tostring()
    local res = {}
@@ -223,7 +223,7 @@ function proxy:new(bus, srv, obj, intf, opts)
    opts.error = opts.error or function() return end
 
    assert(type(bus)=='userdata', "missing or invalid bus arg")
-   assert(type(srv)=='string', "missing invalid srv arg")
+   assert(type(srv)=='string', "missing or invalid srv arg")
    assert(type(obj)=='string', "missing or invalid obj arg")
    assert(type(opts)=='table', "invalid opts arg")
    assert(intf~=nil, "missing intf arg")

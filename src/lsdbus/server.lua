@@ -46,7 +46,7 @@ end
 
 local function intf_to_vtab(intf, errh)
 
-   if errh then assert(type(errh), "invalid error handler, expected function" ) end
+   if errh then assert(type(errh) == 'function', "invalid error handler, expected function" ) end
 
    common.check_intf(intf)
 

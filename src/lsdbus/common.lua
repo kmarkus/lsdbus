@@ -128,7 +128,6 @@ function M.check_intf(intf)
    local function check_mtab(name, mtab)
       if type(mtab) ~= 'table' then
 	 err("method %s: expected table, got %s", name, type(mtab))
-	 return
       end
       if type(mtab.handler) ~= 'function' then
 	 err("method %s: invalid handler: expected function, got %s", name, type(mtab.handler))
@@ -154,7 +153,6 @@ function M.check_intf(intf)
    local function check_ptab(name, ptab)
       if type(ptab) ~= 'table' then
 	 err("property %s: expected table, got %s", name, type(ptab))
-	 return
       end
 
       if type(ptab.access) ~= 'string' then
@@ -184,7 +182,6 @@ function M.check_intf(intf)
    local function check_stab(name, stab)
       if type(stab) ~= 'table' then
 	 err("signal %s: expected table, got %s", name, type(stab))
-	 return
       end
 
       for i,arg in ipairs(stab) do
