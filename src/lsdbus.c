@@ -561,6 +561,10 @@ static int lsdbus_bus_gc(lua_State *L)
 	} else {
 		sd_bus_flush_close_unref(lsdbus->b);
 	}
+
+	lua_pushnil(L);
+	lua_setmetatable(L, 1);
+
 	return 0;
 }
 
