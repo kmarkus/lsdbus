@@ -786,7 +786,7 @@ out:
 	sd_bus_message_unref(message);
 
 	if (ret < 0)
-		luaL_error(L, "emit_signal failed: %s", strerror(-ret));
+		luaL_error(L, "emit_signal %s failed: %s", member, strerror(-ret));
 
 	return 0;
 }

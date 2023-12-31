@@ -9,6 +9,8 @@ lsdbus.proxy = require("lsdbus.proxy")
 lsdbus.server = require("lsdbus.server")
 lsdbus.error = require("lsdbus.error")
 
+lsdbus.PropIntf = 'org.freedesktop.DBus.Properties'
+
 local fmt = string.format
 
 --- Miscellaneous helpers
