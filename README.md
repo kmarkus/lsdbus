@@ -230,7 +230,7 @@ if case of failure `ret` is `false` and `res0` is a table of the form
 **Example**
 
 ```lua
-lsdb = require("lsdbus")
+lsdb = require("lsdbus.core")
 b = lsdb.open('default_system')
 u = require("utils")
 
