@@ -38,18 +38,18 @@ local test_intf = {
 
 
 function TestVtab:TestRegObjInvalidVtab()
-   local function test1() lsdb.server:new(b, "/", {}) end
-   local function test2() lsdb.server:new(b, "/", { name=33 }) end
-   local function test3() lsdb.server:new(b, "/", { name="a.b", methods="garg" }) end
-   local function test4() lsdb.server:new(b, "/", { name="a.b", methods={ frub=0} }) end
-   local function test5() lsdb.server:new(b, "/", { name="a.b", methods={ frub={}} }) end
-   local function test6() lsdb.server:new(b,
+   local function test1() lsdb.server.new(b, "/", {}) end
+   local function test2() lsdb.server.new(b, "/", { name=33 }) end
+   local function test3() lsdb.server.new(b, "/", { name="a.b", methods="garg" }) end
+   local function test4() lsdb.server.new(b, "/", { name="a.b", methods={ frub=0} }) end
+   local function test5() lsdb.server.new(b, "/", { name="a.b", methods={ frub={}} }) end
+   local function test6() lsdb.server.new(b,
 	 "/", { name="a.b", methods={ frub={ handler=function() end, {direction={}}}} }) end
-   local function test7() lsdb.server:new(b,
+   local function test7() lsdb.server.new(b,
 	 "/", { name="a.b", methods={ frub={ handler=function() end, {direction='in', name=true}}} }) end
-   local function test8() lsdb.server:new(b,
+   local function test8() lsdb.server.new(b,
 	 "/", { name="a.b", methods={ frub={ handler=function() end, {direction='in', name='foo', type=true}}} }) end
-   local function test9() lsdb.server:new(b,
+   local function test9() lsdb.server.new(b,
 	 "/", { name="a.b", methods={ frub={ handler=function() end, {direction='pony', name='foo', type='i'}}} }) end
 
    lu.assertErrorMsgContains("invalid name: expected string, got nil", test1)
@@ -118,15 +118,15 @@ function TestVtab:TestRegObjValidVtab()
    self.count = self.count or 0
    self.count = self.count + 1
 
-   lsdb.server:new(b, "/a"..tostring(self.count), intf)
-   lsdb.server:new(b, "/b"..tostring(self.count), { name="a.b.c" })
-   lsdb.server:new(b, "/c"..tostring(self.count), { name="a.b.c", methods={}, })
-   lsdb.server:new(b, "/d"..tostring(self.count), { name="a.b.c", methods={ ick={handler=function() end}}, })
+   lsdb.server.new(b, "/a"..tostring(self.count), intf)
+   lsdb.server.new(b, "/b"..tostring(self.count), { name="a.b.c" })
+   lsdb.server.new(b, "/c"..tostring(self.count), { name="a.b.c", methods={}, })
+   lsdb.server.new(b, "/d"..tostring(self.count), { name="a.b.c", methods={ ick={handler=function() end}}, })
 end
 
 
 function TestVtab:TestVtabCleanup()
-   local vt = lsdb.server:new(b, "/", test_intf)
+   local vt = lsdb.server.new(b, "/", test_intf)
    lu.assert_is_table(vt)
    local rawslot = vt.slot:rawslot()
    lu.assert_is_table(debug.getregistry()['lsdbus.slot_table'][rawslot])
@@ -140,7 +140,7 @@ end
 
 function TestVtab:TestVtabExplicitCleanup()
    local function create_destroy()
-      local vt = lsdb.server:new(b, "/", test_intf)
+      local vt = lsdb.server.new(b, "/", test_intf)
       lu.assert_is_table(vt)
       local rawslot = vt.slot:rawslot()
       lu.assert_is_table(debug.getregistry()['lsdbus.slot_table'][rawslot])
@@ -159,7 +159,7 @@ function TestVtab:TestVtabMemUsage()
    local cnt=0
    local function make_vtabs(num)
       for _=1,num do
-	 local vt = lsdb.server:new(b, string.format("/mem_usage/%i", cnt), test_intf)
+	 local vt = lsdb.server.new(b, string.format("/mem_usage/%i", cnt), test_intf)
 	 lu.assert_is_table(vt)
 	 local rawslot = vt.slot:rawslot()
 	 lu.assert_is_table(debug.getregistry()['lsdbus.slot_table'][rawslot])

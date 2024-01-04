@@ -116,7 +116,7 @@ local interface = {
 
 local b = lsdb.open('user')
 b:request_name("lsdbus.test")
-local vt = lsdb.server:new(b, "/", interface)
+local vt = lsdb.server.new(b, "/", interface)
 vt:emitAllPropertiesChanged(
    function(p, _) if p=="Fail" then return false else return true end end)
 b:loop()

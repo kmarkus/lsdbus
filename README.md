@@ -77,7 +77,7 @@ Lua 5.3.6  Copyright (C) 1994-2020 Lua.org, PUC-Rio
 > b=lsdbus.open()
 > b:request_name("lsdbus.test")
 > intf = { name="lsdbus.testif", methods={ Hello={ handler=function() print("hi lsdbus!") end }}}
-> s = lsdbus.server:new(b, "/", intf)
+> s = lsdbus.server.new(b, "/", intf)
 > b:loop()
 ```
 
@@ -291,7 +291,7 @@ respective `sd_bus_message_get_*(3)` functions).
 #### Registering Interfaces: Properties, Methods and Signal
 
 Server object callbacks can be registered with
-`vtab=lsdbus.server:new`. The interface uses the same Lua
+`vtab=lsdbus.server.new`. The interface uses the same Lua
 representation of the D-Bus interface XML (see below) decorated with
 callback functions:
 
@@ -326,11 +326,11 @@ local interface_table = {
 
 local b = lsdb.open('user')
 b:request_name("well.known.name"))
-srv = lsdb.server:new(b, PATH, interface_table)
+srv = lsdb.server.new(b, PATH, interface_table)
 b:loop()
 ```
 
-The `vtable` table returned by `lsdb.server:new` has the following
+The `vtable` table returned by `lsdb.server.new` has the following
 fields set: `bus`, `slot`, `path` and `intf` and apart from these
 fields can be freely used for storing state such as property values.
 
@@ -573,7 +573,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 
 | Method                                     | Description                                                |
 |--------------------------------------------|------------------------------------------------------------|
-| `srv = lsdbus.server:new(bus, path, intf)` | create a new obj with the given path and interface         |
+| `srv = lsdbus.server.new(bus, path, intf)` | create a new obj with the given path and interface         |
 | `emit(signal, args...)`                    | emit a signal that is defined in the servers interface     |
 | `emitPropertiesChanged(prop0, ...)`        | emit a PropertiesChanged signal for one or more properties |
 | `emitAllPropertiesChanged(filter)`         | emit a PropertiesChanged signal for all properties         |
@@ -593,7 +593,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 ### slots
 
 `slot` (`sd_bus_slot`) objects are returned by `match`,
-`match_signal`, `server:new` and `call_async` calls.
+`match_signal`, `server.new` and `call_async` calls.
 
 | Method    | Description                               |
 |-----------|-------------------------------------------|
@@ -608,7 +608,7 @@ The behavior upon garbage collection depends on the slot type:
 
 > **Note**: you must hold a reference to a `vtable` slot to prevent is
 > being garbage collected and removed. Typically one just stores a
-> reference to the `srv` object return by `server:new`.
+> reference to the `srv` object return by `server.new`.
 
 
 ### event sources
@@ -690,7 +690,7 @@ systemd.
 This happens when a bus is created (`lsdb.open(...)`) and only used
 after more than ~30s. The exact reason is not clear. The workaround is
 to immediately use the bus (`request_name`, `proxy:new` or
-`server:new`) after opening.
+`server.new`) after opening.
 
 Of course, this can also happen if a non-default bus (open flags
 `new`, `user` and `system`) goes out of scope and is collected.

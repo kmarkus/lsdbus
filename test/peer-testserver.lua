@@ -164,9 +164,9 @@ local function reload()
    if vt2 then vt2:unref() end
    if vt3 then vt3:unref() end
 
-   vt1 = lsdb.server:new(b, "/1", interface)
-   vt2 = lsdb.server:new(b, "/2", interface)
-   vt3 = lsdb.server:new(b, "/3", interface)
+   vt1 = lsdb.server.new(b, "/1", interface)
+   vt2 = lsdb.server.new(b, "/2", interface)
+   vt3 = lsdb.server.new(b, "/3", interface)
 
    vt1:emitAllPropertiesChanged(filter_props)
    vt2:emitAllPropertiesChanged(filter_props)
