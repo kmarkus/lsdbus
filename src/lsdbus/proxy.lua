@@ -207,7 +207,7 @@ local function proxy_introspect(o)
    return core.xml_fromstr(xml)
 end
 
-function proxy:new(bus, srv, obj, intf, opts)
+function proxy.new(bus, srv, obj, intf, opts)
    local function introspect(o)
       local node = proxy_introspect(o)
       for _,i in ipairs(node.interfaces) do
@@ -229,7 +229,7 @@ function proxy:new(bus, srv, obj, intf, opts)
    assert(intf~=nil, "missing intf arg")
 
    local o = { _bus=bus, _srv=srv, _obj=obj, _intf=intf, _error=opts.error }
-   setmetatable(o, self)
+   setmetatable(o, proxy)
 
    if type(intf) == 'string' then
       o._intf = { name = intf }

@@ -3,7 +3,7 @@ local lsdb = require("lsdbus")
 
 local b = lsdb.open('user')
 
-local tst=lsdb.proxy:new(b, 'lsdbus.test', '/', 'lsdbus.test.testintf0')
+local tst=lsdb.proxy.new(b, 'lsdbus.test', '/', 'lsdbus.test.testintf0')
 
 local cnt = 300
 while cnt ~= 0 do

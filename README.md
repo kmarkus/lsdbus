@@ -87,7 +87,7 @@ Lua 5.3.6  Copyright (C) 1994-2020 Lua.org, PUC-Rio
 $ lua -l lsdbus
 Lua 5.3.6  Copyright (C) 1994-2020 Lua.org, PUC-Rio
 > b = lsdbus.open()
-> p = lsdbus.proxy:new(b, "lsdbus.test", '/', "lsdbus.testif")
+> p = lsdbus.proxy.new(b, "lsdbus.test", '/', "lsdbus.testif")
 > p
 srv: lsdbus.test, obj: /, intf: lsdbus.testif
 Methods:
@@ -175,7 +175,7 @@ member, typestring and args) need to be provided.
 ```lua
 > lsdb = require("lsdbus")
 > b = lsdb.open("system")
-> td = lsdb.proxy:new(b, 'org.freedesktop.timedate1', '/org/freedesktop/timedate1', 'org.freedesktop.timedate1')
+> td = lsdb.proxy.new(b, 'org.freedesktop.timedate1', '/org/freedesktop/timedate1', 'org.freedesktop.timedate1')
 > print(td)
 srv: org.freedesktop.timedate1, obj: /org/freedesktop/timedate1, intf: org.freedesktop.timedate1
 Methods:
@@ -541,7 +541,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 
 | Method                                         | Description                                           |
 |------------------------------------------------|-------------------------------------------------------|
-| `prxy = lsdbus.proxy:new(bus, srv, obj, intf)` | constructor                                           |
+| `prxy = lsdbus.proxy.new(bus, srv, obj, intf)` | constructor                                           |
 | `prxy(method, arg0, ...)`                      | call a D-Bus method                                   |
 | `prxy:call(method, arg0, ...)`                 | same as above, long form                              |
 | `prxy:HasMethod(method)`                       | check if prxy has a method with the given name        |
@@ -634,7 +634,7 @@ Thus, there is no need to store a reference to an `evsrc` object
 
 ### Introspection
 
-The fourth parameter of `lsdbus.proxy:new` is typically a string
+The fourth parameter of `lsdbus.proxy.new` is typically a string
 interface name, whose XML is then retrieved using the standard D-Bus
 introspection interfaces and converted to a Lua representation using
 `lsdb.xml_fromstr(xml)`. It is available as `proxy.intf`.
@@ -665,7 +665,7 @@ intf = {
       }
 }
 
-prx = proxy:new(b, 'foo.bar.ick1', '/my/nice/obj', intf)
+prx = proxy.new(b, 'foo.bar.ick1', '/my/nice/obj', intf)
 print(prx)
 srv: foo.bar.ick1, obj: /my/nice/obj, intf: foo.bar.myintf1
 Methods:
@@ -689,7 +689,7 @@ systemd.
 
 This happens when a bus is created (`lsdb.open(...)`) and only used
 after more than ~30s. The exact reason is not clear. The workaround is
-to immediately use the bus (`request_name`, `proxy:new` or
+to immediately use the bus (`request_name`, `proxy.new` or
 `server.new`) after opening.
 
 Of course, this can also happen if a non-default bus (open flags
