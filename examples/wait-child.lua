@@ -1,7 +1,7 @@
 -- tiny example to illustrate use of child pid event source
 -- send different signals to the
 
-local lsdb = require("lsdbus")
+local lsdb = require("lsdbus.core")
 local unistd = require("posix.unistd")
 local utils = require("utils")
 

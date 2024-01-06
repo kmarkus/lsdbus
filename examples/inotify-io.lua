@@ -2,7 +2,7 @@
 -- Small example of using add_io with inotify.
 --
 
-local lsdb = require 'lsdbus'
+local lsdb = require 'lsdbus.core'
 local inotify = require 'inotify'
 
 if arg[1] == nil then

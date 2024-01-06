@@ -1,5 +1,5 @@
 local u = require("utils")
-local lsdb = require("lsdbus")
+local lsdb = require("lsdbus.core")
 
 local function exit(b, sig)
    print("exiting on", sig)

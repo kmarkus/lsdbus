@@ -1,4 +1,4 @@
-local lsdb = require("lsdbus")
+local lsdb = require("lsdbus.core")
 
 local evsrc
 local enabled = 1

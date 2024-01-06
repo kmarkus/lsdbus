@@ -4,7 +4,7 @@
 --
 
 local u = require("utils")
-local lsdb = require("lsdbus")
+local lsdb = require("lsdbus.core")
 
 local b = lsdb.open('default_system')
 
