@@ -114,7 +114,7 @@ elseif opttab['-u'] then bus='default_user' end
 
 log("using %s bus", bus or 'default')
 b = lsdb.open(bus)
-dbus_proxy = lsdb.proxy:new(b, 'org.freedesktop.DBus', '/', 'org.freedesktop.DBus')
+dbus_proxy = lsdb.proxy.new(b, 'org.freedesktop.DBus', '/', 'org.freedesktop.DBus')
 
 if cmd == 'list' then
    local services = get_services()

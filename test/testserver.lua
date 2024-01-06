@@ -19,9 +19,9 @@ local P = {
 
 function TestServer:setup()
    b = lsdb.open(testconf.bus)
-   p1 = proxy:new(b, 'lsdbus.test', '/1', 'lsdbus.test.testintf0')
-   p2 = proxy:new(b, 'lsdbus.test', '/2', 'lsdbus.test.testintf0')
-   p3 = proxy:new(b, 'lsdbus.test', '/3', 'lsdbus.test.testintf0')
+   p1 = proxy.new(b, 'lsdbus.test', '/1', 'lsdbus.test.testintf0')
+   p2 = proxy.new(b, 'lsdbus.test', '/2', 'lsdbus.test.testintf0')
+   p3 = proxy.new(b, 'lsdbus.test', '/3', 'lsdbus.test.testintf0')
 end
 
 function TestServer:TestPing()

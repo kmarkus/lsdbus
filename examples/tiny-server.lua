@@ -61,6 +61,6 @@ local demo_if = {
 
 local b = lsdb.open('user')
 b:request_name("lsdbus.demo")
-local vt = lsdb.server:new(b, "/", demo_if)
+local vt = lsdb.server.new(b, "/", demo_if)
 vt:emitAllPropertiesChanged()
 b:loop()

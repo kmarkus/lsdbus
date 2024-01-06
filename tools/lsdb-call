@@ -48,7 +48,7 @@ if s == nil then
 end
 log("calling dest=%s, path=%s, interf=%s, member=%s, payload=%s",
     s, p, i, m, u.tab2str(argtab))
-local prxy = lsdb.proxy:new(b, s, p, i)
+local prxy = lsdb.proxy.new(b, s, p, i)
 local ret,tab = u.eval_sandbox("return "..argtab)
 if ret then
    u.pp(prxy:callt(m, tab))

@@ -9,10 +9,6 @@ local signal2ts, signal2names = common.signal2ts, common.signal2names
 
 local srv = {}
 
-function srv.__index(_, k)
-   return srv[k]
-end
-
 --- guard a function
 --
 -- wrap the given function in a protected call. If the call fails, the
@@ -87,14 +83,14 @@ end
 --
 -- if no error handler is present, the error will propagate to the
 -- lsdbus core, where it will is caught and printed to stderr.
-function srv:new(bus, path, intf, errh)
+function srv.new(bus, path, intf, errh)
    local vtab =	intf_to_vtab(intf, errh)
    local slot = bus:add_object_vtable(path, vtab)
    vtab.bus = bus
    vtab.slot = slot
    vtab.path = path
    vtab.intf = intf
-   setmetatable(vtab, self)
+   setmetatable(vtab, { __index=srv })
    return vtab
 end
 

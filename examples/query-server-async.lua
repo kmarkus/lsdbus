@@ -23,7 +23,7 @@ local function fail_cb(b, ...)
 end
 
 local b = lsdb.open('user')
-tst = lsdb.proxy:new(b, 'lsdbus.test', '/', 'lsdbus.test.testintf0')
+tst = lsdb.proxy.new(b, 'lsdbus.test', '/', 'lsdbus.test.testintf0')
 
 u.pp(tst:call_async('pow', pow_cb, 0))
 --u.pp(tst:call_async('Fail', fail_cb))
