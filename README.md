@@ -49,7 +49,7 @@ and sd-event APIs.
 First, ensure that the correct packages are installed. For example:
 
 ```sh
-$ sudo apt-get install cmake lua5.3 liblua5.3-dev libsystemd-dev libmxml-dev
+$ sudo apt-get install cmake lua5.3 liblua5.3-dev libsystemd-dev lua-expat
 ```
 
 To run the tests, install `lua-unit` or install it directly from here
