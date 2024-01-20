@@ -704,16 +704,32 @@ the loop.
 
 ## ChangeLog
 
+(only API changes)
+
+- constructors are now functions: use `lsdbus.server.new` and
+  `lsdbus.proxy.new` instead of `lsdbus.server:new` and
+  `lsdbus.proxy:new` respectivly.
 - `lsdb.open()` now defaults to `new`, i.e. `sd_bus_open(3)`. This is
   the safer default, since it will not piggy back onto a potentially
   existing event loop.
 - added `bus:get_fd()` (see `sd_event_get_fd(3)`)
 - added `bus:release_name`
-
 - **vtab slots are now also garbage collected**. So make sure to hold
   onto the vtab object returned by `server:new` (this itself contains
   a ref to the slot `.slot`) or the interface will dissappear after
   the next GC cycle.
+- `b:add_signal`: takes a numeric signals numbers instead of a
+  string. the `lsdbus` module defines constants for supported signals.
+- additional parameter for callbacks. The callbacks for `match`,
+  `match_signal`, `call_async`, `add_signal`, `add_periodic` and
+  `add_io` receive the `bus` object as an additional first
+  parameter. This avoids the need to pass the bus (e.g. for
+  `b:exit_loop()` via the scope.
+  The server method `handler` and property `get` and `set` handlers
+  receive the `vtable` table returned from `lsdbus.server.new`. Again
+  this avoids the need to pass the `bus` object in via the scope and
+  moreover provides a table that can be freely used to store state
+  such as property values.
 
 ## References
 
