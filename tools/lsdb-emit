@@ -79,4 +79,5 @@ end
 
 for _=1,num do
    b:emit_signal(p, i, m, typestr, table.unpack(args))
+   while b:run(1) > 0 do end
 end
