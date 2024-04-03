@@ -55,10 +55,11 @@ static int evsrc_unref(lua_State *L)
 		sigprocmask(SIG_UNBLOCK, &ss, NULL);
 	}
 
+	regtab_clear(L,	REG_EVSRC_TABLE, evsrc);
 	sd_event_source_unref(evsrc);
 
-	lua_newtable(L);
-	lua_setmetatable(L, -2);
+	lua_pushnil(L);
+	lua_setmetatable(L, 1);
 	return 0;
 }
 
