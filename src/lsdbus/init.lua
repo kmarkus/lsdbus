@@ -58,7 +58,7 @@ function lsdbus.tovariant(val)
    elseif typ == 'table' then
       if is_array(val) then
 	 local res = {}
-	 for _,v in ipairs(val) do res[#res+1] = lsdbus.tovariant(v) end
+	 for i,v in pairs(val) do res[i] = lsdbus.tovariant(v) end
 	 return { 'a{iv}', res }
       else
 	 local res = {}

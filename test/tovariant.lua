@@ -15,6 +15,8 @@ local cases = {
    { "foo", "bar", "yuck" },
    { 1, true, "yack" },
    { a=1, b=2 },
+   { [0]='zero' },
+   { [0]='zero', [3]='three', [5]='five' },
    { foo={1,2,3}, bar={a='yup', b=333 } },
    -- doesn't work, array indices get converted to strings:
    -- { 1,2, bar='nope' } becomes {"1"=1, "2"=2, bar="nope"}
