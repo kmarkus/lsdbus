@@ -45,7 +45,7 @@ local interface = {
       twoout={
 	 {direction="out", name="x", type="i"},
 	 {direction="out", name="y", type="a{ss}"},
-	 handler=function(_) return 333, { a=1, b=2, c=3 } end
+	 handler=function(_) return 333, { a="one", b="two", c="three" } end
       },
 
       concat={

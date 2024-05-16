@@ -104,6 +104,14 @@ function TestServer:TestCallWithInOut()
    lu.assert_equals(p3('concat', s1, s2), s1 .. s2)
 end
 
+function TestServer:TestCallt()
+   lu.assert_equals(p1:calltt('pow', {x=3}), {result=9})
+   lu.assert_equals(p1:calltt('twoin', {x=987, y={a="bar",b="irk"}}), nil)
+   lu.assert_equals(p1:calltt('twoout', nil), {x=333, y={a='one',b='two',c='three'}})
+   lu.assert_equals(p1:calltt('concat', {a='foo', b='bar'}), {result='foobar'})
+   lu.assert_equals(p1:calltt('getarray', {size=3}), {result={"1","2","3"}})
+end
+
 function TestServer:TestGetArray()
    local function test_getarray(p)
       local a, size

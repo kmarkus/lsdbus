@@ -96,10 +96,10 @@ function proxy:callt(m, argtab)
    if not mtab then
       self:error(err.UNKNOWN_METHOD, fmt("callt: no method %s", m))
    end
-   for n,a in ipairs(mtab) do
+   for _,a in ipairs(mtab) do
       if a.direction ~= 'out' then
 	 if not a.name then
-	    self:error(err.INVALID_ARGS, fmt("callt: unnamed arg %i of method %s", n, m))
+	    self:error(err.INVALID_ARGS, fmt("callt: unnamed in-arg %i of method %s", #args+1, m))
 	 end
 	 if argtab[a.name] == nil then
 	    self:error(err.INVALID_ARGS, fmt("callt: argument %s missing", a.name))
@@ -109,6 +109,32 @@ function proxy:callt(m, argtab)
    end
    return self:xcall(self._intf.name, m, met2its(mtab), unpack(args))
 end
+
+-- like callt, but return results as a table too
+-- if there are no out-args, nil is returned
+function proxy:calltt(m, argtab)
+   local res = { self:callt(m, argtab) }
+
+   local mtab = self._intf.methods[m]
+   local restab = {}
+   local rescnt = 0
+
+   for _,a in ipairs(mtab) do
+      if a.direction == 'out' then
+	 rescnt = rescnt + 1
+	 if not a.name then
+	    self:error(err.INVALID_ARGS, fmt("callt: unnamed out-arg %i of method %s", rescnt, m))
+	 end
+	 if res[rescnt] == nil then
+	    self:error(err.INVALID_ARGS, fmt("callt: result %i '%s' missing", rescnt, a.name))
+	 end
+	 restab[a.name] = res[rescnt]
+      end
+   end
+
+   return (rescnt > 0) and restab or nil
+end
+
 
 function proxy:Get(k)
    if not self._intf.properties[k] then

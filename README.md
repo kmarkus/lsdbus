@@ -546,6 +546,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 | `prxy:call(method, arg0, ...)`                 | same as above, long form                              |
 | `prxy:HasMethod(method)`                       | check if prxy has a method with the given name        |
 | `prxy:callt(method, ARGTAB)`                   | call a method with a table of arguments               |
+| `prxy:calltt(method, ARGTAB)`                  | like `callt`, but returns a result table              |
 | `prxy:call_async(method, callback, ARGTAB)`    | call a method asynchronously (returns slot)           |
 | `prxy:callr(method, arg0, ...)`                | raw call, will not unpack variants                    |
 | `prxy:Get(name)`                               | get a properties value                                |
