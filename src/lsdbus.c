@@ -190,8 +190,6 @@ static int __lsdbus_bus_call(lua_State *L, int raw)
 		luaL_error(L, "%s: failed to get call timeout: %s",
 			   __func__, strerror(-ret));
 
-	sd_bus_message_seal(m, 2, timeout);
-
 	ret = sd_bus_call(b, m, 0, &error, &reply);
 
 	if (ret<0) {
@@ -325,7 +323,6 @@ static int lsdbus_match(lua_State *L)
 	return lsdbus_slot_push(L, slot, LSDBUS_SLOT_TYPE_MATCH);
 }
 
-
 /**
  * async mesage callback
  */
@@ -405,8 +402,6 @@ static int lsdbus_call_async(lua_State *L)
 
 	if(ret<0)
 		luaL_error(L, "%s: failed to get call timeout: %s", __func__, strerror(-ret));
-
-	sd_bus_message_seal(m, 2, timeout);
 
 	ret = sd_bus_call_async(b, &slot, m, method_callback, L, timeout);
 
