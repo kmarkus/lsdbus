@@ -199,6 +199,10 @@ function proxy:HasMethod(m)
    if self._intf.methods[m] then return true else return false end
 end
 
+function proxy:HasSignal(s)
+   if self._intf.signals[s] then return true else return false end
+end
+
 function proxy:__newindex(k, v) self:Set(k, v) end
 
 function proxy:__index(k) return proxy[k] or proxy.Get(self, k) end

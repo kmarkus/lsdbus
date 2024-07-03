@@ -334,9 +334,14 @@ The `vtable` table returned by `lsdb.server.new` has the following
 fields set: `bus`, `slot`, `path` and `intf` and apart from these
 fields can be freely used for storing state such as property values.
 
+Methods handlers and Properties getters/setters can be directly
+invoked on the vtable using the `vt:('METHOD')`, `vt:Get('PROPERTY')`
+and `vt:Set('PROPERTY')` respectively.
+
 Additionally, `vtable` objects allow emitting declared `signals`
 conveniently via `vt:emit('Signal1', arg0, ...)` instead of the longer
-`bus:emit_signal(path, intf, member, ...)`.
+`bus:emit_signal(path, intf, member, ...)`. See the the API section
+for the available methods.
 
 For further information, take a look at the minimal example
 `examples/tiny-server.lua` and the more extensive one
@@ -572,14 +577,22 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 
 ### lsdbus.server
 
-| Method                                     | Description                                                |
-|--------------------------------------------|------------------------------------------------------------|
-| `srv = lsdbus.server.new(bus, path, intf)` | create a new obj with the given path and interface         |
-| `emit(signal, args...)`                    | emit a signal that is defined in the servers interface     |
-| `emitPropertiesChanged(prop0, ...)`        | emit a PropertiesChanged signal for one or more properties |
-| `emitAllPropertiesChanged(filter)`         | emit a PropertiesChanged signal for all properties         |
-| `unref()`                                  | remove the interface and release the resources             |
-| `error("dbus.error.name\|message")`        | return a D-Bus error and message from a callback           |
+| Method                                    | Description                                                |
+|-------------------------------------------|------------------------------------------------------------|
+| `vt = lsdbus.server.new(bus, path, intf)` | create a new obj with the given path and interface         |
+| `vt:call('METHOD', ...)`                  | locally call the D-Bus method handler                      |
+| `vt(METHOD, ...)`                         | same as above                                              |
+| `vt:Get(PROPERTY)`                        | locally call the `get` function                            |
+| `vt:Set(PROPERTY, value)`                 | locally call the `set` function                            |
+| `vt:emit(SIGNAL, args...)`                | emit a signal that is defined in the servers interface     |
+| `vt:emitPropertiesChanged(prop0, ...)`    | emit a PropertiesChanged signal for one or more properties |
+| `vt:emitAllPropertiesChanged(filter)`     | emit a PropertiesChanged signal for all properties         |
+| `vt:HasMethod(METHOD)`                    | check if vt has a method                                   |
+| `vt:HasProperty(PROPERTY)`                | check if vt has a property                                 |
+| `vt:HasSignal(SIGNAL)`                    | check if vt has a signal                                   |
+| `vt:get_interface()`                      | return the original interface                              |
+| `vt:unref()`                              | remove the interface and release the resources             |
+| `error("dbus.error.name\|message")`       | return a D-Bus error and message from a callback           |
 
 **Notes**:
 
