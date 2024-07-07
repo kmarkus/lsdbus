@@ -459,14 +459,14 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 
 ### Functions
 
-| Functions                          | Description                                                                    |
-|------------------------------------|--------------------------------------------------------------------------------|
-| `lsdbus.open(NAME)`                | open bus connection                                                            |
-| `lsdbus.xml_fromfile(file)`        | parse a D-Bus XML file and return as Lua table                                 |
-| `lsdbus.xml_fromstr(str)`          | parse a D-Bus XML string and return as Lua table                               |
-| `lsdbus.find_intf(node, interface` | find and return `interface` in the introspection table                         |
-| `lsdbus.tovariant(value)`          | encode an arbitray Lua datastructure into a lsdb variant table                 |
-
+| Functions                          | Description                                                    |
+|------------------------------------|----------------------------------------------------------------|
+| `lsdbus.open(NAME)`                | open bus connection                                            |
+| `lsdbus.xml_fromfile(file)`        | parse a D-Bus XML file and return as Lua table                 |
+| `lsdbus.xml_fromstr(str)`          | parse a D-Bus XML string and return as Lua table               |
+| `lsdbus.find_intf(node, interface` | find and return `interface` in the introspection table         |
+| `lsdbus.tovariant(value)`          | encode an arbitray Lua datastructure into a lsdb variant table |
+| `lsdbus.tovariant2(value)`         | like above, but just return the value, not the typestr         |
 
 *Example* for `tovariant`
 

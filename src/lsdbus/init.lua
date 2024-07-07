@@ -70,6 +70,15 @@ function lsdbus.tovariant(val)
    end
 end
 
+--- encode an arbitrary Lua datastructure into a lsdb variant table
+--- but only return the actual variant table, not the typestr.
+-- This is useful to return variants from property get/set or methods
+-- where the variant typestr is already added by the server method.
+function lsdbus.tovariant2(val)
+   local r = lsdbus.tovariant(val)
+   return r[2]
+end
+
 function lsdbus.throw(name, format, ...)
    error({name=name, msg=fmt(format, ...)}, 2)
 end
