@@ -90,6 +90,10 @@ end
 -- if no error handler is present, the error will propagate to the
 -- lsdbus core, where it will is caught and printed to stderr.
 function srv.new(bus, path, intf, errh)
+   assert(type(bus)=='userdata', "missing or invalid bus arg")
+   assert(type(path)=='string', "missing or invalid path arg")
+   assert(type(intf)=='table', "missing or invalid interface arg")
+
    local vtab = intf_to_vtab(intf, errh)
    vtab.slot = bus:add_object_vtable(path, vtab)
    vtab.bus, vtab.path, vtab.intf = bus, path, intf
@@ -100,6 +104,10 @@ end
 
 -- OO constructor variant which uses self as the vtable object
 function srv:initialize(bus, path, intf, errh)
+   assert(type(bus)=='userdata', "missing or invalid bus arg")
+   assert(type(path)=='string', "missing or invalid path arg")
+   assert(type(intf)=='table', "missing or invalid interface arg")
+
    intf_to_vtab(intf, errh, self)
    self.slot = bus:add_object_vtable(path, self)
    self.bus, self.path, self.intf = bus, path, intf
