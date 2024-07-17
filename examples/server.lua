@@ -13,11 +13,11 @@ local interface = {
       Raise={
 	 handler=function(vt)
 	    print("emiting")
-	    vt.bus:emit_signal("/", "lsdbus.test.testintf0", "Alarm", "ia{ss}", 999, {x="one", y="two"})
+	    vt._bus:emit_signal("/", "lsdbus.test.testintf0", "Alarm", "ia{ss}", 999, {x="one", y="two"})
 	 end
       },
       thunk={
-	 handler=function(vt) u.pp(vt.bus:context()) end
+	 handler=function(vt) u.pp(vt._bus:context()) end
       },
       pow={
 	 {direction="in", name="x", type="i"},
@@ -63,7 +63,7 @@ local interface = {
       },
 
       Shutdown = {
-	 handler=function(vt) print("shutting down"); vt.bus:exit_loop() end
+	 handler=function(vt) print("shutting down"); vt._bus:exit_loop() end
       },
 
       Fail={

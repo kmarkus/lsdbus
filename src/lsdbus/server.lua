@@ -75,7 +75,18 @@ local function intf_to_vtab(intf, errh, dest)
    return dest
 end
 
--- create the compact vtab format required by bus:add_object_vtable
+--- Low level constructor, populate self as new server object
+function srv:initialize(bus, path, intf, errh)
+   assert(type(bus)=='userdata', "missing or invalid bus arg")
+   assert(type(path)=='string', "missing or invalid path arg")
+   assert(type(intf)=='table', "missing or invalid interface arg")
+
+   self._vt = intf_to_vtab(intf, errh, self)
+   self._slot = bus:add_object_vtable(path, self._vt)
+   self._bus, self._path, self._intf = bus, path, intf
+end
+
+-- Create a new server object
 -- @param bus bus object
 -- @param path path under which to provide this interface
 -- @param intf interface table
@@ -90,32 +101,14 @@ end
 -- if no error handler is present, the error will propagate to the
 -- lsdbus core, where it will is caught and printed to stderr.
 function srv.new(bus, path, intf, errh)
-   assert(type(bus)=='userdata', "missing or invalid bus arg")
-   assert(type(path)=='string', "missing or invalid path arg")
-   assert(type(intf)=='table', "missing or invalid interface arg")
-
-   local vtab = intf_to_vtab(intf, errh)
-   vtab.slot = bus:add_object_vtable(path, vtab)
-   vtab.bus, vtab.path, vtab.intf = bus, path, intf
-
-   setmetatable(vtab, { __index=srv })
-   return vtab
-end
-
--- OO constructor variant which uses self as the vtable object
-function srv:initialize(bus, path, intf, errh)
-   assert(type(bus)=='userdata', "missing or invalid bus arg")
-   assert(type(path)=='string', "missing or invalid path arg")
-   assert(type(intf)=='table', "missing or invalid interface arg")
-
-   intf_to_vtab(intf, errh, self)
-   self.slot = bus:add_object_vtable(path, self)
-   self.bus, self.path, self.intf = bus, path, intf
+   local o = {}
+   srv.initialize(o, bus, path, intf, errh)
+   return setmetatable(o, { __index=srv })
 end
 
 -- direct method handler invocation without vt arg
 function srv:call(m, ...)
-   local mtab = self.intf.methods[m]
+   local mtab = self._intf.methods[m]
    if not mtab then
       error(fmt("call: no method %s", m))
    end
@@ -126,7 +119,7 @@ end
 function srv:__call(m, ...) return self:call(m, ...) end
 
 function srv:Get(p)
-   local ptab = self.intf.properties[p]
+   local ptab = self._intf.properties[p]
    if not ptab then
       error(fmt("getProperty: no property %s", p))
    end
@@ -134,7 +127,7 @@ function srv:Get(p)
 end
 
 function srv:Set(p, value)
-   local ptab = self.intf.properties[p]
+   local ptab = self._intf.properties[p]
    if not ptab then
       error(fmt("setProperty: no property %s", p))
    end
@@ -142,37 +135,37 @@ function srv:Set(p, value)
 end
 
 function srv:HasProperty(p)
-   if (self.intf.properties or {})[p] then return true else return false end
+   if (self._intf.properties or {})[p] then return true else return false end
 end
 
 function srv:HasMethod(m)
-   if (self.intf.methods or {})[m] then return true else return false end
+   if (self._intf.methods or {})[m] then return true else return false end
 end
 
 function srv:HasSignal(s)
-   if (self.intf.signals or {})[s] then return true else return false end
+   if (self._intf.signals or {})[s] then return true else return false end
 end
 
 function srv:get_interface()
-   return self.intf
+   return self._intf
 end
 
 -- remove vtab and invalidate the object
 function srv:unref()
-   self.slot:unref()
+   self._slot:unref()
    setmetatable(self, nil)
 end
 
 function srv:emit(signal, ...)
-   local sigtab = self.signals[signal]
+   local sigtab = self._vt.signals[signal]
    if not sigtab then
       error(fmt("no signal '%s' on interface %s", signal, self.name))
    end
-   self.bus:emit_signal(self.path, self.intf.name, signal, sigtab.sig, ...)
+   self._bus:emit_signal(self._path, self._intf.name, signal, sigtab.sig, ...)
 end
 
 function srv:emitPropertiesChanged(...)
-   self.bus:emit_properties_changed(self.path, self.name, ...)
+   self._bus:emit_properties_changed(self._path, self.name, ...)
 end
 
 function srv:emitAllPropertiesChanged(filter)
@@ -183,7 +176,7 @@ function srv:emitAllPropertiesChanged(filter)
       error(fmt("invalid filter parameter type %s", filter))
    end
 
-   for p,pt in pairs(self.intf.properties or {}) do
+   for p,pt in pairs(self._intf.properties or {}) do
       if pt.access ~= 'write' then
 	 if pred(p, pt) then props[#props+1] = p end
       end

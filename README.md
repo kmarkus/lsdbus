@@ -720,6 +720,9 @@ the loop.
 
 (only API changes)
 
+- `lsdbus.server`: prefixing of internal fields (`.bus`, `.path`,
+  `.slot`, `.intf`) with `_` to prevent name collisions with user
+  fields. The low-level vtable is moved to `._vt)`.
 - constructors are now functions: use `lsdbus.server.new` and
   `lsdbus.proxy.new` instead of `lsdbus.server:new` and
   `lsdbus.proxy:new` respectivly.

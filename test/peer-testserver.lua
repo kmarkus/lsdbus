@@ -29,7 +29,7 @@ local interface = {
 	 end
       },
       thunk={
-	 handler=function(vt) dbg(u.tab2str(vt.bus:context())) end
+	 handler=function(vt) dbg(u.tab2str(vt._bus:context())) end
       },
       pow={
 	 {direction="in", name="x", type="i"},
@@ -77,7 +77,7 @@ local interface = {
       },
 
       Shutdown = {
-	 handler=function(vt) dbg("shutting down"); vt.bus:exit_loop() end
+	 handler=function(vt) dbg("shutting down"); vt._bus:exit_loop() end
       },
 
       Fail={
@@ -99,7 +99,7 @@ local interface = {
 	 type="i",
 	 get=function(vt) return vt.bar or 255 end,
 	 set=function(vt, val)
-	    local ctx = vt.bus:context()
+	    local ctx = vt._bus:context()
 	    dbg("setting %s Bar to %i", ctx.path, val)
 	    vt.bar = val
 	    vt:emitPropertiesChanged("Bar")
