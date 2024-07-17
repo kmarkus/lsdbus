@@ -80,7 +80,7 @@ function lsdbus.tovariant2(val)
 end
 
 function lsdbus.throw(name, format, ...)
-   error({name=name, msg=fmt(format, ...)}, 2)
+   error(name .."|"..fmt(format, ...), 2)
 end
 
 return lsdbus
