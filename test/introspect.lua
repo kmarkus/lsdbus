@@ -4,6 +4,7 @@ local lsdb = require("lsdbus")
 local TestIntrospect = {}
 
 local testnode = {
+   name="/com/example/sample_object0",
    interfaces = {
       {
 	 name="com.example.SampleInterface0",
