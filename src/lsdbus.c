@@ -548,12 +548,11 @@ static int lsdbus_bus_gc(lua_State *L)
 {
 	struct lsdbus_bus *lsdbus = (struct lsdbus_bus*) luaL_checkudata(L, 1, BUS_MT);
 
-	evl_cleanup(lsdbus->b);
-
 	if ((lsdbus->flags & LSDBUS_BUS_IS_DEFAULT)) {
 		sd_bus_flush(lsdbus->b);
 		sd_bus_unref(lsdbus->b);
 	} else {
+		evl_cleanup(lsdbus->b);
 		sd_bus_flush_close_unref(lsdbus->b);
 	}
 
