@@ -335,7 +335,7 @@ fields set: `bus`, `slot`, `path` and `intf` and apart from these
 fields can be freely used for storing state such as property values.
 
 Methods handlers and Properties getters/setters can be directly
-invoked on the vtable using the `vt:('METHOD')`, `vt:Get('PROPERTY')`
+invoked on the vtable using the `vt('METHOD')`, `vt:Get('PROPERTY')`
 and `vt:Set('PROPERTY')` respectively.
 
 Additionally, `vtable` objects allow emitting declared `signals`
