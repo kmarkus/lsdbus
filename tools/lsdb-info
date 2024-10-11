@@ -44,8 +44,11 @@ end
 
 local function get_services()
    local function cmd_from_pid(pid)
-      local f = assert(io.open(fmt("/proc/%i/comm", pid), 'r'))
-      return string.gsub(f:read('*a'), '\n$', '')
+      local f = io.open(fmt("/proc/%i/comm", pid), 'r')
+      if f then
+         return string.gsub(f:read('*a'), '\n$', '')
+      end
+      return "unknown"
    end
 
    local res = {}
