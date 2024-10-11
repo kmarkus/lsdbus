@@ -34,6 +34,7 @@ usage: lsdb-info: COMMAND [ARGS] [FLAGS]
  help            print this
 
 global flags
+ -r     raw output
  -s 	system bus
  -u	session bus
  -c 	colorize output
@@ -69,10 +70,20 @@ local is_stdif = {
    ['org.freedesktop.DBus.Peer']=true
 }
 
-local function show(service)
+local function show(service, raw)
    local m
    if not service then return end
    local objects = common.introspect(b, service)
+
+   if raw then
+      local ok, u = pcall(require , "utils")
+      if not ok then
+	 print("raw printing requires the `utils` module")
+	 os.exit(1)
+      end
+      u.pp(objects)
+      return
+   end
 
    print(bblue(service))
    for _,o in ipairs(objects) do
@@ -122,7 +133,7 @@ if cmd == 'list' then
    local _, rows = u.tabulate(services, hdr)
    u.write_table(io.stdout, hdr, rows, {count=false})
 elseif cmd == 'show' then
-   show(opttab[0][2])
+   show(opttab[0][2], opttab['-r'])
 elseif cmd == 'help' then
    help()
    os.exit()
