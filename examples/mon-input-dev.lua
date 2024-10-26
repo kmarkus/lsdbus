@@ -1,5 +1,8 @@
 --
 -- Small example of using add_io with input events
+-- This is basically a tiny Lua version of evtest(1)
+--
+-- see https://www.kernel.org/doc/html/latest/input/event-codes.html
 --
 
 local lsdb = require('lsdbus.core')
@@ -9,9 +12,9 @@ local fcntl = require("posix.fcntl")
 local struct_input_event_fmt = "=lI4HHI4"
 local struct_input_event_size = string.packsize(struct_input_event_fmt)
 
---- parse a struct input_event
+--- read a struct input_event
 -- returns tv_sec, tv_usec, ev_type, ev_code, value
-local function parse_input_ev(data)
+local function read_input_event(data)
    assert(#data == struct_input_event_size)
    return string.unpack(struct_input_event_fmt, data)
 end
@@ -24,7 +27,7 @@ local function handle_input(b, fd, revents)
 	 break
       end
 
-      local sec, usec, typ, code, val = parse_input_ev(data)
+      local sec, usec, typ, code, val = read_input_event(data)
       print(sec, usec, typ, code, val)
    end
 end
