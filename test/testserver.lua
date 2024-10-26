@@ -1,6 +1,5 @@
 local lu=require("luaunit")
 local lsdb = require("lsdbus")
-local utils = require("utils")
 local fmt = string.format
 local proxy = lsdb.proxy
 
@@ -88,7 +87,7 @@ function TestServer:TestCallAsync()
 
    assert_call_async(p1, 'Fail', {},
 		     { "__error__", { "org.freedesktop.DBus.Error.Failed",
-				      "test/peer-testserver.lua:84: unexpectedly messed up!"}})
+				      "test/peer-testserver.lua:86: unexpectedly messed up!"}})
 end
 
 function TestServer:TestCallWithInOut()
@@ -256,7 +255,7 @@ function TestServer:TestPropChanged()
 	 end
 	 b:run(100*1000)
       end
-      lu.fail(fmt("failed to receive event %s,%s,%s,%s,args=%s", s,p,i,m,utils.tab2str(args)))
+      lu.fail(fmt("failed to receive event %s,%s,%s,%s,args=%s", s,p,i,m,lu.prettystr(args)))
    end
 
    local function cb(b,s,p,i,m,...) sig = { s=s, p=p,i=i,m=m,args={...}} end

@@ -1,9 +1,8 @@
 
 local lu=require("luaunit")
-local u = require("utils")
 local lsdb = require("lsdbus")
-local socket = require("posix.sys.socket")
-local unistd = require "posix.unistd"
+local have_socket, socket = pcall(require, "posix.sys.socket")
+local have_unistd, unistd = pcall(require, "posix.unistd")
 
 local MEM_USAGE_MARGIN_KB = 64
 
@@ -12,6 +11,12 @@ local testconf = debug.getregistry()['lsdbus.testconfig']
 local b = lsdb.open(testconf.bus)
 
 local TestEvSrc = {}
+
+function TestEvSrc:setUp()
+   if not have_socket or not have_unistd then
+      lu.skip("no luaposix")
+   end
+end
 
 function TestEvSrc:TestNoLeak()
 

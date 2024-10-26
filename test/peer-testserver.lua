@@ -5,7 +5,6 @@
 --
 
 local lsdb = require("lsdbus")
-local u = require("utils")
 
 local DEBUG=false
 
@@ -29,7 +28,10 @@ local interface = {
 	 end
       },
       thunk={
-	 handler=function(vt) dbg(u.tab2str(vt._bus:context())) end
+	 handler=function(vt)
+	    local ctx = vt._bus:context()
+	    dbg("%s, %s, %s, %s, %s", ctx.sender, ctx.path, ctx.interface, ctx.member, ctx.destination)
+	 end
       },
       pow={
 	 {direction="in", name="x", type="i"},
@@ -221,6 +223,6 @@ b:add_signal(lsdb.SIGUSR2, function () error("SIGUSR1 caught, deliberately faili
 b:add_signal(lsdb.SIGHUP, reload)
 
 b:add_periodic(1*1000^2, 0, emit_time)
-b:add_periodic(5*1000^2, 0, function () error("test failure in periodic callback") end)
+b:add_periodic(10*1000^2, 0, function () error("test failure in periodic callback") end)
 
 b:loop()

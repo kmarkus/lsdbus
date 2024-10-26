@@ -34,13 +34,13 @@ and sd-event APIs.
     - [event sources](#event-sources)
 - [Internals](#internals)
     - [Introspection](#introspection)
+- [Tests](#tests)
 - [License](#license)
 - [FAQ](#faq)
     - [Error `System.Error.ENOTCONN: Transport endpoint is not connected`](#error-systemerrorenotconn-transport-endpoint-is-not-connected)
     - [`System.Error.ENOTCONN` after exiting loop](#systemerrorenotconn-after-exiting-loop)
 - [ChangeLog](#changelog)
 - [References](#references)
-
 <!-- markdown-toc end -->
 
 
@@ -696,6 +696,33 @@ Properties:
   Flip: s, readwrite
   Flop: a{ss}, readwrite
 Signals:
+```
+
+## Tests
+
+After installing lsdbus, the tests can be run from the project root as
+
+```
+$ ./scripts/test-runner.sh -r 3 -s
+Launching peer test server...
+running tests with Lua 5.4, luaunit args  -r 3 -s
+using bus: default
+..................................................................
+Ran 66 tests in 0.166 seconds, 66 successes, 0 failures
+OK
+tests completed with exit code  0
+Stopping peer test server with PID  1790834
+```
+
+This also starts the testserver peer service. The environment variable
+`LUA_VERSION` can be set to specifiy which Lua version to use. All
+arguments to the script are passed to luaunit.
+
+To run in dedicated D-Bus session:
+
+``` lua
+$ dbus-run-session -- ./scripts/test-runner.sh
+...
 ```
 
 ## License

@@ -1,21 +1,58 @@
 image: gcc:bookworm
 
+stages:
+  - build
+  - test
+
 build:
   stage: build
   before_script:
     - apt update
-    - apt -y install default-dbus-session-bus default-dbus-system-bus libsystemd0 libsystemd-dev
+    - apt -y install libsystemd0 libsystemd-dev
     - apt -y install cmake lua-unit libmxml1 libmxml-dev lua-compat53-dev
     - apt -y install luajit libluajit-5.1-dev
     - apt -y install lua5.1 liblua5.1-dev
     - apt -y install lua5.2 liblua5.2-dev
     - apt -y install lua5.3 liblua5.3-dev
     - apt -y install lua5.4 liblua5.4-dev
+    - echo "$(pwd)"
   script:
-    - echo "building for with $LUA_VERSION"
+    - echo "$(pwd)"
+    - echo "building with Lua $LUA_VERSION"
     - mkdir build-$LUA_VERSION && cd build-$LUA_VERSION && cmake -DCONFIG_LUA_VER=$LUA_VERSION .. && make && make install && cd ..
     - lua$LUA_VERSION -v -l lsdbus -e "print[[PASS]]"
   parallel:
     matrix:
       - LUA_VERSION: ['5.1', '5.2', '5.3', '5.4', 'jit']
+  artifacts:
+    paths:
+      - ./build-$LUA_VERSION/
 
+test:
+  stage: test
+  needs: ["build"]
+  before_script:
+    - apt update
+    - apt -y install dbus default-dbus-session-bus default-dbus-system-bus libsystemd0 libsystemd-dev
+    - apt -y install cmake lua-unit lua-posix libmxml1 libmxml-dev lua-compat53-dev
+    - apt -y install luajit libluajit-5.1-dev
+    - apt -y install lua5.1 liblua5.1-dev
+    - apt -y install lua5.2 liblua5.2-dev
+    - apt -y install lua5.3 liblua5.3-dev
+    - apt -y install lua5.4 liblua5.4-dev
+    - cd build-jit && make install && cd ..
+    - cd build-5.1 && make install && cd ..
+    - cd build-5.2 && make install && cd ..
+    - cd build-5.3 && make install && cd ..
+    - cd build-5.4 && make install && cd ..
+  script:
+    - echo "Running tests with Lua $LUA_VERSION"
+    - dbus-run-session --config-file scripts/dbus-test.conf -- scripts/test-runner.sh -r 3 -o junit -n test-output-$LUA_VERSION
+  artifacts:
+    paths:
+      - test/test-output-$LUA_VERSION.xml
+    reports:
+      junit: test/test-output-$LUA_VERSION.xml
+  parallel:
+    matrix:
+      - LUA_VERSION: ['5.1', '5.2', '5.3', '5.4', 'jit']

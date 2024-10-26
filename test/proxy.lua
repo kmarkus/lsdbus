@@ -7,11 +7,18 @@ TestProxy = {}
 local b, td, hn, login
 
 function TestProxy:setup()
-   b = lsdb.open('system')
+   local ok, ok_td, ok_hn, ok_login
 
-   td = proxy.new(b, 'org.freedesktop.timedate1', '/org/freedesktop/timedate1', 'org.freedesktop.timedate1')
-   hn = proxy.new(b, 'org.freedesktop.hostname1', '/org/freedesktop/hostname1', 'org.freedesktop.hostname1')
-   login = proxy.new(b, 'org.freedesktop.login1', '/org/freedesktop/login1', 'org.freedesktop.login1.Manager')
+   ok, b = pcall(lsdb.open, 'system')
+   if not ok then lu.skip("no system bus available") end
+
+   ok_td, td = pcall(proxy.new, b, 'org.freedesktop.timedate1', '/org/freedesktop/timedate1', 'org.freedesktop.timedate1')
+   ok_hn, hn = pcall(proxy.new, b, 'org.freedesktop.hostname1', '/org/freedesktop/hostname1', 'org.freedesktop.hostname1')
+   ok_login, login = pcall(proxy.new, b, 'org.freedesktop.login1', '/org/freedesktop/login1', 'org.freedesktop.login1.Manager')
+
+   if not ok_td or not ok_hn or not ok_login then
+      lu.skip("timedate, hostname or login services unavailable")
+   end
 end
 
 function TestProxy:TestPing()
