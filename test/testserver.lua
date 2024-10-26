@@ -349,4 +349,42 @@ function TestServer:TestFailWithCustomDBusError()
    lu.assert_error_msg_contains(msg, f)
 end
 
+function TestServer:TestSetAV()
+   local t_asv1 = {a=1,b=2,foo='bar'}
+   local t_asv2 = {a=1,b={c={d={1,2,3,4},x='ha',frib="9",flop="8"}}}
+   local t_asv3 = {}
+
+   -- a{sv}
+   p1:SetAV("DictOfStrVar", t_asv1); lu.assert_equals(p1.DictOfStrVar, t_asv1)
+   p1:SetAV("DictOfStrVar", t_asv2); lu.assert_equals(p1.DictOfStrVar, t_asv2)
+   p1:SetAV("DictOfStrVar", t_asv3); lu.assert_equals(p1.DictOfStrVar, t_asv3)
+
+   -- v
+   local t_v1 = { x=2, a={["1"]="foo",["2"]="bar", a1={y={1,2,3}}}}
+   local t_v2 = 1
+   local t_v3 = {}
+   p1:SetAV("Var", t_v1); lu.assert_equals(p1.Var, t_v1)
+   p1:SetAV("Var", t_v2); lu.assert_equals(p1.Var, t_v2)
+   p1:SetAV("Var", t_v3); lu.assert_equals(p1.Var, t_v3)
+
+   -- av
+   local t_av1 = { {a=1}, {b=2}, {c={d={e=1}}}}
+   local t_av2 = { {}, {}, {}, }
+   local t_av3 = {}
+   p1:SetAV("ArrOfVar", t_av1); lu.assert_equals(p1.ArrOfVar, t_av1)
+   p1:SetAV("ArrOfVar", t_av2); lu.assert_equals(p1.ArrOfVar, t_av2)
+   p1:SetAV("ArrOfVar", t_av3); lu.assert_equals(p1.ArrOfVar, t_av3)
+
+   -- a{iv}
+   local t_aiv1 = { {a=1}, {b=2}, {c={d={e=1}}}}
+   local t_aiv2 = { 1, 2, 3 }
+   local t_aiv3 = { 1, 2, 3, {x='foo'}}
+   local t_aiv4 = {}
+   p1:SetAV("DictOfIntVar", t_aiv1); lu.assert_equals(p1.DictOfIntVar, t_aiv1)
+   p1:SetAV("DictOfIntVar", t_aiv2); lu.assert_equals(p1.DictOfIntVar, t_aiv2)
+   p1:SetAV("DictOfIntVar", t_aiv3); lu.assert_equals(p1.DictOfIntVar, t_aiv3)
+   p1:SetAV("DictOfIntVar", t_aiv4); lu.assert_equals(p1.DictOfIntVar, t_aiv4)
+
+end
+
 return TestServer

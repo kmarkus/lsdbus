@@ -17,6 +17,7 @@ TestVtab = require("testvtab")
 TestToVariant = require("tovariant")
 TestSig = require("testsig")
 TestServer = require("testserver")
+TestEvSrc = require("testevsrc")
 
 runner = lu.LuaUnit.new()
 

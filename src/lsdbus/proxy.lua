@@ -151,6 +151,25 @@ function proxy:Set(k, ...)
    return self:xcall(prop_if, 'Set', 'ssv', self._intf.name, k, { self._intf.properties[k].type, ... })
 end
 
+function proxy:SetAV(k, value)
+   local ptab = self._intf.properties[k]
+
+   if not ptab then
+      self:error(err.UNKOWN_PROPERTY, fmt("Set: unknown property %s", k))
+   end
+
+   local t = ptab.type
+
+   if t == "a{sv}" or t == "a{iv}" or t == "av" then
+      value = common.tovariant2(value)
+   elseif ptab.type == "v" then
+      value = common.tovariant(value)
+   end
+
+   return self:xcall(prop_if, 'Set', 'ssv', self._intf.name, k, { self._intf.properties[k].type, value })
+end
+
+
 function proxy:GetAll(filter)
    local p = self:xcall(prop_if, 'GetAll', 's', self._intf.name)
 

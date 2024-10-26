@@ -105,6 +105,44 @@ local interface = {
 	    vt:emitPropertiesChanged("Bar")
 	 end
       },
+
+      -- the following variants are the ones supported by proxy:SetAutoVar
+      Var={
+	 access="readwrite",
+	 type="v",
+	 get=function(vt) return lsdb.tovariant(vt.Var or {}) end,
+	 set=function(vt, val)
+	    vt.Var = val
+	    vt:emitPropertiesChanged("Var")
+	 end
+      },
+      DictOfStrVar={
+	 access="readwrite",
+	 type="a{sv}",
+	 get=function(vt) return lsdb.tovariant2(vt.DictOfStrVar or {}) end,
+	 set=function(vt, val)
+	    vt.DictOfStrVar = val
+	    vt:emitPropertiesChanged("DictOfStrVar")
+	 end
+      },
+      ArrOfVar = {
+	 access="readwrite",
+	 type="av",
+	 get=function(vt) return lsdb.tovariant2(vt.ArrOfVar or {}) end,
+	 set=function(vt, val)
+	    vt.ArrOfVar = val
+	    vt:emitPropertiesChanged("ArrOfVar")
+	 end
+      },
+      DictOfIntVar = {
+	 access="readwrite",
+	 type="a{iv}",
+	 get=function(vt) return lsdb.tovariant2(vt.DictOfIntVar or {}) end,
+	 set=function(vt, val)
+	    vt.DictOfIntVar = val
+	    vt:emitPropertiesChanged("DictOfIntVar")
+	 end
+      },
       Time={
 	 access="read",
 	 type="x",

@@ -4,6 +4,7 @@ if _VERSION < "Lua 5.3" then
 end
 
 local lsdbus = require "lsdbus.core"
+local common = require("lsdbus.common")
 
 lsdbus.proxy = require("lsdbus.proxy")
 lsdbus.server = require("lsdbus.server")
@@ -25,62 +26,12 @@ function lsdbus.find_intf(node, interface)
    end
 end
 
---- encode an arbitrary Lua datastructure into a lsdb variant table
--- the value returned from this function can be directly passed as a
--- second argument after a 'v' parameter.
--- example
---   utils.pp(tovariant{a=1,b={foo='hi'}}) -> {"a{sv}",{a={"x",1},b={"a{sv}",{foo={"s","hi"}}}}}
--- roundtrip:
---   utils.pp(b:testmsg('v', tovariant{a=1,b={foo='hi'}})) -> {a=1,b={foo="hi"}}
---
--- @param val value to encode
--- @return lsdbus variant table
-function lsdbus.tovariant(val)
-   local function is_array(t)
-      for k in pairs(t) do
-	 if math.type(k) ~= 'integer' then return false end
-      end
-      return true
-   end
-
-   local typ = type(val)
-
-   if typ == 'number' then
-      if math.type(val) == 'integer' then
-	 return { 'x', val }
-      else
-	 return { 'd', val }
-      end
-   elseif typ == 'string' then
-      return { 's', val }
-   elseif typ == 'boolean' then
-      return { 'b', val }
-   elseif typ == 'table' then
-      if is_array(val) then
-	 local res = {}
-	 for i,v in pairs(val) do res[i] = lsdbus.tovariant(v) end
-	 return { 'a{iv}', res }
-      else
-	 local res = {}
-	 for k,v in pairs(val) do res[k] = lsdbus.tovariant(v) end
-	 return { 'a{sv}', res }
-      end
-   else
-      error(string.format("unsupported type %s", typ))
-   end
-end
-
---- encode an arbitrary Lua datastructure into a lsdb variant table
---- but only return the actual variant table, not the typestr.
--- This is useful to return variants from property get/set or methods
--- where the variant typestr is already added by the server method.
-function lsdbus.tovariant2(val)
-   local r = lsdbus.tovariant(val)
-   return r[2]
-end
-
 function lsdbus.throw(name, format, ...)
    error(name .."|"..fmt(format, ...), 2)
 end
+
+-- backwards compat
+lsdbus.tovariant = common.tovariant
+lsdbus.tovariant2 = common.tovariant2
 
 return lsdbus

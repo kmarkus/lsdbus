@@ -486,6 +486,8 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 > is a limitation of D-Bus which doesn't allow dictionaries with
 > heterogeneous keys.
 
+The `proxy:SetAV` uses the tovariant functions internally.
+
 ### Bus connection object
 
 | Methods                                                                       | Description                                  |
@@ -557,6 +559,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 | `prxy:Get(name)`                               | get a properties value                                |
 | `prxy.name`                                    | short form, same as previous                          |
 | `prxy:Set(name, value)`                        | set a property                                        |
+| `prxy:SetAV(name, value)`                      | set a property (auto convert variants)                |
 | `prxy.name = value`                            | short form for setting a property to value            |
 | `prxy:GetAll(filter)`                          | get all properties that match the optional filter     |
 | `prxy:SetAll(t)`                               | set all properties from a table                       |
@@ -573,6 +576,9 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
   2. a filter function that accepts `(name, value, description)` and
   returns `true` or `false` depending on whether the value shall be
   included in the result or not.
+- `SetAV` ("auto variant") will use `tovariant` to automatically
+  convert standard Lua types to lsdbus variants. Currently supported
+  are `a{sv}`, `v`, `av` and `a{iv}`.
 - see *Internals* about how `lsdbus.proxy` works.
 
 ### lsdbus.server
@@ -720,6 +726,7 @@ the loop.
 
 (only API changes)
 
+- added `proxy:SetAV` (Auto Variant) property set method
 - `lsdbus.server`: prefixing of internal fields (`.bus`, `.path`,
   `.slot`, `.intf`) with `_` to prevent name collisions with user
   fields. The low-level vtable is moved to `._vt)`.
