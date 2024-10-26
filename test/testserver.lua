@@ -230,7 +230,7 @@ function TestServer:TestProps()
    patt = ".*lsdbus%.test%.testintf0%.BOOM:%s*calling Get%(ss%) failed:%s*%(lsdbus%.test, /1, lsdbus%.test%.testintf0%)"
    lu.assert_error_msg_matches(patt, function() return p1.Fail3 end)
 
-   patt = ".*org%.freedesktop%.DBus%.Error%.Failed: calling Set%(ssv%) failed: test/peer%-testserver%.lua:137: |just a message %(lsdbus%.test, /1, lsdbus%.test%.testintf0%)"
+   patt = ".*org%.freedesktop%.DBus%.Error%.Failed: calling Set%(ssv%) failed: test/peer%-testserver%.lua:%d+: |just a message %(lsdbus%.test, /1, lsdbus%.test%.testintf0%)"
    lu.assert_error_msg_matches(patt, function() p1.Fail3 = true end)
 
 end
