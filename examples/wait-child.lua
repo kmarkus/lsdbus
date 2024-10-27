@@ -1,5 +1,4 @@
 -- tiny example to illustrate use of child pid event source
--- send different signals to the
 
 local lsdb = require("lsdbus.core")
 local unistd = require("posix.unistd")
@@ -21,8 +20,7 @@ end
 local function do_fork()
    local pid = unistd.fork()
    if pid == 0 then
-      print("child process has pid", unistd.getpid())
-      unistd.exec("/usr/bin/sleep", {60})
+      unistd.exec("/usr/bin/sleep", {30})
       unistd._exit(1)
    else
       return pid
@@ -31,6 +29,19 @@ end
 
 local b = lsdb.open()
 local pid = do_fork()
+
+local info = utils.expand([[
+Child process with pid $PID exit in 60s
+Send it signals like
+
+$ kill -SIGSTOP $PID
+$ kill -SIGCONT $PID
+$ kill -SIGKILL $PID
+
+to test the wait callback.
+]], {PID=pid})
+
+print(info)
 
 b:add_child(pid, lsdb.WEXITED|lsdb.WSTOPPED|lsdb.WCONTINUED, callback)
 

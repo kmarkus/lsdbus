@@ -707,7 +707,7 @@ Signals:
 
 After installing lsdbus, the tests can be run from the project root as
 
-```
+```sh
 $ ./scripts/test-runner.sh -r 3 -s
 Launching peer test server...
 running tests with Lua 5.4, luaunit args  -r 3 -s
@@ -725,7 +725,7 @@ arguments to the script are passed to luaunit.
 
 To run in dedicated D-Bus session:
 
-``` lua
+```sh
 $ dbus-run-session -- ./scripts/test-runner.sh
 ...
 ```
