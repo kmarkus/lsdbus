@@ -1,0 +1,120 @@
+#!/usr/bin/lua
+
+local u = require("utils")
+local lsdb = require("lsdbus")
+local ac = require("ansicolors")
+local ts = tostring
+
+local b, bus, color, verbose
+
+local function printf(fmt, ...) print(string.format(fmt, ...)) end
+local function log(...)
+   if verbose then printf(...) end
+end
+
+local function make_colorize(colorize)
+   return function(s) if color then return colorize(s) else return ts(s) end end
+end
+
+local blue = make_colorize(ac.blue)
+local bblue = make_colorize(function(s) return ac.bright(ac.blue(s or "")) end)
+local red = make_colorize(ac.red)
+local green = make_colorize(ac.green)
+local cyan = make_colorize(ac.cyan)
+local yellow = make_colorize(ac.yellow)
+local magenta = make_colorize(ac.magenta)
+local bmagenta = make_colorize(function(s) return ac.bright(ac.magenta(s or "")) end)
+
+local function fmtkey(k) return ac.blue(k) end
+
+local function fmtval(k)
+   if type(k) == "boolean" then
+      if k==true then return green(k) else return red(k) end
+   elseif type(k) == "number" then return cyan(k)
+   elseif type(k) == "string" then return yellow('"'..k..'"')
+   else
+      return ts(k)
+   end
+end
+
+local function pp_props(t, ind)
+   local keys, maxk = {}, 0
+   ind = ind or ""
+   for k in pairs(t) do keys[#keys+1], maxk = k, math.max(maxk, #ts(k)) end
+   table.sort(keys)
+   for _, k in ipairs(keys) do
+      local v = t[k]
+      if type(v) == 'table' then
+	 if #v == 0 then
+	    print(ind .. fmtkey(k) .. ' = []')
+	 else
+	    print(ind .. fmtkey(k) .. ' = ['.. string.rep(" ", maxk - #ts(k)))
+	    pp_props(v, ind .. "  ")
+	    print(ind .. ']')
+	 end
+      else
+	 print(ind .. fmtkey(k) .. ' = ' .. string.rep(" ", maxk - #ts(k)) .. fmtval(v))
+      end
+   end
+end
+
+local function help()
+   printf([=[
+usage: lsdb-prop DEST,PATH[,INTERFACE] [PROP1[=VALUE1],[PROP2[=VALUE2]]] [FLAGS]
+
+flags
+ -s 	system bus
+ -u	session bus
+ -c     colorize output
+ -v     verbose
+
+*examples*
+
+# show all properties of interfaces
+$ lsdb-prop foo.bar,/,com.foo.bar
+
+# get a specific property
+$ lsdb-rpop
+
+]=])
+end
+
+local opttab = u.proc_args(arg)
+
+verbose = opttab['-v']
+if opttab['-c'] then color = true end
+if opttab['-h'] then help(); os.exit(1) end
+if opttab['-s'] then bus='default_system'
+elseif opttab['-u'] then bus='default_user' end
+
+if opttab[0][1]==nil then
+   printf("missing argument")
+   os.exit(1)
+end
+
+log("using %s bus", bus or 'default')
+b = lsdb.open(bus)
+
+local s, p, i = string.match(opttab[0][1], "([^,]*),?([^,]*),?(.*)")
+
+if s == nil then
+   printf("invalid destination spec")
+   os.exit(1)
+end
+
+local value = opttab[0][2]
+
+local prxy = lsdb.proxy.new(b, s, p, i)
+
+if not value then
+   local props = prxy:GetAll()
+   pp_props(props)
+else
+   local ret,val = u.eval_sandbox(string.format("return "..value))
+   if ret then
+      prxy[m] = val
+   else
+      printf("failed to parse value: %s", val)
+      os.exit(1)
+   end
+end
