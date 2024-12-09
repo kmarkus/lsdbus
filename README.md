@@ -331,7 +331,7 @@ b:loop()
 ```
 
 The `vtable` table returned by `lsdb.server.new` has the following
-fields set: `bus`, `slot`, `path` and `intf` and apart from these
+fields set: `_bus`, `_slot`, `_path` and `_intf` and apart from these
 fields can be freely used for storing state such as property values.
 
 Methods handlers and Properties getters/setters can be directly

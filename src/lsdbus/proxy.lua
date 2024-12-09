@@ -283,6 +283,10 @@ function proxy.new(bus, srv, obj, intf, opts)
    if type(intf) == 'string' then
       o._intf = { name = intf }
       introspect(o)
+   elseif type(intf) == 'table' then
+      assert(type(intf.name) == 'string', "invalid interface table, missing 'name'")
+   else
+      error("invalid intf arg")
    end
 
    o._intf.methods = o._intf.methods or {}
