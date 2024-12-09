@@ -10,11 +10,18 @@
 
 static int evsrc_tostring(lua_State *L)
 {
-	int ret;
+	int ret, enabled;
 	const char *desc;
+
 	sd_event_source *evsrc = *((sd_event_source**) luaL_checkudata(L, -1, EVSRC_MT));
+
+
+	ret = sd_event_source_get_enabled(evsrc, &enabled);
+	if (ret<0)
+		luaL_error(L, "event_source_get_enabled failed: %s", strerror(-ret));
+
 	ret = sd_event_source_get_description(evsrc, &desc);
-	lua_pushfstring(L, "event_source [%s] %p", (ret<0)?"unkown":desc, evsrc);
+	lua_pushfstring(L, "event_source [%s, %s] %p", (ret<0)?"unkown":desc, (enabled==-1?"oneshot":(enabled==1?"enabled":"disabled")), evsrc);
 	return 1;
 }
 
@@ -31,6 +38,21 @@ static int evsrc_set_enabled(lua_State *L)
 		luaL_error(L, "event_source_set_enabled failed: %s", strerror(-ret));
 
 	return 0;
+}
+
+static int evsrc_get_enabled(lua_State *L)
+{
+	int ret, enabled;
+
+	sd_event_source *evsrc = *((sd_event_source**) luaL_checkudata(L, -1, EVSRC_MT));
+
+	ret = sd_event_source_get_enabled(evsrc, &enabled);
+
+	if (ret<0)
+		luaL_error(L, "event_source_get_enabled failed: %s", strerror(-ret));
+
+	lua_pushboolean(L, (enabled == SD_EVENT_ON || enabled == SD_EVENT_ONESHOT));
+	return 1;
 }
 
 /* just set it to floating */
@@ -65,6 +87,7 @@ static int evsrc_unref(lua_State *L)
 
 const luaL_Reg lsdbus_evsrc_m [] = {
 	{ "set_enabled", evsrc_set_enabled },
+	{ "get_enabled", evsrc_get_enabled },
 	{ "unref", evsrc_unref },
 	{ "__tostring", evsrc_tostring },
 	{ "__gc", evsrc_gc },
