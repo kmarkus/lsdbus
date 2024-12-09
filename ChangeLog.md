@@ -1,5 +1,9 @@
 # API Changes
 
+- `b:add_periodic`: accepts additional argument `mode` which defines
+  to which mode event should be set after creation. The default value
+   is `SD_EVENT_ONESHOT`.
+
 - `b:add_signal`: takes a numeric signals numbers instead of a
   string. the `lsdbus` module defines constants for supported signals.
 
