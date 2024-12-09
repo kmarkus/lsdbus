@@ -381,14 +381,19 @@ local function callback(bus, usec)
   -- usec is planned trigger time
 end
 
-evsrc = b:add_periodic(period, accuracy, callback)
+evsrc = b:add_periodic(period, accuracy, callback, mode)
 ```
 
 The `period` and `accuracy` (both in microseconds) correspond to the
 same parameters in `sd_event_add_time(3)`.
 
-The returned `event_src` object supports a method `set_enabled(int)`
-that allows enabling and disabling the event source.
+The `mode` defines which mode should be set to event after creation. The 
+default mode is `SD_EVENT_ONESHOT`. Supported modes are the same which
+`set_enabled(int)` accepts. 
+
+The returned `event_src` object supports methods `set_enabled(int)`
+that allows enabling and disabling the event source, and `int get_enabled()`,
+that returns event's current mode.
 
 See `examples/periodic.lua` for an example.
 
@@ -639,6 +644,7 @@ The behavior upon garbage collection depends on the slot type:
 | Method                 | Description                                                                           |
 |------------------------|---------------------------------------------------------------------------------------|
 | `set_enabled(enabled)` | `enabled`: `lsdbus.SD_EVENT_[ON\|OFF\|ONESHOT]`. see `sd_event_source_set_enabled(3)` |
+| `get_enabled()`        | returns `lsdbus.SD_EVENT_[ON\|OFF\|ONESHOT]`. see `sd_event_source_get_enabled(3)`    |
 | `unref()`              | remove event source. calls `sd_event_source_unref(3)`                                 |
 
 > **Note**: `evsrc` (event source) objects are **not** released
