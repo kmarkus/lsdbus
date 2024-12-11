@@ -8,30 +8,27 @@ local ts = tostring
 local b, bus, color, verbose
 
 local function printf(fmt, ...) print(string.format(fmt, ...)) end
-local function log(...)
-   if verbose then printf(...) end
-end
+local function log(...) if verbose then printf(...) end end
 
 local function make_colorize(colorize)
    return function(s) if color then return colorize(s) else return ts(s) end end
 end
 
-local blue = make_colorize(ac.blue)
-local bblue = make_colorize(function(s) return ac.bright(ac.blue(s or "")) end)
-local red = make_colorize(ac.red)
-local green = make_colorize(ac.green)
-local cyan = make_colorize(ac.cyan)
-local yellow = make_colorize(ac.yellow)
-local magenta = make_colorize(ac.magenta)
-local bmagenta = make_colorize(function(s) return ac.bright(ac.magenta(s or "")) end)
+local blue     = make_colorize(ac.blue)
+local red      = make_colorize(ac.red)
+local green    = make_colorize(ac.green)
+local cyan     = make_colorize(ac.cyan)
+local yellow   = make_colorize(ac.yellow)
 
-local function fmtkey(k) return ac.blue(k) end
+local function fmtkey(k) return blue(k) end
 
 local function fmtval(k)
    if type(k) == "boolean" then
-      if k==true then return green(k) else return red(k) end
-   elseif type(k) == "number" then return cyan(k)
-   elseif type(k) == "string" then return yellow('"'..k..'"')
+      return k and green(k) or red(k)
+   elseif type(k) == "number" then
+      return cyan(k)
+   elseif type(k) == "string" then
+      return yellow('"'..k..'"')
    else
       return ts(k)
    end
@@ -60,11 +57,13 @@ end
 
 local function help()
    printf([=[
-usage: lsdb-prop DEST,PATH[,INTERFACE] [PROP1[=VALUE1],[PROP2[=VALUE2]]] [FLAGS]
+usage: lsdb-prop DEST,PATH[,INTERFACE] [PROP[=VALUE]] [FLAGS]
 
 flags
- -s 	system bus
- -u	session bus
+ -e     automatically encode variants
+ -r     do not automatically decode variants
+ -s     system bus
+ -u     session bus
  -c     colorize output
  -v     verbose
 
@@ -74,20 +73,23 @@ flags
 $ lsdb-prop foo.bar,/,com.foo.bar
 
 # get a specific property
-$ lsdb-rpop
+$ lsdb-prop foo.bar,/,com.foo.bar PropX
+
+# set a property
+$ lsdb-prop foo.bar,/,com.foo.bar PropX=42
 
 ]=])
 end
 
+-- parse command line arguments
 local opttab = u.proc_args(arg)
-
 verbose = opttab['-v']
 if opttab['-c'] then color = true end
-if opttab['-h'] then help(); os.exit(1) end
-if opttab['-s'] then bus='default_system'
-elseif opttab['-u'] then bus='default_user' end
+if opttab['-h'] then help(); os.exit(0) end
+if opttab['-s'] then bus = 'default_system'
+elseif opttab['-u'] then bus = 'default_user' end
 
-if opttab[0][1]==nil then
+if not opttab[0] or not opttab[0][1] then
    printf("missing argument")
    os.exit(1)
 end
@@ -97,24 +99,35 @@ b = lsdb.open(bus)
 
 local s, p, i = string.match(opttab[0][1], "([^,]*),?([^,]*),?(.*)")
 
-if s == nil then
+if not s or s == "" then
    printf("invalid destination spec")
    os.exit(1)
 end
 
-local value = opttab[0][2]
-
+local arg2 = opttab[0][2]
 local prxy = lsdb.proxy.new(b, s, p, i)
 
-if not value then
+if not arg2 then
+   -- No property specified: list all
    local props = prxy:GetAll()
+   require("utils").pp(props)
    pp_props(props)
 else
-   local ret,val = u.eval_sandbox(string.format("return "..value))
-   if ret then
-      prxy[m] = val
+   local key, value = string.match(arg2, "([^=]+)=?(.*)")
+   if value == "" then
+      -- Getter
+      if not prxy:HasProperty(key) then
+	 printf("no property %s", key)
+	 os.exit(1)
+      end
+      u.pp(prxy[key])
    else
-      printf("failed to parse value: %s", val)
-      os.exit(1)
+      -- Setter
+      local ok, val = u.eval_sandbox("return " .. value)
+      if not ok then
+	 printf("failed to parse value: %s", val)
+	 os.exit(1)
+      end
+      prxy[key] = val
    end
 end

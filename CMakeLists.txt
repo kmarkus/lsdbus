@@ -61,8 +61,9 @@ install(FILES
   )
 
 install(PROGRAMS
-  tools/lsdb-mon
   tools/lsdb-call
   tools/lsdb-emit
   tools/lsdb-info
+  tools/lsdb-mon
+  tools/lsdb-prop
   DESTINATION ${CMAKE_INSTALL_BINDIR})
