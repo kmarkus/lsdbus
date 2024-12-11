@@ -381,14 +381,18 @@ local function callback(bus, usec)
   -- usec is planned trigger time
 end
 
-evsrc = b:add_periodic(period, accuracy, callback)
+evsrc = b:add_periodic(period, accuracy, callback, enabled)
 ```
 
 The `period` and `accuracy` (both in microseconds) correspond to the
 same parameters in `sd_event_add_time(3)`.
 
-The returned `event_src` object supports a method `set_enabled(int)`
-that allows enabling and disabling the event source.
+The `enabled` defines if periodc event should be enabled after creation.
+The default value is `true`.
+
+The returned `event_src` object supports methods `set_enabled(int)`
+that allows enabling and disabling the event source, and `int get_enabled()`,
+that returns event's current mode.
 
 See `examples/periodic.lua` for an example.
 
@@ -639,6 +643,7 @@ The behavior upon garbage collection depends on the slot type:
 | Method                 | Description                                                                           |
 |------------------------|---------------------------------------------------------------------------------------|
 | `set_enabled(enabled)` | `enabled`: `lsdbus.SD_EVENT_[ON\|OFF\|ONESHOT]`. see `sd_event_source_set_enabled(3)` |
+| `get_enabled()`        | returns `lsdbus.SD_EVENT_[ON\|OFF\|ONESHOT]`. see `sd_event_source_get_enabled(3)`    |
 | `unref()`              | remove event source. calls `sd_event_source_unref(3)`                                 |
 
 > **Note**: `evsrc` (event source) objects are **not** released
@@ -753,6 +758,9 @@ the loop.
 
 (only API changes)
 
+- `b:add_periodic`: accepts additional argument `enabled` which defines
+  if periodic event should be enabled or disabled after creation. The
+  default value is `true` == `enabled`.
 - added `proxy:SetAV` (Auto Variant) property set method
 - `lsdbus.server`: prefixing of internal fields (`.bus`, `.path`,
   `.slot`, `.intf`) with `_` to prevent name collisions with user

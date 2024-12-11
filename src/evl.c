@@ -10,11 +10,18 @@
 
 static int evsrc_tostring(lua_State *L)
 {
-	int ret;
+	int ret, enabled;
 	const char *desc;
+
 	sd_event_source *evsrc = *((sd_event_source**) luaL_checkudata(L, -1, EVSRC_MT));
+
+
+	ret = sd_event_source_get_enabled(evsrc, &enabled);
+	if (ret<0)
+		luaL_error(L, "event_source_get_enabled failed: %s", strerror(-ret));
+
 	ret = sd_event_source_get_description(evsrc, &desc);
-	lua_pushfstring(L, "event_source [%s] %p", (ret<0)?"unkown":desc, evsrc);
+	lua_pushfstring(L, "event_source [%s, %s] %p", (ret<0)?"unkown":desc, (enabled==-1?"oneshot":(enabled==1?"enabled":"disabled")), evsrc);
 	return 1;
 }
 
@@ -31,6 +38,21 @@ static int evsrc_set_enabled(lua_State *L)
 		luaL_error(L, "event_source_set_enabled failed: %s", strerror(-ret));
 
 	return 0;
+}
+
+static int evsrc_get_enabled(lua_State *L)
+{
+	int ret, enabled;
+
+	sd_event_source *evsrc = *((sd_event_source**) luaL_checkudata(L, -1, EVSRC_MT));
+
+	ret = sd_event_source_get_enabled(evsrc, &enabled);
+
+	if (ret<0)
+		luaL_error(L, "event_source_get_enabled failed: %s", strerror(-ret));
+
+	lua_pushinteger(L, enabled);
+	return 1;
 }
 
 /* just set it to floating */
@@ -65,6 +87,7 @@ static int evsrc_unref(lua_State *L)
 
 const luaL_Reg lsdbus_evsrc_m [] = {
 	{ "set_enabled", evsrc_set_enabled },
+	{ "get_enabled", evsrc_get_enabled },
 	{ "unref", evsrc_unref },
 	{ "__tostring", evsrc_tostring },
 	{ "__gc", evsrc_gc },
@@ -281,7 +304,6 @@ static int timer_callback(sd_event_source *evsrc, uint64_t usec, void* userdata)
 		usec += period;
 	
 	sd_event_source_set_time(evsrc, usec);
-	sd_event_source_set_enabled(evsrc, SD_EVENT_ON);
 
 	lua_settop(L, top);
 	return 0;
@@ -289,14 +311,24 @@ static int timer_callback(sd_event_source *evsrc, uint64_t usec, void* userdata)
 
 int evl_add_periodic(lua_State *L)
 {
-	int ret;
+	int ret, enabled = SD_EVENT_ON;
 	uint64_t now, usec, accuracy;
 	sd_event_source *evsrc, **evsrcp;
+
+	if (lua_gettop(L) > 5) {
+		luaL_error(L, "too many arguments");
+	}
 
 	sd_bus *b = lua_checksdbus(L, 1);
 	usec = luaL_checkinteger(L, 2);
 	accuracy = luaL_optinteger(L, 3, 0);
 	luaL_checktype(L, 4, LUA_TFUNCTION);
+
+	if (lua_isnone(L, 5) == 0) {
+		enabled = lua_toboolean(L, 5) ? SD_EVENT_ON : SD_EVENT_OFF;
+		/* when there was anything pop it, because stack is used further down. */
+		lua_pop(L, 1);
+	}
 
 	sd_event *loop = evl_get(L, b);
 
@@ -312,8 +344,11 @@ int evl_add_periodic(lua_State *L)
 		loop, &evsrc, CLOCK_MONOTONIC, now+usec, accuracy, timer_callback, L);
 
 	if(ret<0)
-		luaL_error(L, "failed add relativ time source: %s",
-			   strerror(-ret));
+		luaL_error(L, "failed add monotonic time source: %s", strerror(-ret));
+
+	ret = sd_event_source_set_enabled(evsrc, enabled);
+	if(ret<0)
+		luaL_error(L, "failed to set event mode: %s", strerror(-ret));
 
 	lua_newtable(L);
 	lua_pushvalue(L, 4);
