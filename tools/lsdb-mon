@@ -17,6 +17,7 @@ end
 
 local function pp(_, s, p, i, m, ...)
    u.pp(s, p, i, m, u.tab2str({...}))
+   return 0
 end
 
 local function colorpp(_, s, p, i, m, ...)
@@ -29,7 +30,7 @@ usage: lsdb-mon: COMMAND [ARGS] [FLAGS]
 
 without any args just dump all signals
  sig      SENDER,PATH,INTERFACE,MEMBER (empty entries are allowed)
- expr     MATCH-EXPRESSION
+ expr     MATCH-EXPRESSION [MATCH_EXPRESSION ...]
  help     print this
 
 global flags
@@ -62,7 +63,14 @@ elseif cmd == 'sig' then
    b:match_signal(_n(s), _n(p), _n(i), _n(m), pp)
 elseif cmd == 'expr' then
    log("matching expression %s", opttab[0][2])
-   b:match(opttab[0][2], pp)
+   for i=2,#opttab[0] do
+      b:match(opttab[0][i],
+	      function(...)
+		 io.write("expr #"..(i-1)..": ")
+		 pp(...)
+	      end
+      )
+   end
 elseif cmd == 'help' then
    help()
    os.exit()
