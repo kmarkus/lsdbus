@@ -16,6 +16,7 @@ source = {
 
 dependencies = {
    "lua >= 5.1",
+   "luaexpat >= 1.3.0",
    "compat53 >= 0.5", -- only for lua < 5.3
 }
 
