@@ -14,6 +14,15 @@ local prop_if = 'org.freedesktop.DBus.Properties'
 local peer_if = 'org.freedesktop.DBus.Peer'
 local introspect_if = 'org.freedesktop.DBus.Introspectable'
 
+local function encode_variant(t, v)
+   if t == "a{sv}" or t == "a{iv}" or t == "av" then
+      return common.tovariant2(v)
+   elseif t == "v" then
+      return common.tovariant(v)
+   end
+   return v
+end
+
 local proxy = {}
 
 --[[
@@ -88,7 +97,10 @@ function proxy:call_async(m, cb, ...)
 end
 
 -- call with argument table
-function proxy:callt(m, argtab)
+-- @param method name
+-- @param argtab argument table
+-- @param av automatically encode variants if true
+function proxy:callt(m, argtab, av)
    local mtab = self._intf.methods[m]
    local args = {}
    argtab = argtab or {}
@@ -104,7 +116,7 @@ function proxy:callt(m, argtab)
 	 if argtab[a.name] == nil then
 	    self:error(err.INVALID_ARGS, fmt("callt: argument %s missing", a.name))
 	 end
-	 args[#args+1] = argtab[a.name]
+	 args[#args+1] = av and encode_variant(a.type, argtab[a.name]) or argtab[a.name]
       end
    end
    return self:xcall(self._intf.name, m, met2its(mtab), unpack(args))
@@ -112,8 +124,11 @@ end
 
 -- like callt, but return results as a table too
 -- if there are no out-args, nil is returned
-function proxy:calltt(m, argtab)
-   local res = { self:callt(m, argtab) }
+-- @param m name
+-- @param argtab
+-- @param av automatically encode variants
+function proxy:calltt(m, argtab, av)
+   local res = { self:callt(m, argtab, av) }
 
    local mtab = self._intf.methods[m]
    local restab = {}
@@ -135,6 +150,9 @@ function proxy:calltt(m, argtab)
    return (rescnt > 0) and restab or nil
 end
 
+function proxy:callttAV(m, argtab)
+   return self:calltt(m, argtab, true)
+end
 
 function proxy:Get(k)
    if not self._intf.properties[k] then
@@ -158,13 +176,7 @@ function proxy:SetAV(k, value)
       self:error(err.UNKOWN_PROPERTY, fmt("Set: unknown property %s", k))
    end
 
-   local t = ptab.type
-
-   if t == "a{sv}" or t == "a{iv}" or t == "av" then
-      value = common.tovariant2(value)
-   elseif ptab.type == "v" then
-      value = common.tovariant(value)
-   end
+   value = encode_variant(ptab.type, value)
 
    return self:xcall(prop_if, 'Set', 'ssv', self._intf.name, k, { self._intf.properties[k].type, value })
 end

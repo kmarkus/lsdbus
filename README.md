@@ -556,8 +556,9 @@ The `proxy:SetAV` uses the tovariant functions internally.
 | `prxy(method, arg0, ...)`                      | call a D-Bus method                                   |
 | `prxy:call(method, arg0, ...)`                 | same as above, long form                              |
 | `prxy:HasMethod(method)`                       | check if prxy has a method with the given name        |
-| `prxy:callt(method, ARGTAB)`                   | call a method with a table of arguments               |
-| `prxy:calltt(method, ARGTAB)`                  | like `callt`, but returns a result table              |
+| `prxy:callt(method, ARGTAB, av)`               | call a method with a table of arguments               |
+| `prxy:calltt(method, ARGTAB, av)`              | like `callt`, but returns a result table              |
+| `prxy:callttAV(method, ARGTAB)`                | alias for `calltt(method, ARGTAB, true)`              |
 | `prxy:call_async(method, callback, ARGTAB)`    | call a method asynchronously (returns slot)           |
 | `prxy:callr(method, arg0, ...)`                | raw call, will not unpack variants                    |
 | `prxy:Get(name)`                               | get a properties value                                |
@@ -573,16 +574,17 @@ The `proxy:SetAV` uses the tovariant functions internally.
 
 *Notes*
 
-- `callt` is a convenience method that can be used for methods with named
-  arguments: `b:callt{argA=2, argB="that"}`.
+- `callt` is a convenience method that can be used to invoke a method
+  using named arguments: `b:callt{argA=2, argB="that"}`.
 - `GetAll` accepts a filter which can be either
   1. a string [`read`|`readwrite`|`write`] describing the access mode
   2. a filter function that accepts `(name, value, description)` and
   returns `true` or `false` depending on whether the value shall be
   included in the result or not.
-- `SetAV` ("auto variant") will use `tovariant` to automatically
-  convert standard Lua types to lsdbus variants. Currently supported
-  are `a{sv}`, `v`, `av` and `a{iv}`.
+- automatic variant conversion (AV): `SetAV`, `callttAV` (or when
+  passing the `av` arg as true to `callt` or `calltt`) will use
+  `tovariant` to automatically convert Lua types to lsdbus
+  variants. Currently supported are `a{sv}`, `v`, `av` and `a{iv}`.
 - see *Internals* about how `lsdbus.proxy` works.
 
 ### lsdbus.server
@@ -758,6 +760,11 @@ the loop.
 
 (only API changes)
 
+- proxy methods `callt` and `calltt` support an extra parameter `av`
+  to enable automatic encoding of variants from Lua types (akin to
+  `SetAV` for properties). If omitted, the behavior is the same as
+  before. `callttAV` is a convenience method for calling `calltt` with
+  `av=true`.
 - `b:add_periodic`: accepts additional argument `enabled` which defines
   if periodic event should be enabled or disabled after creation. The
   default value is `true` == `enabled`.

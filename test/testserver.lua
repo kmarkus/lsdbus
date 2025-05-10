@@ -85,9 +85,25 @@ function TestServer:TestCallAsync()
    assert_call_async(p1, 'FailWithDBusError', {},
 		     {"__error__", {"lsdbus.test.BananaPeelSlip", "argh!"}})
 
+   -- this test fails when the line number in `peer-testserver.lua`
+   -- changes!
    assert_call_async(p1, 'Fail', {},
 		     { "__error__", { "org.freedesktop.DBus.Error.Failed",
-				      "test/peer-testserver.lua:86: unexpectedly messed up!"}})
+				      "test/peer-testserver.lua:96: unexpectedly messed up!"}})
+end
+
+function TestServer:TestCallVariant()
+   local i1,i2,a1,a2,e1,e2
+
+   i1 = { 'x', 22 }
+   i2 = { foo = { 's', "howdee" }, bar = { 'i', 34 } }
+   e1 = 22
+   e2 = { foo = "howdee", bar = 34 }
+
+   a1, a2 = p1('varroundtrip', i1, i2)
+
+   lu.assert_equals(a1, e1)
+   lu.assert_equals(a2, e2)
 end
 
 function TestServer:TestCallWithInOut()
@@ -383,6 +399,32 @@ function TestServer:TestSetAV()
    p1:SetAV("DictOfIntVar", t_aiv2); lu.assert_equals(p1.DictOfIntVar, t_aiv2)
    p1:SetAV("DictOfIntVar", t_aiv3); lu.assert_equals(p1.DictOfIntVar, t_aiv3)
    p1:SetAV("DictOfIntVar", t_aiv4); lu.assert_equals(p1.DictOfIntVar, t_aiv4)
+
+end
+
+function TestServer:TestCallAV()
+   local t
+
+   t = {
+      v1 = {1,2,3,4},
+      v2 = {foo=1,bar='hi'}
+   }
+
+   lu.assert_equals(p1:callttAV('varroundtrip', t), t)
+
+   t = {
+      v1 = {a=2,b={x={}, kar='xyz'}},
+      v2 = {foo={1,2,3,4},bar='hi', baz={a=1,b=2,c=3}, koo=true}
+   }
+
+   lu.assert_equals(p1:callttAV('varroundtrip', t), t)
+
+   t = {
+      v1 = 999,
+      v2 = {}
+   }
+
+   lu.assert_equals(p1:callttAV('varroundtrip', t), t)
 
 end
 

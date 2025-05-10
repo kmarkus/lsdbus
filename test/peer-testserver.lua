@@ -78,6 +78,16 @@ local interface = {
 	    return x end
       },
 
+      varroundtrip={
+	 {direction="in", name="v1", type="v"},
+	 {direction="in", name="v2", type="a{sv}"},
+	 {direction="out", name="v1", type="v"},
+	 {direction="out", name="v2", type="a{sv}"},
+	 handler=function(_,v1,v2)
+	    return lsdb.tovariant(v1), lsdb.tovariant2(v2)
+	 end
+      },
+
       Shutdown = {
 	 handler=function(vt) dbg("shutting down"); vt._bus:exit_loop() end
       },
