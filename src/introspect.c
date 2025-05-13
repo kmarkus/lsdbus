@@ -203,12 +203,17 @@ int lsdbus_xml_fromfile(lua_State *L)
 	return 1;
 }
 
+char* skip_ws(const char* s) {
+    while (*s && (*s == ' ' || *s == '\t' || *s == '\n')) s++;
+    return (char*)s;
+}
+
 int lsdbus_xml_fromstr(lua_State *L)
 {
 	mxml_node_t *root;
 	const char* s = luaL_checkstring(L, 1);
 
-	root = mxmlLoadString(NULL, s, MXML_OPAQUE_CALLBACK);
+	root = mxmlLoadString(NULL, skip_ws(s), MXML_OPAQUE_CALLBACK);
 
 	if (root == NULL)
 		luaL_error(L, "failed to parse XML string");
