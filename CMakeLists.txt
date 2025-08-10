@@ -38,7 +38,14 @@ if( "${LUA_VER}" STREQUAL "5.1" OR "${LUA_VER}" STREQUAL "5.2" )
   cmake_path(GET COMPAT53 PARENT_PATH COMPAT53_DIR)
 endif()
 
-set(LSDBUS_SRCS src/lsdbus.c src/message.c src/introspect.c src/evl.c src/vtab.c)
+set(LSDBUS_SRCS
+  src/errparse.c
+  src/evl.c
+  src/introspect.c
+  src/lsdbus.c
+  src/message.c
+  src/vtab.c
+)
 
 set(CONFIG_LUADIR "${CMAKE_INSTALL_PREFIX}/share/lua/${LUA_VER}" CACHE STRING "lua script dir")
 set(CONFIG_LIBDIR "${CMAKE_INSTALL_PREFIX}/lib/lua/${LUA_VER}" CACHE STRING "lua lib dir")
