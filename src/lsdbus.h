@@ -98,7 +98,12 @@ int lsdbus_xml_fromstr(lua_State *L);
 
 void regtab_store(lua_State *L, const char* regtab, void *k, int funidx);
 int regtab_get(lua_State *L, const char* regtab, void *k);
-void regtab_clear(lua_State *L, const char* regtab, void *k);
+void regtab_clear(lua_State *L, const char *regtab, void *k);
+
+/* error parsing */
+int errparse_init(void);
+void errparse_cleanup(void);
+const char* errparse(const char* errmsg, char* name);
 
 const char* luaL_checkintf(lua_State *L, int arg);
 const char* luaL_checkpath(lua_State *L, int arg);

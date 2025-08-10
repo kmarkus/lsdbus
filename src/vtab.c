@@ -3,26 +3,6 @@
 
 #define SDBUS_VTAB	"sd_bus_vtable"
 
-/*
- * parse error message, copy error name into name and return pointer
- * to message part in errmsg. Return NULL if parsing fails.
- */
-static const char* parse_errmsg(const char* errmsg, char* name)
-{
-	const char *start, *sep;
-
-	if (errmsg == NULL) return NULL;
-
-	start = strstr(errmsg, ": ");
-	if (!start) return NULL;
-
-	sep = strchr(errmsg, LSDBUS_ERR_SEP);
-	if (!sep) return NULL;
-
-	strncpy(name, start+2, sep-start-2);
-
-	return sep+1;
-}
 
 /** handle a callback error.
  * This function expects the error obj on the top of the stack. It will pop it.
@@ -41,7 +21,7 @@ static int handle_error(lua_State *L,
 
 	if (lua_type(L, -1 == LUA_TSTRING)) {
 		errmsg = lua_tostring(L, -1);
-		message = parse_errmsg(errmsg, name);
+		message = errparse(errmsg, name);
 	} else if (lua_type(L, -1) == LUA_TTABLE) {
 		/* not supported yet: if table, retrieve name and
 		 * message from a table at -1 */
