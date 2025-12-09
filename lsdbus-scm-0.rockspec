@@ -22,6 +22,8 @@ dependencies = {
 build = {
    type = "cmake",
    variables = {
-      CMAKE_INSTALL_PREFIX = "$(PREFIX)"
-   }
+      CMAKE_INSTALL_PREFIX = "$(PREFIX)",
+      CONFIG_LUADIR = "$(LUADIR)",
+      CONFIG_LIBDIR = "$(LIBDIR)"
+   },
 }

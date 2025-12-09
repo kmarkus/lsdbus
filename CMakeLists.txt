@@ -40,8 +40,11 @@ endif()
 
 set(LSDBUS_SRCS src/lsdbus.c src/message.c src/introspect.c src/evl.c src/vtab.c)
 
+set(CONFIG_LUADIR "${CMAKE_INSTALL_PREFIX}/share/lua/${LUA_VER}" CACHE STRING "lua script dir")
+set(CONFIG_LIBDIR "${CMAKE_INSTALL_PREFIX}/lib/lua/${LUA_VER}" CACHE STRING "lua lib dir")
+
 set(LSDBUS_INST_DIR
-  ${CMAKE_INSTALL_PREFIX}/lib/lua/${LUA_VER}/lsdbus/)
+  ${CONFIG_LIBDIR}/lsdbus/)
 
 add_library(core SHARED ${LSDBUS_SRCS})
 target_compile_options(core PRIVATE -Wall -Wextra)
@@ -57,7 +60,7 @@ install(FILES
   src/lsdbus/server.lua
   src/lsdbus/common.lua
   src/lsdbus/error.lua
-  DESTINATION ${CMAKE_INSTALL_PREFIX}/share/lua/${LUA_VER}/lsdbus/
+  DESTINATION ${CONFIG_LUADIR}/lsdbus/
   )
 
 install(PROGRAMS
