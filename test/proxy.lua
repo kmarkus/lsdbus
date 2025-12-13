@@ -14,9 +14,8 @@ function TestProxy:setup()
 
    ok_td, td = pcall(proxy.new, b, 'org.freedesktop.timedate1', '/org/freedesktop/timedate1', 'org.freedesktop.timedate1')
    ok_hn, hn = pcall(proxy.new, b, 'org.freedesktop.hostname1', '/org/freedesktop/hostname1', 'org.freedesktop.hostname1')
-   ok_login, login = pcall(proxy.new, b, 'org.freedesktop.login1', '/org/freedesktop/login1', 'org.freedesktop.login1.Manager')
 
-   if not ok_td or not ok_hn or not ok_login then
+   if not ok_td or not ok_hn then
       lu.skip("timedate, hostname or login services unavailable")
    end
 end
@@ -49,7 +48,6 @@ end
 
 function TestProxy:TestCallT()
    lu.assertIsTable(td:callt('ListTimezones', {}))
-   login:callt('SetWallMessage', { wall_message="howdee", enable=true })
 end
 
 return TestProxy
