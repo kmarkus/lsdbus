@@ -824,6 +824,52 @@ int lsdbus_context(lua_State *L)
 	return 1;
 }
 
+int lsdbus_credentials(lua_State *L)
+{
+	uid_t euid;
+	pid_t pid;
+	const char *unique_name;
+
+	sd_bus *b = lua_checksdbus(L, 1);
+	sd_bus_message* m = sd_bus_get_current_message(b);
+	__attribute__((cleanup(sd_bus_creds_unrefp))) sd_bus_creds *creds = NULL;
+	int ret = sd_bus_query_sender_creds(m, _SD_BUS_CREDS_ALL, &creds);
+
+	if(ret < 0)
+		luaL_error(L, "failed to get credentials: %s", strerror(-ret));
+
+	lua_newtable(L);
+
+	if(sd_bus_creds_get_euid(creds, &euid) >= 0) {
+		lua_pushinteger(L, (lua_Integer)euid);
+		lua_setfield(L, -2, "euid");
+	}
+
+	if(sd_bus_creds_get_pid(creds, &pid) >= 0) {
+		lua_pushinteger(L, (lua_Integer)pid);
+		lua_setfield(L, -2, "pid");
+	}
+
+	if(sd_bus_creds_get_unique_name(creds, &unique_name) >= 0) {
+		lua_pushstring(L, unique_name);
+		lua_setfield(L, -2, "unique_name");
+	}
+
+	return 1;
+}
+
+int lsdbus_negotiate_credentials(lua_State *L)
+{
+	int ret;
+	sd_bus *b = lua_checksdbus(L, 1);
+
+	ret = sd_bus_negotiate_creds(b, 1, _SD_BUS_CREDS_ALL);
+	if(ret < 0)
+		luaL_error(L, "negotiate_creds failed: %s", strerror(-ret));
+
+	return 0;
+}
+
 struct lsdbus_slot* __lsdbus_slot_push(lua_State *L, sd_bus_slot *slot, uint32_t flags)
 {
 	struct lsdbus_slot *s = (struct lsdbus_slot*) lua_newuserdata(L, sizeof(struct lsdbus_slot));

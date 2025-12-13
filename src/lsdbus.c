@@ -582,6 +582,8 @@ static const luaL_Reg lsdbus_bus_m [] = {
 	{ "emit_properties_changed", lsdbus_emit_prop_changed },
 	{ "emit_signal", lsdbus_emit_signal },
 	{ "context", lsdbus_context },
+	{ "credentials", lsdbus_credentials },
+	{ "negotiate_credentials", lsdbus_negotiate_credentials },
 	{ "loop", evl_loop },
 	{ "run", evl_run },
 	{ "get_fd", evl_get_fd },

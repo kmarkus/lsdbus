@@ -288,6 +288,11 @@ information which depending on the callback type may include
 (these are retrieved using `sd_bus_get_current_message(3)` and the
 respective `sd_bus_message_get_*(3)` functions).
 
+The method `b:credentials()` can be used within a callback to get the
+credentials of a caller. While the underlying API supports many fields within
+credentials, they are mostly unpopulated so only the `euid`, `pid`, and
+`unique_name` fields will be in the resulting table.
+
 #### Registering Interfaces: Properties, Methods and Signal
 
 Server object callbacks can be registered with
@@ -512,6 +517,7 @@ The `proxy:SetAV` uses the tovariant functions internally.
 | `bus:exit_loop()`                                                             | see `sd_event_exit(3)`                       |
 | `bus:get_fd()`                                                                | see `sd_event_get_fd(3)`                     |
 | `table = bus:context()`                                                       | see `sd_bus_message_set_destination(3)` etc. |
+| `table = bus:credentials()`                                                   | see `sd_bus_query_sender_creds(3)`           |
 | `number = bus:get_method_call_timeout`                                        | see `sd_bus_get_method_call_timeout(3)`      |
 | `bus:set_method_call_timeout`                                                 | see `sd_bus_set_method_call_timeout(3)`      |
 | `res = bus:testmsg(typestr, args...)`                                         | test Lua->D-Bus->Lua message roundtrip       |
