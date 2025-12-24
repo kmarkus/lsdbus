@@ -18,6 +18,7 @@ TestToVariant = require("tovariant")
 TestSig = require("testsig")
 TestServer = require("testserver")
 TestEvSrc = require("testevsrc")
+TestCredentials = require("testcredentials")
 
 runner = lu.LuaUnit.new()
 

@@ -104,6 +104,18 @@ local interface = {
 	 {direction="in", name="error", type="s"},
 	 handler=function(vt, err) error(err) end
       },
+
+      GetCredentials = {
+          { direction = "out", name = "euid", type = "i" },
+          { direction = "out", name = "pid", type = "i" },
+          handler = function(vt)
+              creds = vt._bus:credentials()
+              if not creds.euid or not creds.pid then
+                  error("missing credentials")
+              end
+              return creds.euid, creds.pid
+          end,
+      }
    },
    properties={
       Bar={

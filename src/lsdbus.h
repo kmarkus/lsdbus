@@ -87,6 +87,8 @@ void vtable_cleanup(lua_State *L);
 int lsdbus_emit_prop_changed(lua_State *L);
 int lsdbus_emit_signal(lua_State *L);
 int lsdbus_context(lua_State *L);
+int lsdbus_credentials(lua_State *L);
+int lsdbus_negotiate_credentials(lua_State *L);
 struct lsdbus_slot* __lsdbus_slot_push(lua_State *L, sd_bus_slot *slot, uint32_t flags);
 int lsdbus_slot_push(lua_State *L, sd_bus_slot *slot, uint32_t flags);
 void init_reg_vtab_user(lua_State *L);
