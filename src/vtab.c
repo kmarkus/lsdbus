@@ -26,7 +26,6 @@ static const char* parse_errmsg(const char* errmsg, char* name)
 
 /** handle a callback error.
  * This function expects the error obj on the top of the stack. It will pop it.
- *
  */
 static int handle_error(lua_State *L,
 			const char *ctx,
@@ -42,6 +41,7 @@ static int handle_error(lua_State *L,
 	if (lua_type(L, -1 == LUA_TSTRING)) {
 		errmsg = lua_tostring(L, -1);
 		message = parse_errmsg(errmsg, name);
+		lua_pop(L, 1);
 	} else if (lua_type(L, -1) == LUA_TTABLE) {
 		/* not supported yet: if table, retrieve name and
 		 * message from a table at -1 */
@@ -64,7 +64,6 @@ static int handle_error(lua_State *L,
 	ret = sd_bus_error_set(ret_error, name, message);
 
 out:
-	lua_settop(L, 1);
 	return ret;
 
 }
@@ -85,9 +84,10 @@ static int prop_get_handler(sd_bus *bus,
 			    const char *path, const char *interface, const char *property,
 			    sd_bus_message *reply, void *userdata, sd_bus_error *ret_error)
 {
-	int ret;
+	int ret, top;
 	const char *type;
 	lua_State *L = (lua_State *) userdata;
+	top = lua_gettop(L);
 	sd_bus_slot *slot = sd_bus_get_current_slot(bus);
 
 	dbg("%s, %s, %s, slot: %p", path, interface, property, slot);
@@ -106,8 +106,10 @@ static int prop_get_handler(sd_bus *bus,
 
 	ret = lua_pcall(L, 1, 1, 0);
 
-	if (ret != LUA_OK)
-		return handle_error(L, "property get", path, interface, property, ret_error);
+	if (ret != LUA_OK) {
+		ret = handle_error(L, "property get", path, interface, property, ret_error);
+		goto out;
+	}
 
 	ret = msg_fromlua(L, reply, type, -1);
 
@@ -116,10 +118,11 @@ static int prop_get_handler(sd_bus *bus,
 			property, type, lua_tostring(L, -1));
 		sd_bus_error_set(ret_error, SD_BUS_ERROR_FAILED, "invalid return value");
 	}
+	ret = 1;
+out:
+	lua_settop(L, top);
 
-	lua_settop(L, 1);
-
-	return 1;
+	return ret;
 }
 
 /**
@@ -133,6 +136,7 @@ static int prop_set_handler(sd_bus *bus,
 {
 	int ret, nargs;
 	lua_State *L = (lua_State *) userdata;
+	int top = lua_gettop(L);
 	sd_bus_slot *slot = sd_bus_get_current_slot(bus);
 	(void) path, (void) interface;
 
@@ -148,19 +152,23 @@ static int prop_set_handler(sd_bus *bus,
 
 	if(nargs<0) {
 		fprintf(stderr, "property %s set: failed to convert arg to Lua\n", property);
-		sd_bus_error_set(ret_error, SD_BUS_ERROR_FAILED, "invalid arg");
+		ret = sd_bus_error_set(ret_error, SD_BUS_ERROR_FAILED, "invalid arg");
 		goto out;
 	}
 
 	ret = lua_pcall(L, 1+nargs, 0, 0);
 
-	if (ret != LUA_OK)
-		return handle_error(L, "property set", path, interface, property, ret_error);
+	if (ret != LUA_OK) {
+		ret = handle_error(L, "property set", path, interface, property, ret_error);
+		if (ret < 0)
+			goto out;
+	}
 
+	ret = 1;
 out:
-	lua_settop(L, 1);
+	lua_settop(L, top);
 
-	return 1;
+	return ret;
 }
 
 /**
@@ -194,11 +202,12 @@ static void push_method(lua_State *L, sd_bus_slot *slot, const char* member, con
 
 static int method_handler(sd_bus_message *call, void *userdata, sd_bus_error *ret_error)
 {
-	int ret, nargs;
+	int ret, nargs, top;
 	sd_bus_message *reply = NULL;
 	const char *result;
 
 	lua_State *L = (lua_State *) userdata;
+	top = lua_gettop(L);
 	sd_bus *b = sd_bus_message_get_bus(call);
 	sd_bus_slot *slot = sd_bus_get_current_slot(b);
 	const char *mem = sd_bus_message_get_member(call);
@@ -236,7 +245,7 @@ static int method_handler(sd_bus_message *call, void *userdata, sd_bus_error *re
 	}
 
 	if (result != NULL) {
-		ret = msg_fromlua(L, reply, result, 2);
+		ret = msg_fromlua(L, reply, result, top+1);
 
 		if(ret<0) {
 			fprintf(stderr, "method %s: failed to convert result to %s: %s\n",
@@ -259,7 +268,7 @@ static int method_handler(sd_bus_message *call, void *userdata, sd_bus_error *re
 out_unref:
 	sd_bus_message_unrefp(&reply);
 out:
-	lua_settop(L, 1);
+	lua_settop(L, top);
 	return 1;
 }
 
@@ -379,7 +388,9 @@ char* lua_getstrfield(lua_State *L, int index,
 
 static int vtable_add_signal(lua_State *L, sd_bus_vtable *vt, int slotref)
 {
+
 	char *sig=NULL, *names=NULL, *member = NULL;
+	int top = lua_gettop(L);
 
 	if ((member = strdup(lua_tostring(L, 5))) == NULL) {
 		lua_pushfstring(L, "failed to allocate memory for signal member");
@@ -406,7 +417,7 @@ static int vtable_add_signal(lua_State *L, sd_bus_vtable *vt, int slotref)
 	lua_pop(L, 1);                          /* pop slottab */
 
 	/* all ok */
-	lua_settop(L, 6);
+	lua_settop(L, top);
 	return 0;
 
 fail:
@@ -423,12 +434,14 @@ fail:
  */
 static int vtable_add_property(lua_State *L, sd_bus_vtable *vt, int slotref)
 {
-	int typ;
+	int typ, top;
 	char *type, *member;
 	const char *access;
 
 	sd_bus_property_get_t getter = NULL;
 	sd_bus_property_set_t setter = NULL;
+
+	top = lua_gettop(L);
 
 	if ((member = strdup(lua_tostring(L, 5))) == NULL) {
 		lua_pushfstring(L, "failed to allocate memory for property member");
@@ -505,7 +518,7 @@ static int vtable_add_property(lua_State *L, sd_bus_vtable *vt, int slotref)
 	lua_pop(L, 1);                              /* pop slottab */
 
 	/* all ok */
-	lua_settop(L, 6);
+	lua_settop(L, top);
 	return 0;
 fail:
 	free(member);
