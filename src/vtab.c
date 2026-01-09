@@ -38,7 +38,7 @@ static int handle_error(lua_State *L,
 	const char *errmsg, *message;
 	char name[DBUS_NAME_MAXLEN] = {0};
 
-	if (lua_type(L, -1 == LUA_TSTRING)) {
+	if (lua_type(L, -1) == LUA_TSTRING) {
 		errmsg = lua_tostring(L, -1);
 		message = parse_errmsg(errmsg, name);
 		lua_pop(L, 1);
