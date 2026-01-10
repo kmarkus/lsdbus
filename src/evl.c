@@ -59,7 +59,9 @@ static int evsrc_get_enabled(lua_State *L)
 static int evsrc_gc(lua_State *L)
 {
 	sd_event_source *evsrc = *((sd_event_source**) luaL_checkudata(L, 1, EVSRC_MT));
-	assert(sd_event_source_set_floating(evsrc, 1) >= 0);
+	int ret = sd_event_source_set_floating(evsrc, 1);
+	assert(ret >= 0);
+	(void) ret;
 	return 0;
 }
 
@@ -128,8 +130,10 @@ out:
 void evl_cleanup(sd_bus *bus)
 {
 	sd_event *loop = sd_bus_get_event(bus);
+	int ret = sd_bus_detach_event(bus);
 
-	assert(sd_bus_detach_event(bus) >= 0);
+	assert(ret >= 0);
+	(void)ret;
 
 	if (loop) {
 		sd_event_unref(loop);

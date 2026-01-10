@@ -35,7 +35,7 @@ static int handle_error(lua_State *L,
 			sd_bus_error *ret_error)
 {
 	int ret=0;
-	const char *errmsg, *message;
+	const char *errmsg=NULL, *message=NULL;
 	char name[DBUS_NAME_MAXLEN] = {0};
 
 	if (lua_type(L, -1) == LUA_TSTRING) {
@@ -93,14 +93,19 @@ static int prop_get_handler(sd_bus *bus,
 	dbg("%s, %s, %s, slot: %p", path, interface, property, slot);
 
 	regtab_get(L, REG_SLOT_TABLE, slot);                    /* slottab */
-	lua_pushfstring(L, "p#%s", property);
-	assert(lua_rawget(L, -2) == LUA_TTABLE);                /* slottab, {type,get,set} */
 
-	assert(lua_rawgeti(L, -1, 1) == LUA_TSTRING);           /* slottab, {type,get,set}, type */
+	lua_pushfstring(L, "p#%s", property);
+	ret = lua_rawget(L, -2);		                /* slottab, {type,get,set} */
+	assert(ret == LUA_TTABLE);
+
+	ret = lua_rawgeti(L, -1, 1);			        /* slottab, {type,get,set}, type */
+	assert(ret == LUA_TSTRING);
+
 	type = lua_tostring(L, -1);
 	lua_pop(L, 1);						/* slottab, {type,get,set} */
 
-	assert(lua_rawgeti(L, -1, 2) == LUA_TFUNCTION);         /* slottab, {type,get,set}, get */
+	ret = lua_rawgeti(L, -1, 2);				/* slottab, {type,get,set}, get */
+	assert(ret  == LUA_TFUNCTION);
 
 	regtab_get(L, REG_VTAB_USER_ARG, slot);                 /* slottab, {type,get,set}, get, user-arg */
 
@@ -144,8 +149,13 @@ static int prop_set_handler(sd_bus *bus,
 
 	regtab_get(L, REG_SLOT_TABLE, slot);                    /* slottab */
 	lua_pushfstring(L, "p#%s", property);
-	assert(lua_rawget(L, -2) == LUA_TTABLE);                /* slottab, {type,get,set} */
-	assert(lua_rawgeti(L, -1, 3) == LUA_TFUNCTION);         /* slottab, {type,get,set}, setter */
+
+	ret = lua_rawget(L, -2);				/* slottab, {type,get,set} */
+	assert(ret == LUA_TTABLE);
+
+	ret = lua_rawgeti(L, -1, 3);				/* slottab, {type,get,set}, setter */
+	assert(ret == LUA_TFUNCTION);
+
 	regtab_get(L, REG_VTAB_USER_ARG, slot);                 /* slottab, {type,get,set}, setter, user-arg */
 
 	nargs = msg_tolua(L, value, 0);
@@ -183,7 +193,9 @@ static void push_method(lua_State *L, sd_bus_slot *slot, const char* member, con
 
 	regtab_get(L, REG_SLOT_TABLE, slot);                    /* slottab */
 	lua_pushfstring(L, "m#%s", member);			/* slottab, "m#member" */
-	assert(lua_rawget(L, -2) == LUA_TTABLE);                /* slottab, {sig,res,hdlr} */
+	ret = lua_rawget(L, -2);		                /* slottab, {sig,res,hdlr} */
+	assert(ret == LUA_TTABLE);
+
 	ret = lua_rawgeti(L, -1, 2);                            /* slottab, {sig,res,hdlr}, res-typestr */
 
 	if (ret==LUA_TSTRING)
@@ -193,7 +205,9 @@ static void push_method(lua_State *L, sd_bus_slot *slot, const char* member, con
 
 	lua_pop(L, 1);						/* slottab, {sig,res,hdrl} */
 
-	assert(lua_rawgeti(L, -1, 3) == LUA_TFUNCTION);         /* slottab, {sig,res,hdlr}, handler */
+	ret = lua_rawgeti(L, -1, 3);				/* slottab, {sig,res,hdlr}, handler */
+	assert(ret == LUA_TFUNCTION);
+
 	regtab_get(L, REG_VTAB_USER_ARG, slot);                 /* slottab, {type,get,set}, handler, user-arg */
 	/* remove slottab and memtab */
 	lua_remove(L, -3);
@@ -435,7 +449,7 @@ fail:
 static int vtable_add_property(lua_State *L, sd_bus_vtable *vt, int slotref)
 {
 	int typ, top;
-	char *type, *member;
+	char *type=NULL, *member=NULL;
 	const char *access;
 
 	sd_bus_property_get_t getter = NULL;
@@ -921,7 +935,9 @@ int lsdbus_slot_gc(lua_State *L)
 		s->vt = NULL;
 		break;
 	case LSDBUS_SLOT_TYPE_MATCH:
-		assert(sd_bus_slot_set_floating(s->slot, 1) >= 0);
+		int ret = sd_bus_slot_set_floating(s->slot, 1);
+		assert(ret >= 0);
+		(void) ret;
 		break;
 	default:
 		dbg("invalid slot type (flags 0x%x)", s->flags);

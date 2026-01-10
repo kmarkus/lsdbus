@@ -143,6 +143,8 @@ static int type_stack_pop(TypeStack *stack,
 			  unsigned *n_struct,
 			  unsigned *n_array,
 			  int *stackpos) {
+	(void) max;
+
         assert(stack);
         assert(max > 0);
         assert(types);
