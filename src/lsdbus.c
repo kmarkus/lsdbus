@@ -564,8 +564,6 @@ static int lsdbus_bus_gc(lua_State *L)
 
 static const luaL_Reg lsdbus_f [] = {
 	{ "open", lsdbus_open },
-	{ "xml_fromfile", lsdbus_xml_fromfile },
-	{ "xml_fromstr", lsdbus_xml_fromstr },
 	/* { "testmsg_tolua", lsdbus_testmsg_tolua }, */
 	{ NULL, NULL },
 };

@@ -7,7 +7,6 @@ include(GNUInstallDirs)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SYSTEMD REQUIRED libsystemd>=242)
-pkg_check_modules(MXML REQUIRED mxml)
 
 set(CONFIG_LUA_VER "" CACHE STRING "build for exact Lua version")
 
@@ -38,7 +37,7 @@ if( "${LUA_VER}" STREQUAL "5.1" OR "${LUA_VER}" STREQUAL "5.2" )
   cmake_path(GET COMPAT53 PARENT_PATH COMPAT53_DIR)
 endif()
 
-set(LSDBUS_SRCS src/lsdbus.c src/message.c src/introspect.c src/evl.c src/vtab.c)
+set(LSDBUS_SRCS src/lsdbus.c src/message.c src/evl.c src/vtab.c)
 
 set(CONFIG_LUADIR "${CMAKE_INSTALL_PREFIX}/share/lua/${LUA_VER}" CACHE STRING "lua script dir")
 set(CONFIG_LIBDIR "${CMAKE_INSTALL_PREFIX}/lib/lua/${LUA_VER}" CACHE STRING "lua lib dir")
@@ -50,7 +49,7 @@ add_library(core SHARED ${LSDBUS_SRCS})
 target_compile_options(core PRIVATE -Wall -Wextra)
 target_compile_definitions(core PRIVATE LIBSYSTEMD_VERSION=${SYSTEMD_VERSION})
 target_include_directories(core PRIVATE ${LUA_INCLUDE_DIRS} ${COMPAT53_DIR})
-target_link_libraries(core ${SYSTEMD_LIBRARIES} ${MXML_LIBRARIES} )
+target_link_libraries(core ${SYSTEMD_LIBRARIES})
 set_target_properties(core PROPERTIES PREFIX "")
 install(TARGETS core LIBRARY DESTINATION ${LSDBUS_INST_DIR})
 
