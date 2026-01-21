@@ -9,7 +9,7 @@ build:
   before_script:
     - apt update
     - apt -y install libsystemd0 libsystemd-dev
-    - apt -y install cmake lua-unit libmxml1 libmxml-dev lua-compat53-dev
+    - apt -y install cmake lua-unit lua-expat lua-compat53-dev
     - apt -y install luajit libluajit-5.1-dev
     - apt -y install lua5.1 liblua5.1-dev
     - apt -y install lua5.2 liblua5.2-dev
