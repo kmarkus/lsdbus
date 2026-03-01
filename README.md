@@ -745,6 +745,13 @@ systemd.
 
 ## FAQ
 
+### match or signal callbacks are never called
+
+A subtle pitfall is to use a different bus connection object for
+registering the callbacks than the one that later runs the event loop
+(`:loop()` or `:run()`). This can happen if the bus is obtained twice
+call `lsdb.open` *without* using the `*default*` open flags.
+
 ### Error `System.Error.ENOTCONN: Transport endpoint is not connected`
 
 This happens when a bus is created (`lsdb.open(...)`) and only used
