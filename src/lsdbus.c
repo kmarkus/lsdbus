@@ -73,6 +73,7 @@ void regtab_clear(lua_State *L, const char* regtab, void *k)
 		lua_pushnil(L);
 		lua_rawsetp(L, -2, k);
 	}
+	lua_pop(L, 1);
 }
 
 const char* luaL_checkintf(lua_State *L, int arg)
