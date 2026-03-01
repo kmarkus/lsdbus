@@ -130,12 +130,11 @@ out:
 void evl_cleanup(sd_bus *bus)
 {
 	sd_event *loop = sd_bus_get_event(bus);
-	int ret = sd_bus_detach_event(bus);
-
-	assert(ret >= 0);
-	(void)ret;
 
 	if (loop) {
+		int ret = sd_bus_detach_event(bus);
+		assert(ret >= 0);
+		(void)ret;
 		sd_event_unref(loop);
 	}
 
