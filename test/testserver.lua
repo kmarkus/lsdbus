@@ -89,7 +89,7 @@ function TestServer:TestCallAsync()
    -- changes!
    assert_call_async(p1, 'Fail', {},
 		     { "__error__", { "org.freedesktop.DBus.Error.Failed",
-				      "test/peer-testserver.lua:96: unexpectedly messed up!"}})
+				      "test/peer-testserver.lua:96: Fail method called, throwing error"}})
 end
 
 function TestServer:TestCallVariant()
@@ -320,15 +320,15 @@ end
 
 function TestServer:TestRemoteFail()
    local function f() p1('Fail') end
-   local msg = "messed up! (lsdbus.test, /1, lsdbus.test.testintf0)"
+   local msg = "Fail method called, throwing error (lsdbus.test, /1, lsdbus.test.testintf0)"
    lu.assert_error_msg_contains(msg, f)
 
    local function f() p2('Fail') end
-   local msg = "messed up! (lsdbus.test, /2, lsdbus.test.testintf0)"
+   local msg = "Fail method called, throwing error (lsdbus.test, /2, lsdbus.test.testintf0)"
    lu.assert_error_msg_contains(msg, f)
 
    local function f() p3('Fail') end
-   local msg = "messed up! (lsdbus.test, /3, lsdbus.test.testintf0)"
+   local msg = "Fail method called, throwing error (lsdbus.test, /3, lsdbus.test.testintf0)"
    lu.assert_error_msg_contains(msg, f)
 end
 

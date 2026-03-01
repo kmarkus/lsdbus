@@ -21,7 +21,7 @@ static int evsrc_tostring(lua_State *L)
 		luaL_error(L, "event_source_get_enabled failed: %s", strerror(-ret));
 
 	ret = sd_event_source_get_description(evsrc, &desc);
-	lua_pushfstring(L, "event_source [%s, %s] %p", (ret<0)?"unkown":desc, (enabled==-1?"oneshot":(enabled==1?"enabled":"disabled")), evsrc);
+	lua_pushfstring(L, "event_source [%s, %s] %p", (ret<0)?"unknown":desc, (enabled==-1?"oneshot":(enabled==1?"enabled":"disabled")), evsrc);
 	return 1;
 }
 

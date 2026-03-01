@@ -186,10 +186,10 @@ function M.check_intf(intf)
 
       for i,arg in ipairs(stab) do
 	 if type(arg.name) ~= 'string' then
-	    err("signal %s, arg %i: invalid name: expected string, got %s", i, type(arg.name))
+	    err("signal %s, arg %i: invalid name: expected string, got %s", name, i, type(arg.name))
 	 end
 	 if type(arg.type) ~= 'string' then
-	   err("signal %s, arg %i: invalid type: expected string, got %s", i, type(arg.type))
+	   err("signal %s, arg %i: invalid type: expected string, got %s", name, i, type(arg.type))
 	 end
       end
    end

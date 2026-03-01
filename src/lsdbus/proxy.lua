@@ -156,14 +156,14 @@ end
 
 function proxy:Get(k)
    if not self._intf.properties[k] then
-      self:error(err.UNKOWN_PROPERTY, fmt("Get: unknown property %s", k))
+      self:error(err.UNKNOWN_PROPERTY, fmt("Get: unknown property %s", k))
    end
    return self:xcall(prop_if, 'Get', 'ss', self._intf.name, k)
 end
 
 function proxy:Set(k, ...)
    if not self._intf.properties[k] then
-      self:error(err.UNKOWN_PROPERTY, fmt("Set: unknown property %s", k))
+      self:error(err.UNKNOWN_PROPERTY, fmt("Set: unknown property %s", k))
    end
 
    return self:xcall(prop_if, 'Set', 'ssv', self._intf.name, k, { self._intf.properties[k].type, ... })
@@ -173,7 +173,7 @@ function proxy:SetAV(k, value)
    local ptab = self._intf.properties[k]
 
    if not ptab then
-      self:error(err.UNKOWN_PROPERTY, fmt("Set: unknown property %s", k))
+      self:error(err.UNKNOWN_PROPERTY, fmt("Set: unknown property %s", k))
    end
 
    value = encode_variant(ptab.type, value)

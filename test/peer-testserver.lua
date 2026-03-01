@@ -93,7 +93,7 @@ local interface = {
       },
 
       Fail={
-	 handler=function() error("unexpectedly messed up!") end
+	 handler=function() error("Fail method called, throwing error") end
       },
 
       FailWithDBusError={
