@@ -552,7 +552,10 @@ static int lsdbus_bus_get_method_call_timeout(lua_State *L)
 
 static int lsdbus_bus_gc(lua_State *L)
 {
-	struct lsdbus_bus *lsdbus = (struct lsdbus_bus*) luaL_checkudata(L, 1, BUS_MT);
+	struct lsdbus_bus *lsdbus = (struct lsdbus_bus*) lua_touserdata(L, 1);
+
+	if (lsdbus == NULL || lsdbus->b == NULL)
+		return 0;
 
 	if ((lsdbus->flags & LSDBUS_BUS_IS_DEFAULT)) {
 		sd_bus_flush(lsdbus->b);
@@ -562,8 +565,7 @@ static int lsdbus_bus_gc(lua_State *L)
 		sd_bus_flush_close_unref(lsdbus->b);
 	}
 
-	lua_pushnil(L);
-	lua_setmetatable(L, 1);
+	lsdbus->b = NULL;
 
 	return 0;
 }
