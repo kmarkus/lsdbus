@@ -346,8 +346,12 @@ static int method_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
 	if (ret) {
 		lua_pushstring(L, "__error__");
 		const sd_bus_error *e = sd_bus_message_get_error(m);
-		if (e) push_sd_bus_error(L, e);
-		nargs = 2;
+		if (e) {
+			push_sd_bus_error(L, e);
+			nargs = 2;
+		} else {
+			nargs = 1;
+		}
 	} else {
 		nargs = msg_tolua(L, m, 0);
 		if (nargs<0) lua_error(L);
