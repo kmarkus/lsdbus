@@ -239,10 +239,12 @@ static int method_handler(sd_bus_message *call, void *userdata, sd_bus_error *re
 	ret = lua_pcall(L, 1+nargs, LUA_MULTRET, 0);
 
 	if (ret != LUA_OK) {
-		return handle_error(L, "method",
-				    sd_bus_message_get_path(call),
-				    sd_bus_message_get_interface(call),
-				    mem, ret_error);
+		ret = handle_error(L, "method",
+				   sd_bus_message_get_path(call),
+				   sd_bus_message_get_interface(call),
+				   mem, ret_error);
+		lua_settop(L, top);
+		return ret;
 	}
 
         if (!sd_bus_message_get_expect_reply(call)) {
