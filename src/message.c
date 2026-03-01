@@ -85,9 +85,15 @@ int push_sd_bus_error(lua_State* L, const sd_bus_error* err)
 	if (!err)
 		return -1;
 	lua_newtable(L);
-	lua_pushstring(L, err->name);
+	if (err->name)
+		lua_pushstring(L, err->name);
+	else
+		lua_pushnil(L);
 	lua_rawseti(L, -2, 1);
-	lua_pushstring(L, err->message);
+	if (err->message)
+		lua_pushstring(L, err->message);
+	else
+		lua_pushnil(L);
 	lua_rawseti(L, -2, 2);
 	return 1;
 }
