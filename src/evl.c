@@ -466,7 +466,7 @@ int evl_add_child(lua_State *L)
 	pid_t pid;
 	sigset_t ss;
 	sd_event_source *source, **sourcep;
-	sd_bus *bus = *((sd_bus**) luaL_checkudata(L, 1, BUS_MT));
+	sd_bus *bus = lua_checksdbus(L, 1);
 
 	pid = luaL_checkinteger(L, 2);
 	options = luaL_checkinteger(L, 3);
