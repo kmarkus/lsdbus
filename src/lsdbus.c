@@ -134,6 +134,7 @@ static int lsdbus_open(lua_State *L)
 	dbg("opening %s bus connection", open_opts_lst[busidx]);
 
 	lsdbus = (struct lsdbus_bus*) lua_newuserdata(L, sizeof(struct lsdbus_bus));
+	lsdbus->flags = 0;
 
 	ret = open_funcs[busidx](&lsdbus->b);
 
