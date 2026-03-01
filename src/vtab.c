@@ -485,6 +485,8 @@ static int vtable_add_property(lua_State *L, sd_bus_vtable *vt, int slotref)
 	}
 
 	type = lua_getstrfield(L, 6, "type", NULL, member);
+	if (type == NULL)
+		goto fail;
 
 	lua_rawgeti(L, LUA_REGISTRYINDEX, slotref); /* slottab @ 7 */
 
