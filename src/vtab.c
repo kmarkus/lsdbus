@@ -22,9 +22,6 @@ static int handle_error(lua_State *L,
 		errmsg = lua_tostring(L, -1);
 		message = errparse(errmsg, name);
 		lua_pop(L, 1);
-	} else if (lua_type(L, -1) == LUA_TTABLE) {
-		/* not supported yet: if table, retrieve name and
-		 * message from a table at -1 */
 	}
 
 	dbg("name=%s, message=%s, valid_name=%i, errmsg=%s\n",
