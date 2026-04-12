@@ -25,6 +25,9 @@ and sd-event APIs.
         - [I/O event callback](#io-event-callback)
         - [Child pid callback](#child-pid-callback)
         - [Returning D-Bus errors](#returning-d-bus-errors)
+- [Error Handling](#error-handling)
+    - [Proxy side (client)](#proxy-side-client)
+    - [Server side](#server-side)
 - [API](#api)
     - [Functions](#functions)
     - [Bus connection object](#bus-connection-object)
@@ -37,10 +40,12 @@ and sd-event APIs.
 - [Tests](#tests)
 - [License](#license)
 - [FAQ](#faq)
+    - [match or signal callbacks are never called](#match-or-signal-callbacks-are-never-called)
     - [Error `System.Error.ENOTCONN: Transport endpoint is not connected`](#error-systemerrorenotconn-transport-endpoint-is-not-connected)
     - [`System.Error.ENOTCONN` after exiting loop](#systemerrorenotconn-after-exiting-loop)
 - [ChangeLog](#changelog)
 - [References](#references)
+
 <!-- markdown-toc end -->
 
 
