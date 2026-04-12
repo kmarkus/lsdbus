@@ -579,7 +579,7 @@ The `proxy:SetAV` uses the tovariant functions internally.
 | `prxy:SetAll(t)`                               | set all properties from a table                       |
 | `prxy:HasProperty(prop)`                       | check if prxy has a property of the given name        |
 | `prxy:Ping`                                    | call the `Ping` method on `org.freedesktop.DBus.Peer` |
-| `prxy:error(err, msg)`                         | error handler, override to customize behavior         |
+| `prxy:error(err, msg)`                         | raise an error object (see below)                     |
 
 *Notes*
 
@@ -595,6 +595,13 @@ The `proxy:SetAV` uses the tovariant functions internally.
   `tovariant` to automatically convert Lua types to lsdbus
   variants. Currently supported are `a{sv}`, `v`, `av` and `a{iv}`.
 - see *Internals* about how `lsdbus.proxy` works.
+- `proxy:error` raises an error object (table) instead of a plain
+  string. The object has the fields `err` (D-Bus error name), `msg`
+  (human readable message), `srv`, `obj` and `intf`. A `__tostring`
+  metamethod formats the object identically to the former string
+  error, so existing `tostring(e)` based error handling continues to
+  work. Use `pcall` to catch the object and access individual fields
+  directly.
 
 ### lsdbus.server
 
@@ -776,6 +783,10 @@ the loop.
 
 (only API changes)
 
+- `proxy:error` now throws an error object (table with fields `err`,
+  `msg`, `srv`, `obj`, `intf`) instead of a plain string. The object
+  has a `__tostring` metamethod that produces the same format as
+  before, so `tostring(e)` based error handling is unchanged.
 - proxy methods `callt` and `calltt` support an extra parameter `av`
   to enable automatic encoding of variants from Lua types (akin to
   `SetAV` for properties). If omitted, the behavior is the same as

@@ -364,6 +364,86 @@ function TestServer:TestFailWithCustomDBusError()
    lu.assert_error_msg_contains(msg, f)
 end
 
+-- helper: call f and return the raw error object
+local function catch_err(f)
+   local ok, e = pcall(f)
+   lu.assert_false(ok)
+   lu.assert_is_table(e)
+   return e
+end
+
+function TestServer:TestErrorObject_RemoteFail()
+   local e = catch_err(function() p1('Fail') end)
+
+   lu.assert_equals(e.err, "org.freedesktop.DBus.Error.Failed")
+   lu.assert_str_contains(e.msg, "calling Fail() failed:")
+   lu.assert_str_contains(e.msg, "Fail method called, throwing error")
+   lu.assert_equals(e.srv, "lsdbus.test")
+   lu.assert_equals(e.obj, "/1")
+   lu.assert_equals(e.intf, "lsdbus.test.testintf0")
+
+   -- tostring must match the former string format
+   local s = tostring(e)
+   lu.assert_str_contains(s, "org.freedesktop.DBus.Error.Failed:")
+   lu.assert_str_contains(s, "Fail method called, throwing error")
+   lu.assert_str_contains(s, "(lsdbus.test, /1, lsdbus.test.testintf0)")
+end
+
+function TestServer:TestErrorObject_DBusError()
+   local e = catch_err(function() p2('FailWithDBusError') end)
+
+   lu.assert_equals(e.err, "lsdbus.test.BananaPeelSlip")
+   lu.assert_str_contains(e.msg, "calling FailWithDBusError() failed: argh!")
+   lu.assert_equals(e.srv, "lsdbus.test")
+   lu.assert_equals(e.obj, "/2")
+   lu.assert_equals(e.intf, "lsdbus.test.testintf0")
+end
+
+function TestServer:TestErrorObject_UnknownMethod()
+   local e = catch_err(function() p1('NoSuchMethod') end)
+
+   lu.assert_equals(e.err, "org.freedesktop.DBus.Error.UnknownMethod")
+   lu.assert_equals(e.msg, "call: no method NoSuchMethod")
+   lu.assert_equals(e.srv, "lsdbus.test")
+   lu.assert_equals(e.obj, "/1")
+   lu.assert_equals(e.intf, "lsdbus.test.testintf0")
+end
+
+function TestServer:TestErrorObject_UnknownProperty()
+   -- Get
+   local e = catch_err(function() return p1.NoSuchProp end)
+
+   lu.assert_equals(e.err, "org.freedesktop.DBus.Error.UnknownProperty")
+   lu.assert_equals(e.msg, "Get: unknown property NoSuchProp")
+   lu.assert_equals(e.srv, "lsdbus.test")
+   lu.assert_equals(e.obj, "/1")
+
+   -- Set
+   e = catch_err(function() p2.NoSuchProp = 42 end)
+
+   lu.assert_equals(e.err, "org.freedesktop.DBus.Error.UnknownProperty")
+   lu.assert_equals(e.msg, "Set: unknown property NoSuchProp")
+   lu.assert_equals(e.obj, "/2")
+end
+
+function TestServer:TestErrorObject_CallrFail()
+   local e = catch_err(function() p3:callr('Fail') end)
+
+   lu.assert_equals(e.err, "org.freedesktop.DBus.Error.Failed")
+   lu.assert_str_contains(e.msg, "callr Fail() failed:")
+   lu.assert_equals(e.srv, "lsdbus.test")
+   lu.assert_equals(e.obj, "/3")
+end
+
+function TestServer:TestErrorObject_CalltMissingArg()
+   local e = catch_err(function() p1:callt('pow', {}) end)
+
+   lu.assert_equals(e.err, "org.freedesktop.DBus.Error.InvalidArgs")
+   lu.assert_equals(e.msg, "callt: argument x missing")
+   lu.assert_equals(e.srv, "lsdbus.test")
+   lu.assert_equals(e.obj, "/1")
+end
+
 function TestServer:TestSetAV()
    local t_asv1 = {a=1,b=2,foo='bar'}
    local t_asv2 = {a=1,b={c={d={1,2,3,4},x='ha',frib="9",flop="8"}}}

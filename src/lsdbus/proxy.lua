@@ -25,6 +25,15 @@ end
 
 local proxy = {}
 
+local proxy_err = {}
+proxy_err.__index = proxy_err
+
+function proxy_err:__tostring()
+   return fmt("%s: %s (%s, %s, %s)",
+              self.err, self.msg or "-",
+              self.srv, self.obj, self.intf)
+end
+
 --[[
 -- example interface description
 local node = {
@@ -50,7 +59,11 @@ local node = {
 
 function proxy:error(err_, msg)
    self._error(self, err_, msg)
-   error(fmt("%s: %s (%s, %s, %s)", err_, msg or "-", self._srv, self._obj, self._intf.name))
+   local e = setmetatable({
+      err = err_, msg = msg,
+      srv = self._srv, obj = self._obj, intf = self._intf.name
+   }, proxy_err)
+   error(e)
 end
 
 -- lowlevel plumbing method
