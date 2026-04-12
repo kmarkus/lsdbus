@@ -57,8 +57,8 @@ local function intf_to_vtab(intf, errh, dest)
 
    local props = {}
    for n,p in pairs(intf.properties or {}) do
-      local get = p.get and g(p.get, errh, { type='property-get', name=n, obj=p }) or nil
-      local set = p.set and g(p.set, errh, { type='property-set', name=n, obj=p }) or nil
+      local get = p.get and g(p.get, errh, { type='property-get', name=n, def=p }) or nil
+      local set = p.set and g(p.set, errh, { type='property-set', name=n, def=p }) or nil
       props[n] = { access=p.access, type=p.type, get=get, set=set }
    end
 
@@ -86,20 +86,31 @@ function srv:initialize(bus, path, intf, errh)
    self._bus, self._path, self._intf = bus, path, intf
 end
 
--- Create a new server object
+--- Create a new server object
 -- @param bus bus object
 -- @param path path under which to provide this interface
 -- @param intf interface table
--- @param errh error handler
+-- @param errh optional error handler function
 --
--- if the errh function is present, the method, property get and set
+-- If the `errh` function is present, the method, property get and set
 -- handlers are invoked using pcall. In case of error, errh is called
--- passing the original error, a backtrace and a context table of the
--- form `{ type=TYPE, name=MEMBER_NAME and obj=MEMBER_TABLE }`, where
--- TYPE is one of "propery-set", "property-get", "method"
+-- with the following signature:
 --
--- if no error handler is present, the error will propagate to the
--- lsdbus core, where it will is caught and printed to stderr.
+--     function errh(e, bt, ctx)
+--
+-- where:
+--   - `e`: the error value (string, table, or other type)
+--   - `bt`: backtrace string from debug.traceback
+--   - `ctx`: context table with the following fields:
+--       - `type`: one of "method", "property-get", "property-set"
+--       - `name`: the method or property name
+--       - `def`: the method/property definition table
+--
+-- The error handler should either re-raise the error (using `error()`)
+-- in D-Bus format "ERROR_NAME|MESSAGE", or allow the error to propagate.
+--
+-- If no error handler is present, errors propagate to the lsdbus core
+-- where they are caught and printed to stderr.
 function srv.new(bus, path, intf, errh)
    local o = {}
    srv.initialize(o, bus, path, intf, errh)

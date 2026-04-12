@@ -467,6 +467,116 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
 error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 ```
 
+## Error Handling
+
+### Proxy side (client)
+
+When a proxy method call fails, `lsdbus.proxy` raises an error object
+(table) with the following fields:
+
+- `err`: D-Bus error name (e.g., `"org.freedesktop.DBus.Error.Failed"`)
+- `msg`: human-readable error message
+- `srv`: service name
+- `obj`: object path
+- `intf`: interface name
+
+The error object has a `__tostring` metamethod that formats it as:
+`"ERR: MSG (srv, obj, intf)"`.
+
+**Catching errors with pcall:**
+
+```lua
+local ok, res = pcall(proxy, 'MethodName', arg1, arg2)
+if not ok then
+   -- res is the error object
+   print("D-Bus error: %s: %s (%s, %s, %s)", res.err, res.msg, res.srv, res.obj, res.intf)
+
+   -- or just print the formatted error:
+   print(tostring(res))
+end
+```
+
+**Custom error handler**
+
+To provide a custom per proxy `error` function via the `opts`
+parameter to `proxy.new`:
+
+```lua
+local function my_error_handler(proxy, err, msg)
+   -- Custom logging or handling
+   io.stderr:write(string.format("Proxy error on %s: %s - %s\n",
+                                  proxy._obj, err, msg))
+end
+
+local p = lsdb.proxy.new(b, srv, obj, intf, {error = my_error_handler})
+```
+
+To globally override error handling (e.g. in scripts), you can
+override the `proxy:error` method
+
+```lua
+function lsdb.proxy.error(_, err, msg)
+   io.stderr:write(string.format("%s: %s", err, msg))
+   os.exit(1)
+end
+```
+
+Note that this will affect all process users.
+
+### Server side
+
+By default, errors raised in server method handlers or property
+getters/setters are converted to D-Bus errors as follows:
+
+1. **D-Bus error format** `"ERROR_NAME|ERROR_MESSAGE"`: returned as-is to the caller
+2. **Plain Lua errors**: logged to stderr and converted to
+   `org.freedesktop.DBus.Error.Failed`
+
+**Custom error handler:**
+
+A custom error handler can be provided as the fourth argument to
+`lsdbus.server.new`. The handler has the signature:
+
+```lua
+function errhdl(e, bt, ctx)
+```
+
+where:
+- `e`: the error value (string, table, or other type)
+- `bt`: backtrace string from `debug.traceback`
+- `ctx`: context table with the following fields:
+  - `type`: one of `"method"`, `"property-get"`, `"property-set"`
+  - `name`: the method or property name
+  - `def`: the method/property definition table
+
+The handler must either `error()` with a D-Bus error string in the
+format `"ERROR_NAME|MESSAGE"` or allow the error to propagate.
+
+**Example custom error handler:**
+
+```lua
+local function vt_errhdl(e, bt, ctx)
+   local estr = tostring(e)
+   
+   -- If already in D-Bus error format, pass through
+   if estr:match("^[%w_.]+%s*|") then
+      error(estr)
+   end
+   
+   -- Log unexpected errors with context
+   io.stderr:write(string.format(
+      "Error in %s '%s': %s\nBacktrace:\n%s\n",
+      ctx.type, ctx.name, estr, bt))
+   
+   -- Return generic D-Bus error
+   error(lsdb.error.FAILED .. "|Internal server error")
+end
+
+local vt = lsdb.server.new(b, "/my/path", interface, vt_errhdl)
+```
+
+
+
 ## API
 
 ### Functions
@@ -605,25 +715,27 @@ The `proxy:SetAV` uses the tovariant functions internally.
 
 ### lsdbus.server
 
-| Method                                    | Description                                                |
-|-------------------------------------------|------------------------------------------------------------|
-| `vt = lsdbus.server.new(bus, path, intf)` | create a new obj with the given path and interface         |
-| `vt:call('METHOD', ...)`                  | locally call the D-Bus method handler                      |
-| `vt(METHOD, ...)`                         | same as above                                              |
-| `vt:Get(PROPERTY)`                        | locally call the `get` function                            |
-| `vt:Set(PROPERTY, value)`                 | locally call the `set` function                            |
-| `vt:emit(SIGNAL, args...)`                | emit a signal that is defined in the servers interface     |
-| `vt:emitPropertiesChanged(prop0, ...)`    | emit a PropertiesChanged signal for one or more properties |
-| `vt:emitAllPropertiesChanged(filter)`     | emit a PropertiesChanged signal for all properties         |
-| `vt:HasMethod(METHOD)`                    | check if vt has a method                                   |
-| `vt:HasProperty(PROPERTY)`                | check if vt has a property                                 |
-| `vt:HasSignal(SIGNAL)`                    | check if vt has a signal                                   |
-| `vt:get_interface()`                      | return the original interface                              |
-| `vt:unref()`                              | remove the interface and release the resources             |
-| `error("dbus.error.name\|message")`       | return a D-Bus error and message from a callback           |
+| Method                                            | Description                                                |
+|---------------------------------------------------|------------------------------------------------------------|
+| `vt = lsdbus.server.new(bus, path, intf, errhdl)` | create a new obj with the given path and interface         |
+| `vt:call('METHOD', ...)`                          | locally call the D-Bus method handler                      |
+| `vt(METHOD, ...)`                                 | same as above                                              |
+| `vt:Get(PROPERTY)`                                | locally call the `get` function                            |
+| `vt:Set(PROPERTY, value)`                         | locally call the `set` function                            |
+| `vt:emit(SIGNAL, args...)`                        | emit a signal that is defined in the servers interface     |
+| `vt:emitPropertiesChanged(prop0, ...)`            | emit a PropertiesChanged signal for one or more properties |
+| `vt:emitAllPropertiesChanged(filter)`             | emit a PropertiesChanged signal for all properties         |
+| `vt:HasMethod(METHOD)`                            | check if vt has a method                                   |
+| `vt:HasProperty(PROPERTY)`                        | check if vt has a property                                 |
+| `vt:HasSignal(SIGNAL)`                            | check if vt has a signal                                   |
+| `vt:get_interface()`                              | return the original interface                              |
+| `vt:unref()`                                      | remove the interface and release the resources             |
+| `error("dbus.error.name\|message")`               | return a D-Bus error and message from a callback           |
 
 **Notes**:
 
+- the optional `errhdl` arg of `lsdbus.server.new` allows providing a
+  custom error handler. See section "Error handling".
 - The `emitAllPropertiesChanged(filter)` takes an optional filter
   function which accepts the property name and property table and
   returns true or false depending on whether the property shall be
@@ -672,6 +784,7 @@ The behavior upon garbage collection depends on the slot type:
 
 Thus, there is no need to store a reference to an `evsrc` object
 *unless* you intend to remove it before the program ends.
+
 
 ## Internals
 
