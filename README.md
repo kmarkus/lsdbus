@@ -52,6 +52,9 @@ First, ensure that the correct packages are installed. For example:
 $ sudo apt-get install cmake lua5.3 liblua5.3-dev libsystemd-dev libmxml-dev
 ```
 
+Lua versions <5.2 (incl. `luajit`) additionally require `lua-compat53`
+and `lua-compat53-dev`.
+
 To run the tests, install `lua-unit` or install it directly from here
 [2]. Then build via CMake:
 
