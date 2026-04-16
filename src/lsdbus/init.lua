@@ -30,6 +30,15 @@ function lsdbus.throw(name, format, ...)
    error(name .."|"..fmt(format, ...), 2)
 end
 
+--- Parse an lsdbus string error back into name, msg
+-- if unable to parse, returns nil
+-- @param err string error
+-- @return dbus error name
+-- @return error message
+function lsdbus.parse_err(err)
+   return string.match(err, "([a-zA-Z_][a-zA-Z0-9_]*%.[a-zA-Z0-9_.]+)%s*|%s*(.*)")
+end
+
 -- backwards compat
 lsdbus.tovariant = common.tovariant
 lsdbus.tovariant2 = common.tovariant2
