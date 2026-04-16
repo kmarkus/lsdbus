@@ -1,7 +1,7 @@
-# lsdbus
+# lsdbus: Lua D-Bus bindings
 
-lsdbus is a simple to use D-Bus binding for Lua based on the sd-bus
-and sd-event APIs.
+`lsdbus` is a simple to use D-Bus binding for lua 5.x and luajit based
+on the sd-bus and sd-event APIs.
 
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
 **Table of Contents**
@@ -54,7 +54,7 @@ and sd-event APIs.
 First, ensure that the correct packages are installed. For example:
 
 ```sh
-$ sudo apt-get install cmake lua5.3 liblua5.3-dev libsystemd-dev libmxml-dev
+$ sudo apt-get install cmake lua5.4 liblua5.4-dev libsystemd-dev libmxml-dev
 ```
 
 Lua versions <5.2 (incl. `luajit`) additionally require `lua-compat53`
@@ -73,7 +73,7 @@ $ sudo make install
 
 If you have multiple Lua versions installed, you can force the one to
 be used by setting `CONFIG_LUA_VER` (or pass `-DCONFIG_LUA_VER=X` to
-cmake) to one of `5.4`, `5.3`, `5.2`, `5.1` or `jit`.
+cmake) to one of `5.5`, `5.4`, `5.3`, `5.2`, `5.1` or `jit`.
 
 ## Quickstart
 
