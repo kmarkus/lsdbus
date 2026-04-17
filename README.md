@@ -479,7 +479,7 @@ error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 When a proxy method call fails, `lsdbus.proxy` raises an error object
 (table) with the following fields:
 
-- `err`: D-Bus error name (e.g., `"org.freedesktop.DBus.Error.Failed"`)
+- `name`: D-Bus error name (e.g., `"org.freedesktop.DBus.Error.Failed"`)
 - `msg`: human-readable error message
 - `srv`: service name
 - `obj`: object path
@@ -494,7 +494,7 @@ The error object has a `__tostring` metamethod that formats it as:
 local ok, res = pcall(proxy, 'MethodName', arg1, arg2)
 if not ok then
    -- res is the error object
-   print("D-Bus error: %s: %s (%s, %s, %s)", res.err, res.msg, res.srv, res.obj, res.intf)
+   print("D-Bus error: %s: %s (%s, %s, %s)", res.name, res.msg, res.srv, res.obj, res.intf)
 
    -- or just print the formatted error:
    print(tostring(res))
