@@ -77,33 +77,81 @@ cmake) to one of `5.5`, `5.4`, `5.3`, `5.2`, `5.1` or `jit`.
 
 ## Quickstart
 
-**Server**
+**Server** (`demo-server.lua`)
+
+```lua
+local lsdb = require("lsdbus")
+
+local demo_if = {
+   name = "lsdbus.demo.demoif0",
+   methods = {
+      Hello = {
+         { direction="in",  name="name",  type="s" },
+         { direction="out", name="reply", type="s" },
+         handler = function(vt, name)
+            return (vt.greeting or "Hello") .. ", " .. name .. "!"
+         end,
+      },
+   },
+   properties = {
+      Greeting = {
+         access = "readwrite", type = "s",
+         get = function(vt) return vt.greeting or "Hello" end,
+         set = function(vt, val)
+            vt.greeting = val
+            vt:emitPropertiesChanged("Greeting")
+         end,
+      },
+   },
+   signals = {
+      Greeted = { { name="message", type="s" } },
+   },
+}
+
+local b = lsdb.open()
+b:request_name("lsdbus.demo")
+lsdb.server.new(b, "/", demo_if)
+b:loop()
+```
+
+Run it in one terminal:
 
 ```sh
-$ lua -l lsdbus
-Lua 5.3.6  Copyright (C) 1994-2020 Lua.org, PUC-Rio
-> b=lsdbus.open()
-> b:request_name("lsdbus.test")
-> intf = { name="lsdbus.testif", methods={ Hello={ handler=function() print("hi lsdbus!") end }}}
-> s = lsdbus.server.new(b, "/", intf)
-> b:loop()
+$ lua demo-server.lua
 ```
 
 **Client** (open a second terminal)
 
 ```
 $ lua -l lsdbus
-Lua 5.3.6  Copyright (C) 1994-2020 Lua.org, PUC-Rio
 > b = lsdbus.open()
-> p = lsdbus.proxy.new(b, "lsdbus.test", '/', "lsdbus.testif")
+> p = lsdbus.proxy.new(b, "lsdbus.demo", "/", "lsdbus.demo.demoif0")
 > p
-srv: lsdbus.test, obj: /, intf: lsdbus.testif
+srv: lsdbus.demo, obj: /, intf: lsdbus.demo.demoif0
 Methods:
-  Hello () -> 
-> p('Hello')
-> p('Hello')
+  Hello (s) -> s
+Properties:
+  Greeting: s, readwrite
+Signals:
+  Greeted (s)
+> p.Greeting
+Hello
+> p('Hello', "world")
+Hello, world!
+> p.Greeting = "Howdy"
+> p('Hello', "lsdbus")
+Howdy, lsdbus!
 ```
 
+**Monitoring signals**
+
+If you monitor signals, you will see the `PropertiesChanged` signal
+that is emitted when the `Greeting` property is set.
+
+```sh
+$ lsdb-mon -c
+:1.270, /, org.freedesktop.DBus.Properties, PropertiesChanged, {"lsdbus.demo.demoif0",{Greeting="Howdy"},{}}
+```
 ## Usage
 
 ### Bus connection
