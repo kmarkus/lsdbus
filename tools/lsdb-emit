@@ -1,12 +1,15 @@
 #!/usr/bin/lua
 
 local u = require("utils")
+local ac = require("ansicolors")
 local lsdb = require("lsdbus.core")
 
 local b, bus, verbose
+local color = true
 
 local function printf(fmt, ...) print(string.format(fmt, ...)) end
 local function log(...) if verbose then printf(...) end end
+local function err(msg) printf("%s", color and ac.red(msg) or msg) end
 
 local function help()
    printf([=[
@@ -26,6 +29,7 @@ flags
  -n NUM    emit the given event NUM times (default: 1)
  -s        system bus
  -u        session bus
+ -C        disable colors
  -v        verbose
 ]=])
 end
@@ -48,12 +52,13 @@ local num = 1
 local opttab = u.proc_args(arg)
 
 verbose = opttab['-v']
+if opttab['-C'] then color = false end
 if opttab['-h'] then help(); os.exit(1) end
 if opttab['-s'] then bus='default_system'
 elseif opttab['-u'] then bus='default_user' end
 
 if opttab[0][1]==nil then
-   printf("missing argument")
+   err("missing argument")
    os.exit(1)
 end
 
@@ -68,7 +73,7 @@ if typestr then
    args = proc_args{ table.unpack(opttab[0], 3)}
 end
 
-if p == nil then printf("invalid destination spec"); os.exit(1); end
+if p == nil then err("invalid destination spec"); os.exit(1); end
 log("emitting signal from path=%s, interf=%s, member=%s, typestr=%s, args=%s",
     p, i, m, typestr, u.tab2str(args))
 

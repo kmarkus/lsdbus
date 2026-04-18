@@ -15,13 +15,14 @@ local function exit(_, sig)
    b:exit_loop()
 end
 
-local function pp(_, s, p, i, m, ...)
+local function plainpp(_, s, p, i, m, ...)
    u.pp(s, p, i, m, u.tab2str({...}))
    return 0
 end
 
 local function colorpp(_, s, p, i, m, ...)
    u.pp(ac.blue(s), ac.green(p), ac.cyan(i), ac.yellow(m), ac.magenta(u.tab2str({...})))
+   return 0
 end
 
 local function help()
@@ -36,16 +37,17 @@ without any args just dump all signals
 global flags
  -s 	system bus
  -u	session bus
- -c 	colorize output
+ -C 	disable colors
  -v     verbose
 ]=])
 end
 
 local opttab = u.proc_args(arg)
 local cmd = opttab[0][1]
+local pp = colorpp
 
 verbose = opttab['-v']
-if opttab['-c'] then pp = colorpp end
+if opttab['-C'] then pp = plainpp end
 if opttab['-h'] then cmd = 'help' end
 if opttab['-s'] then bus='default_system'
 elseif opttab['-u'] then bus='default_user' end

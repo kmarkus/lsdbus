@@ -6,6 +6,7 @@ local lsdb = require("lsdbus")
 local common = require("lsdbus.common")
 
 local b, bus, verbose, color, show_stdif
+color = true
 local dbus_proxy
 
 local function make_colorize(colorize)
@@ -37,7 +38,7 @@ global flags
  -r     raw output
  -s 	system bus
  -u	session bus
- -c 	colorize output
+ -C 	disable colors
  -v     verbose
 ]=])
 end
@@ -120,7 +121,7 @@ local opttab = u.proc_args(arg)
 local cmd = opttab[0][1] or 'list'
 
 verbose = opttab['-v']
-if opttab['-c'] then color = true end
+if opttab['-C'] then color = false end
 if opttab['-i'] then show_stdif = true end
 if opttab['-h'] then cmd = 'help' end
 if opttab['-s'] then bus='default_system'

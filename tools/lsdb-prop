@@ -6,6 +6,7 @@ local ac = require("ansicolors")
 local ts = tostring
 
 local b, bus, color, verbose
+color = true
 
 local function printf(fmt, ...) print(string.format(fmt, ...)) end
 local function log(...) if verbose then printf(...) end end
@@ -64,7 +65,7 @@ flags
  -r     do not automatically decode variants
  -s     system bus
  -u     session bus
- -c     colorize output
+ -C     disable colors
  -v     verbose
 
 *examples*
@@ -84,7 +85,7 @@ end
 -- parse command line arguments
 local opttab = u.proc_args(arg)
 verbose = opttab['-v']
-if opttab['-c'] then color = true end
+if opttab['-C'] then color = false end
 if opttab['-h'] then help(); os.exit(0) end
 if opttab['-s'] then bus = 'default_system'
 elseif opttab['-u'] then bus = 'default_user' end
