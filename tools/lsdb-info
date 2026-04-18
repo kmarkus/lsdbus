@@ -30,7 +30,7 @@ local function help()
 usage: lsdb-info: COMMAND [ARGS] [FLAGS]
 
  list            list all know services
- show [SERVICE]  show SERVICE
+ show [SERVICE]  show SERVICE (SERVICE may be a Lua match expression)
    -i              show also standard interfaces
  help            print this
 
@@ -137,7 +137,35 @@ if cmd == 'list' then
    local _, rows = u.tabulate(services, hdr)
    u.write_table(io.stdout, hdr, rows, {count=false})
 elseif cmd == 'show' then
-   show(opttab[0][2], opttab['-r'])
+   local service = opttab[0][2]
+   if not service then
+      print("missing service argument")
+      os.exit(1)
+   end
+   local names = dbus_proxy('ListNames')
+   local exact = false
+   for _, n in ipairs(names) do
+      if n == service then exact = true; break end
+   end
+   if not exact then
+      local matches = {}
+      for _, n in ipairs(names) do
+         if not n:match("^:") and n:match(service) then
+            matches[#matches+1] = n
+         end
+      end
+      if #matches == 0 then
+         print(fmt("no service matching '%s'", service))
+         os.exit(1)
+      elseif #matches == 1 then
+         service = matches[1]
+      else
+         print(fmt("'%s' is ambiguous, matches %d services:", service, #matches))
+         for _, m in ipairs(matches) do print("  " .. m) end
+         os.exit(1)
+      end
+   end
+   show(service, opttab['-r'])
 elseif cmd == 'help' then
    help()
    os.exit()
