@@ -1,6 +1,7 @@
 #!/usr/bin/lua
 
 local u = require("utils")
+local pt = require("prettytable")
 local ac = require("ansicolors")
 local lsdb = require("lsdbus")
 
@@ -24,7 +25,8 @@ $ lsdb-call org.bluez,/org/bluez/hci0,org.freedesktop.DBus.Properties,GetAll "{i
 flags
  -s 	system bus
  -u	session bus
- -C     disable colors
+ -C     disable color
+ -r     raw: don't pretty print return
  -v     verbose
 ]=])
 end
@@ -56,7 +58,12 @@ log("calling dest=%s, path=%s, interf=%s, member=%s, payload=%s",
 local prxy = lsdb.proxy.new(b, s, p, i)
 local ret,tab = u.eval_sandbox("return "..argtab)
 if ret then
-   u.pp(prxy:callt(m, tab))
+   local results = table.pack(prxy:callt(m, tab))
+   if opttab['-r'] then
+      u.pp(table.unpack(results, 1, results.n))
+   else
+      for i=1,results.n do print(pt.tostr(results[i])) end
+   end
 else
    err(string.format("failed to parse argument table: %s", tab))
    os.exit(1)
