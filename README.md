@@ -1,6 +1,6 @@
 # lsdbus: Lua D-Bus bindings
 
-`lsdbus` is a simple to use D-Bus binding for lua 5.x and luajit based
+`lsdbus` is a simple to use D-Bus binding for Lua 5.x and LuaJIT based
 on the sd-bus and sd-event APIs.
 
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
@@ -61,7 +61,7 @@ Lua versions <5.2 (incl. `luajit`) additionally require `lua-compat53`
 and `lua-compat53-dev`.
 
 To run the tests, install `lua-unit` or install it directly from here
-[2]. Then build via CMake:
+[1]. Then build via CMake:
 
 ```sh
 $ cd lsdbus
@@ -149,7 +149,7 @@ If you monitor signals, you will see the `PropertiesChanged` signal
 that is emitted when the `Greeting` property is set.
 
 ```sh
-$ lsdb-mon -c
+$ lsdb-mon
 :1.270, /, org.freedesktop.DBus.Properties, PropertiesChanged, {"lsdbus.demo.demoif0",{Greeting="Howdy"},{}}
 ```
 ## Usage
@@ -167,7 +167,7 @@ b = lsdb.open()
 
 #### Testmsg
 
-To faciliate testing message conversion, lsdbus provides the `testmsg`
+To facilitate testing message conversion, lsdbus provides the `testmsg`
 function, that accepts a D-Bus message specifier (see
 `sd_bus_message_append(3)` and a value, creates a D-Bus message from
 it and converts it back to Lua (the example below uses the small
@@ -206,8 +206,8 @@ it and converts it back to Lua (the example below uses the small
 **Notes**:
 
 - More examples can be found in the unit tests: `test/message.lua`
-- *Variant* is the only type whose conversion is asymmetrical,
-  i.e. the input arguments are not equal the result. This is because
+- *Variant* is the only type whose conversion is *asymmetrical*,
+  i.e. the input arguments are not equal to the result. This is because
   the variant is unpacked automatically. However, in some cases it is
   desirable to get the variant in its raw table form (e.g. when the
   identical value needs to be returned). For that case, the "raw"
@@ -258,7 +258,7 @@ Signals:
 Pacific/Tahiti
 ```
 
-**Methods** can called by "calling" the proxy and providing the Method
+**Methods** can be called by "calling" the proxy and providing the method
 name as the first argument:
 
 ```lua
@@ -276,10 +276,10 @@ provided.
 ret, res0, ... = bus:call(dest, path, intf, member, typestr, arg0...)
 ```
 
-in case of success `ret` is `true` and `res0`, `res1`, ... are the
+In case of success `ret` is `true` and `res0`, `res1`, ... are the
 return values of the call.
 
-if case of failure `ret` is `false` and `res0` is a table of the form
+In case of failure `ret` is `false` and `res0` is a table of the form
 `{ error, message }`.
 
 
@@ -291,7 +291,7 @@ b = lsdb.open('default_system')
 u = require("utils")
 
 -- calling a valid method
-u.pp(b:call('org.freedesktop.timedate1', '/org/freedesktop/timedate1', 'org.freedesktop.timedate1', 'ListTimezones')})
+u.pp(b:call('org.freedesktop.timedate1', '/org/freedesktop/timedate1', 'org.freedesktop.timedate1', 'ListTimezones'))
 true, {"Africa/Abidjan","Africa/Accra","Africa/Addis_Ababa", ...
 
 -- calling an invalid method
@@ -386,7 +386,7 @@ local interface_table = {
 }
 
 local b = lsdb.open('user')
-b:request_name("well.known.name"))
+b:request_name("well.known.name")
 srv = lsdb.server.new(b, PATH, interface_table)
 b:loop()
 ```
@@ -448,7 +448,7 @@ evsrc = b:add_periodic(period, accuracy, callback, enabled)
 The `period` and `accuracy` (both in microseconds) correspond to the
 same parameters in `sd_event_add_time(3)`.
 
-The `enabled` defines if periodc event should be enabled after creation.
+The `enabled` defines if the periodic event should be enabled after creation.
 The default value is `true`.
 
 The returned `event_src` object supports methods `set_enabled(int)`
@@ -472,7 +472,7 @@ The lsdbus module defines the following constants `SIGINT`, `SIGTERM`,
 #### I/O event callback
 
 Add a callback to be called upon IO activity on the given file
-descriptor (see `sd_event_add_io(3)`) for details:
+descriptor (see `sd_event_add_io(3)` for details):
 
 *Example:*
 
@@ -542,7 +542,7 @@ The error object has a `__tostring` metamethod that formats it as:
 local ok, res = pcall(proxy, 'MethodName', arg1, arg2)
 if not ok then
    -- res is the error object
-   print("D-Bus error: %s: %s (%s, %s, %s)", res.name, res.msg, res.srv, res.obj, res.intf)
+   print(string.format("D-Bus error: %s: %s (%s, %s, %s)", res.name, res.msg, res.srv, res.obj, res.intf))
 
    -- or just print the formatted error:
    print(tostring(res))
@@ -640,7 +640,7 @@ local vt = lsdb.server.new(b, "/my/path", interface, vt_errhdl)
 | `lsdbus.xml_fromfile(file)`        | parse a D-Bus XML file and return as Lua table                 |
 | `lsdbus.xml_fromstr(str)`          | parse a D-Bus XML string and return as Lua table               |
 | `lsdbus.find_intf(node, interface` | find and return `interface` in the introspection table         |
-| `lsdbus.tovariant(value)`          | encode an arbitray Lua datastructure into a lsdb variant table |
+| `lsdbus.tovariant(value)`          | encode an arbitrary Lua data structure into a lsdb variant table |
 | `lsdbus.tovariant2(value)`         | like above, but just return the value, not the typestr         |
 
 *Example* for `tovariant`
@@ -703,11 +703,11 @@ The `proxy:SetAV` uses the tovariant functions internally.
     - `default_system` (`sd_bus_default_system`)
     - `default_user` (`sd_bus_default_user`)
 
-  If not given, default is `new'`
+  If not given, default is `new`
 
 - `evsrc` (event source) objects are **not** cleaned up (`unref`ed)
   when garbage collected but set to *floating*, which means they will
-  live until the event loop is destroyed. To explicitely disable and
+  live until the event loop is destroyed. To explicitly disable and
   destroy an event source, call its `unref` method.
 
 > **Note**: upon being collected the `default_*` type bus objects are
@@ -759,8 +759,8 @@ The `proxy:SetAV` uses the tovariant functions internally.
   variants. Currently supported are `a{sv}`, `v`, `av` and `a{iv}`.
 - see *Internals* about how `lsdbus.proxy` works.
 - `proxy:error` raises an error object (table) instead of a plain
-  string. The object has the fields `err` (D-Bus error name), `msg`
-  (human readable message), `srv`, `obj` and `intf`. A `__tostring`
+  string. The object has the fields `name` (D-Bus error name), `msg`
+  (human-readable message), `srv`, `obj` and `intf`. A `__tostring`
   metamethod formats the object identically to the former string
   error, so existing `tostring(e)` based error handling continues to
   work. Use `pcall` to catch the object and access individual fields
@@ -792,9 +792,9 @@ The `proxy:SetAV` uses the tovariant functions internally.
 - The `emitAllPropertiesChanged(filter)` takes an optional filter
   function which accepts the property name and property table and
   returns true or false depending on whether the property shall be
-  included in the `PropertiesChanged` signal not.
+  included in the `PropertiesChanged` signal or not.
 - the vtable slot (`srv.slot`) is garbage collected which will remove
-  the respective dbus interface. Call `srv:unref()` to explicitely
+  the respective D-Bus interface. Call `srv:unref()` to explicitly
   remove the interface.
 
 ### slots
@@ -813,9 +813,9 @@ The behavior upon garbage collection depends on the slot type:
   bus does).
 - `call_async`: `unref`ed, resources freed
 
-> **Note**: you must hold a reference to a `vtable` slot to prevent is
-> being garbage collected and removed. Typically one just stores a
-> reference to the `srv` object return by `server.new`.
+> **Note**: you must hold a reference to a `vtable` slot to prevent it
+> from being garbage collected and removed. Typically one just stores a
+> reference to the `srv` object returned by `server.new`.
 
 
 ### event sources
@@ -832,7 +832,7 @@ The behavior upon garbage collection depends on the slot type:
 > **Note**: `evsrc` (event source) objects are **not** released
 > (`unref`ed) when they go out of scope (i.e. are garbage collected)
 > but are set to *floating*. This means they will live until the event
-> loop is destroyed. To explicitely destroy an event source, call its
+> loop is destroyed. To explicitly destroy an event source, call its
 > `unref` method.
 
 Thus, there is no need to store a reference to an `evsrc` object
@@ -904,7 +904,7 @@ Stopping peer test server with PID  1790834
 ```
 
 This also starts the testserver peer service. The environment variable
-`LUA_VERSION` can be set to specifiy which Lua version to use. All
+`LUA_VERSION` can be set to specify which Lua version to use. All
 arguments to the script are passed to luaunit.
 
 To run in dedicated D-Bus session:
@@ -926,7 +926,7 @@ systemd.
 A subtle pitfall is to use a different bus connection object for
 registering the callbacks than the one that later runs the event loop
 (`:loop()` or `:run()`). This can happen if the bus is obtained twice
-call `lsdb.open` *without* using the `*default*` open flags.
+by calling `lsdb.open` *without* using the `*default*` open flags.
 
 ### Error `System.Error.ENOTCONN: Transport endpoint is not connected`
 
@@ -949,7 +949,7 @@ the loop.
 
 (only API changes)
 
-- `proxy:error` now throws an error object (table with fields `err`,
+- `proxy:error` now throws an error object (table with fields `name`,
   `msg`, `srv`, `obj`, `intf`) instead of a plain string. The object
   has a `__tostring` metamethod that produces the same format as
   before, so `tostring(e)` based error handling is unchanged.
@@ -967,7 +967,7 @@ the loop.
   fields. The low-level vtable is moved to `._vt)`.
 - constructors are now functions: use `lsdbus.server.new` and
   `lsdbus.proxy.new` instead of `lsdbus.server:new` and
-  `lsdbus.proxy:new` respectivly.
+  `lsdbus.proxy:new` respectively.
 - `lsdb.open()` now defaults to `new`, i.e. `sd_bus_open(3)`. This is
   the safer default, since it will not piggy back onto a potentially
   existing event loop.
@@ -975,7 +975,7 @@ the loop.
 - added `bus:release_name`
 - **vtab slots are now also garbage collected**. So make sure to hold
   onto the vtab object returned by `server:new` (this itself contains
-  a ref to the slot `.slot`) or the interface will dissappear after
+  a ref to the slot `.slot`) or the interface will disappear after
   the next GC cycle.
 - `b:add_signal`: takes a numeric signals numbers instead of a
   string. the `lsdbus` module defines constants for supported signals.
