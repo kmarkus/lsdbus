@@ -7,7 +7,13 @@ include(GNUInstallDirs)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SYSTEMD REQUIRED libsystemd>=242)
-pkg_check_modules(MXML REQUIRED mxml)
+pkg_check_modules(MXML mxml4)
+if(MXML_FOUND)
+  set(MXML_COMPILE_DEFS HAVE_MXML4)
+else()
+  pkg_check_modules(MXML REQUIRED mxml)
+  set(MXML_COMPILE_DEFS "")
+endif()
 
 set(CONFIG_LUA_VER "" CACHE STRING "build for exact Lua version")
 
@@ -55,8 +61,8 @@ set(LSDBUS_INST_DIR
 
 add_library(core SHARED ${LSDBUS_SRCS})
 target_compile_options(core PRIVATE -Wall -Wextra)
-target_compile_definitions(core PRIVATE LIBSYSTEMD_VERSION=${SYSTEMD_VERSION})
-target_include_directories(core PRIVATE ${LUA_INCLUDE_DIRS} ${COMPAT53_DIR})
+target_compile_definitions(core PRIVATE LIBSYSTEMD_VERSION=${SYSTEMD_VERSION} ${MXML_COMPILE_DEFS})
+target_include_directories(core PRIVATE ${LUA_INCLUDE_DIRS} ${COMPAT53_DIR} ${MXML_INCLUDE_DIRS})
 target_link_libraries(core ${SYSTEMD_LIBRARIES} ${MXML_LIBRARIES} )
 set_target_properties(core PROPERTIES PREFIX "")
 install(TARGETS core LIBRARY DESTINATION ${LSDBUS_INST_DIR})

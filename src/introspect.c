@@ -8,6 +8,35 @@
 
 #include <mxml.h>
 
+#ifdef HAVE_MXML4
+#define MXML_DESCEND	MXML_DESCEND_ALL
+#define MXML_NO_DESCEND	MXML_DESCEND_NONE
+
+static mxml_node_t *mxml_load_file_opaque(FILE *fp)
+{
+	mxml_options_t *opts = mxmlOptionsNew();
+	mxml_node_t *root;
+	mxmlOptionsSetTypeValue(opts, MXML_TYPE_OPAQUE);
+	root = mxmlLoadFile(NULL, opts, fp);
+	mxmlOptionsDelete(opts);
+	return root;
+}
+
+static mxml_node_t *mxml_load_string_opaque(const char *s)
+{
+	mxml_options_t *opts = mxmlOptionsNew();
+	mxml_node_t *root;
+	mxmlOptionsSetTypeValue(opts, MXML_TYPE_OPAQUE);
+	root = mxmlLoadString(NULL, opts, s);
+	mxmlOptionsDelete(opts);
+	return root;
+}
+#else
+#define mxml_load_file_opaque(fp)    mxmlLoadFile(NULL, (fp), MXML_OPAQUE_CALLBACK)
+#define mxml_load_string_opaque(s)   mxmlLoadString(NULL, (s), MXML_OPAQUE_CALLBACK)
+#endif
+
+
 /*
 <!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
 "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
@@ -192,7 +221,7 @@ int lsdbus_xml_fromfile(lua_State *L)
 	if (fp == NULL)
 		luaL_error(L, "failed to open %s", f);
 
-	root = mxmlLoadFile(NULL, fp, MXML_OPAQUE_CALLBACK);
+	root = mxml_load_file_opaque(fp);
 
 	fclose(fp);
 
@@ -213,7 +242,7 @@ int lsdbus_xml_fromstr(lua_State *L)
 	mxml_node_t *root;
 	const char* s = luaL_checkstring(L, 1);
 
-	root = mxmlLoadString(NULL, skip_ws(s), MXML_OPAQUE_CALLBACK);
+	root = mxml_load_string_opaque(skip_ws(s));
 
 	if (root == NULL)
 		luaL_error(L, "failed to parse XML string");
