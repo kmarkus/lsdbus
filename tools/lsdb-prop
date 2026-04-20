@@ -10,18 +10,20 @@ color = true
 
 local function printf(fmt, ...) print(string.format(fmt, ...)) end
 local function log(...) if verbose then printf(...) end end
+local function err(msg) printf("%s", color and ac.red(msg) or msg) end
 
 local function make_colorize(colorize)
    return function(s) if color then return colorize(s) else return ts(s) end end
 end
 
-local blue     = make_colorize(ac.blue)
 local red      = make_colorize(ac.red)
 local green    = make_colorize(ac.green)
 local cyan     = make_colorize(ac.cyan)
 local yellow   = make_colorize(ac.yellow)
+local magenta  = make_colorize(ac.magenta)
+local bmagenta = make_colorize(function(s) return ac.bright(ac.magenta(s or "")) end)
 
-local function fmtkey(k) return blue(k) end
+local function fmtkey(k) return cyan(k) end
 
 local function fmtval(k)
    if type(k) == "boolean" then
@@ -37,47 +39,63 @@ end
 
 local function pp_props(t, ind)
    local keys, maxk = {}, 0
-   ind = ind or ""
+   ind = ind or "  "
    for k in pairs(t) do keys[#keys+1], maxk = k, math.max(maxk, #ts(k)) end
    table.sort(keys)
    for _, k in ipairs(keys) do
       local v = t[k]
+      local pad = string.rep(" ", maxk - #ts(k))
       if type(v) == 'table' then
 	 if #v == 0 then
-	    print(ind .. fmtkey(k) .. ' = []')
+	    print(ind .. fmtkey(k) .. pad .. " = " .. magenta("[]"))
 	 else
-	    print(ind .. fmtkey(k) .. ' = ['.. string.rep(" ", maxk - #ts(k)))
+	    print(ind .. fmtkey(k) .. pad .. " = " .. magenta("["))
 	    pp_props(v, ind .. "  ")
-	    print(ind .. ']')
+	    print(ind .. magenta("]"))
 	 end
       else
-	 print(ind .. fmtkey(k) .. ' = ' .. string.rep(" ", maxk - #ts(k)) .. fmtval(v))
+	 print(ind .. fmtkey(k) .. pad .. " = " .. fmtval(v))
       end
    end
 end
 
 local function help()
    printf([=[
-usage: lsdb-prop DEST,PATH[,INTERFACE] [PROP[=VALUE]] [FLAGS]
+usage: lsdb-prop SERVICE,PATH,INTERFACE[,PROP[=VALUE]] [FLAGS]
+
+service, path and interface may be omitted if they can be
+uniquely resolved via introspection.
+
+service, path and interface support substring matching: if the
+exact name is not found, any non-unique substring of a known
+service/path/interface is accepted.
 
 flags
- -e     automatically encode variants
- -r     do not automatically decode variants
  -s     system bus
  -u     session bus
  -C     disable colors
  -v     verbose
+ -h     show this help
 
 *examples*
 
-# show all properties of interfaces
-$ lsdb-prop foo.bar,/,com.foo.bar
+# show all properties of all non-standard interfaces of a service
+$ lsdb-prop foo.bar
+
+# show all properties of all interfaces on a path
+$ lsdb-prop foo.bar,/some/path
+
+# show all properties of a specific interface
+$ lsdb-prop foo.bar,/some/path,com.foo.bar
 
 # get a specific property
-$ lsdb-prop foo.bar,/,com.foo.bar PropX
+$ lsdb-prop foo.bar,/some/path,com.foo.bar,PropX
 
 # set a property
-$ lsdb-prop foo.bar,/,com.foo.bar PropX=42
+$ lsdb-prop foo.bar,/some/path,com.foo.bar,PropX=42
+
+# auto-resolve path and interface (must be unique)
+$ lsdb-prop foo.bar,,,PropX
 
 ]=])
 end
@@ -91,42 +109,70 @@ if opttab['-s'] then bus = 'default_system'
 elseif opttab['-u'] then bus = 'default_user' end
 
 if not opttab[0] or not opttab[0][1] then
-   printf("missing argument")
+   err("missing argument")
    os.exit(1)
 end
 
 log("using %s bus", bus or 'default')
 b = lsdb.open(bus)
 
-local s, p, i = string.match(opttab[0][1], "([^,]*),?([^,]*),?(.*)")
+local fields = {}
+for f in (opttab[0][1] .. ","):gmatch("([^,]*),") do
+   fields[#fields + 1] = f
+end
+local s, p, i = fields[1] or "", fields[2] or "", fields[3] or ""
+local arg2 = fields[4]
+if arg2 == "" then arg2 = nil end
 
-if not s or s == "" then
-   printf("invalid destination spec")
+if s == "" then
+   err("missing service name")
    os.exit(1)
 end
 
-local arg2 = opttab[0][2]
-local prxy = lsdb.proxy.new(b, s, p, i)
+log("dest=%s, path=%s, interf=%s", s, p, i)
 
 if not arg2 then
-   -- No property specified: list all
-   local props = prxy:GetAll()
-   require("utils").pp(props)
-   pp_props(props)
+   -- No property specified: list all matching interfaces
+   local ok, result = lsdb.find_proxy(b, s, p, i)
+   if ok then
+      pp_props(result:GetAll())
+   else
+      if #result == 0 then
+         err(string.format("service '%s' not found", s))
+         os.exit(1)
+      end
+      for idx, c in ipairs(result) do
+         if idx > 1 then print("") end
+         local prxy = lsdb.proxy.new(b, c[1], c[2], c[3])
+         printf("%s  %s", green(c[2]), bmagenta(c[3]))
+         pp_props(prxy:GetAll())
+      end
+   end
 else
+   -- Get or set a specific property: need unique proxy
+   local ok, prxy = lsdb.find_proxy(b, s, p, i)
+   if not ok then
+      if #prxy == 0 then
+         err(string.format("service '%s' not found", s))
+      else
+         err("no unique proxy found, candidates:")
+         for _, c in ipairs(prxy) do
+            printf("  %s,%s,%s", c[1], c[2], c[3])
+         end
+      end
+      os.exit(1)
+   end
    local key, value = string.match(arg2, "([^=]+)=?(.*)")
    if value == "" then
-      -- Getter
       if not prxy:HasProperty(key) then
-	 printf("no property %s", key)
+	 err(string.format("no property %s", key))
 	 os.exit(1)
       end
       u.pp(prxy[key])
    else
-      -- Setter
       local ok, val = u.eval_sandbox("return " .. value)
       if not ok then
-	 printf("failed to parse value: %s", val)
+	 err(string.format("failed to parse value: %s", val))
 	 os.exit(1)
       end
       prxy[key] = val

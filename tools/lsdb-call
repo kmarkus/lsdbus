@@ -14,20 +14,23 @@ local function err(msg) printf("%s", color and ac.red(msg) or msg) end
 
 local function help()
    printf([=[
-usage: lsdb-call DEST,PATH,INTERFACE,MEMBER [ARGTAB] [FLAGS]
+usage: lsdb-call SERVICE,PATH,INTERFACE,MEMBER [ARGTAB] [FLAGS]
 
-call a D-Bus method
+call a D-Bus method. service, path and interface may be omitted
+if they can be uniquely resolved via introspection.
 examples:
 
 $ lsdb-call org.freedesktop.DBus,/org/freedesktop/DBus,org.freedesktop.DBus,ListNames
+$ lsdb-call freedesktop,,,ListNames
 $ lsdb-call org.bluez,/org/bluez/hci0,org.freedesktop.DBus.Properties,GetAll "{interface='org.bluez.Adapter1'}"
 
 flags
- -s 	system bus
- -u	session bus
+ -s     system bus
+ -u     session bus
  -C     disable color
- -r     raw: don't pretty print return
+ -r     raw: don't pretty-print the return value
  -v     verbose
+ -h     show this help
 ]=])
 end
 
@@ -49,20 +52,31 @@ b = lsdb.open(bus)
 
 local s,p,i,m = string.match(opttab[0][1], "([^,]*),([^,]*),([^,]*),(.*)")
 local argtab = opttab[0][2] or '{}'
-if s == nil then
+if s == nil or not m or m == "" then
    err("invalid destination spec")
    os.exit(1)
 end
 log("calling dest=%s, path=%s, interf=%s, member=%s, payload=%s",
     s, p, i, m, u.tab2str(argtab))
-local prxy = lsdb.proxy.new(b, s, p, i)
+local ok, prxy = lsdb.find_proxy(b, s, p, i)
+if not ok then
+   if #prxy == 0 then
+      printf("service '%s' not found", s)
+   else
+      printf("no unique proxy found, candidates:")
+      for _, c in ipairs(prxy) do
+         printf("  %s,%s,%s", c[1], c[2], c[3])
+      end
+   end
+   os.exit(1)
+end
 local ret,tab = u.eval_sandbox("return "..argtab)
 if ret then
    local results = table.pack(prxy:callt(m, tab))
    if opttab['-r'] then
       u.pp(table.unpack(results, 1, results.n))
    else
-      for i=1,results.n do print(pt.tostr(results[i])) end
+      for j=1,results.n do print(pt.tostr(results[j])) end
    end
 else
    err(string.format("failed to parse argument table: %s", tab))

@@ -27,19 +27,25 @@ local function log(format, ...) if verbose then print(fmt(format, ...)) end end
 
 local function help()
    print([=[
-usage: lsdb-info: COMMAND [ARGS] [FLAGS]
+usage: lsdb-info COMMAND [ARGS] [FLAGS]
 
- list            list all know services
- show [SERVICE]  show SERVICE (SERVICE may be a Lua match expression)
-   -i              show also standard interfaces
- help            print this
+ list                             list all known services
+ show SERVICE[,PATH[,INTERFACE]]  show a service, optionally filtered
+                                  by path and interface
+   -i                               include standard interfaces
+                                    (Peer, Properties, Introspectable)
+ help                             print this help
 
-global flags
- -r     raw output
- -s 	system bus
- -u	session bus
- -C 	disable colors
+SERVICE, PATH and INTERFACE also match as plain substrings
+if no exact match is found.
+
+flags
+ -r     raw output (dump internal introspection result)
+ -s     system bus
+ -u     session bus
+ -C     disable colors
  -v     verbose
+ -h     show this help
 ]=])
 end
 
@@ -74,45 +80,97 @@ local is_stdif = {
    ['org.freedesktop.DBus.Peer']=true
 }
 
-local function show(service, raw)
-   local m
-   if not service then return end
-   local objects = common.introspect(b, service)
+-- match x against target: exact match, or plain substring match
+local function match(x, target)
+   return x == target or x:find(target, 1, true) ~= nil
+end
+
+local function show(spec, raw)
+   if not spec then
+      print("missing service argument")
+      os.exit(1)
+   end
+
+   local fields = {}
+   for f in (spec .. ","):gmatch("([^,]*),") do
+      fields[#fields + 1] = f
+   end
+   local s = fields[1] or ""
+   local p = fields[2] or ""
+   local i = fields[3] or ""
+
+   if s == "" then
+      print("missing service name")
+      os.exit(1)
+   end
+
+   -- resolve service: exact name, then unique substring match
+   local names = dbus_proxy('ListNames')
+   local srv
+   for _, n in ipairs(names) do
+      if n == s then srv = s; break end
+   end
+   if not srv then
+      local matches = {}
+      for _, n in ipairs(names) do
+         if n:sub(1,1) ~= ':' and n:find(s, 1, true) then
+            matches[#matches+1] = n
+         end
+      end
+      if #matches == 1 then
+         srv = matches[1]
+      elseif #matches == 0 then
+         print(fmt("service '%s' not found", s))
+         os.exit(1)
+      else
+         print(fmt("'%s' is ambiguous, matches %d services:", s, #matches))
+         for _, m in ipairs(matches) do print("  " .. m) end
+         os.exit(1)
+      end
+   end
+
+   local objects = common.introspect(b, srv)
 
    if raw then
-      local ok, u = pcall(require , "utils")
-      if not ok then
-	 print("raw printing requires the `utils` module")
-	 os.exit(1)
-      end
       u.pp(objects)
       return
    end
 
-   print(bblue(service))
-   for _,o in ipairs(objects) do
-      print(fmt("  %s", green(o.path)))
-      for _,i in ipairs(o.node.interfaces) do
-	 if is_stdif[i.name] and not show_stdif then goto continue end
+   print(bblue(srv))
+   for _, o in ipairs(objects) do
+      local pmatch = (p == "") or match(o.path, p)
+      if pmatch then
+         local path_shown = false
+         for _, intf in ipairs(o.node.interfaces) do
+            local imatch
+            if i == "" then
+               imatch = show_stdif or not is_stdif[intf.name]
+            else
+               imatch = match(intf.name, i)
+            end
+            if imatch then
+               if not path_shown then
+                  print(fmt("  %s", green(o.path)))
+                  path_shown = true
+               end
+               print(fmt("    %s", cyan(intf.name)))
 
-	 print(fmt("    %s", cyan(i.name)))
+               print(fmt("      %s", bmagenta("Methods")))
+               for mname, mtab in pairs(intf.methods) do
+                  print(blue(fmt("        %s", common.met_tostr(mname, mtab))))
+               end
 
-	 print(fmt("      %s", bmagenta("Methods")))
-	 for mname,mtab in pairs(i.methods) do
-	    print(blue(fmt("        %s", common.met_tostr(mname, mtab))))
-	 end
+               print(fmt("      %s", bmagenta("Properties")))
+               for pname, ptab in pairs(intf.properties) do
+                  print(blue(fmt("        %s", common.prop_tostr(pname, ptab))))
+               end
 
-	 print(fmt("      %s", bmagenta("Properties")))
-	 for pname,ptab in pairs(i.properties) do
-	    print(blue(fmt("        %s", common.prop_tostr(pname, ptab))))
-	 end
-
-	 print(fmt("      %s", bmagenta("Signals")))
-	 for sname,stab in pairs(i.signals) do
-	    print(blue(fmt("        %s", common.sig_tostr(sname, stab))))
-	 end
-
-	 ::continue::
+               print(fmt("      %s", bmagenta("Signals")))
+               for sname, stab in pairs(intf.signals) do
+                  print(blue(fmt("        %s", common.sig_tostr(sname, stab))))
+               end
+            end
+         end
       end
    end
 end
@@ -137,35 +195,7 @@ if cmd == 'list' then
    local _, rows = u.tabulate(services, hdr)
    u.write_table(io.stdout, hdr, rows, {count=false})
 elseif cmd == 'show' then
-   local service = opttab[0][2]
-   if not service then
-      print("missing service argument")
-      os.exit(1)
-   end
-   local names = dbus_proxy('ListNames')
-   local exact = false
-   for _, n in ipairs(names) do
-      if n == service then exact = true; break end
-   end
-   if not exact then
-      local matches = {}
-      for _, n in ipairs(names) do
-         if not n:match("^:") and n:match(service) then
-            matches[#matches+1] = n
-         end
-      end
-      if #matches == 0 then
-         print(fmt("no service matching '%s'", service))
-         os.exit(1)
-      elseif #matches == 1 then
-         service = matches[1]
-      else
-         print(fmt("'%s' is ambiguous, matches %d services:", service, #matches))
-         for _, m in ipairs(matches) do print("  " .. m) end
-         os.exit(1)
-      end
-   end
-   show(service, opttab['-r'])
+   show(opttab[0][2], opttab['-r'])
 elseif cmd == 'help' then
    help()
    os.exit()
