@@ -96,7 +96,8 @@ function lsdbus.find_proxy(bus, s, p, i)
          pmatch = true
       elseif o.path == p then
          pmatch = true
-      elseif o.path:find(p, 1, true) then
+      elseif p:sub(1,1) ~= '/' and o.path:find(p, 1, true) then
+         -- substring match only for non-absolute patterns (e.g. "Calendar" not "/org/gnome/Calendar")
          pmatch = true
       end
 
