@@ -581,9 +581,11 @@ Note that this will affect all process users.
 By default, errors raised in server method handlers or property
 getters/setters are converted to D-Bus errors as follows:
 
-1. **D-Bus error format** `"ERROR_NAME|ERROR_MESSAGE"`: returned as-is to the caller
-2. **Plain Lua errors**: logged to stderr and converted to
-   `org.freedesktop.DBus.Error.Failed`
+1. **D-Bus error format** `"ERROR_NAME|ERROR_MESSAGE"`: returned as
+   standard D-Bus error with name and message (`sd_bus_error(3)`) to
+   the caller
+2. **Plain Lua errors**: logged to stderr and returned as
+	`org.freedesktop.DBus.Error.Failed` with error as message.
 
 **Custom error handler:**
 
