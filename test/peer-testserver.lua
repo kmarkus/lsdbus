@@ -239,10 +239,10 @@ reload()
 
 evsrcs[#evsrcs+1] = b:add_signal(lsdb.SIGINT, function () b:exit_loop() end)
 evsrcs[#evsrcs+1] = b:add_signal(lsdb.SIGUSR1, function () vt1.var=0 end)
-evsrcs[#evsrcs+1] = b:add_signal(lsdb.SIGUSR2, function () error("SIGUSR1 caught, deliberately failing") end)
+evsrcs[#evsrcs+1] = b:add_signal(lsdb.SIGUSR2, function () error("[expected] SIGUSR2") end)
 evsrcs[#evsrcs+1] = b:add_signal(lsdb.SIGHUP, reload)
 
 evsrcs[#evsrcs+1] = b:add_periodic(1*1000^2, 0, emit_time)
-evsrcs[#evsrcs+1] = b:add_periodic(10*1000^2, 0, function () error("test failure in periodic callback") end)
+evsrcs[#evsrcs+1] = b:add_periodic(10*1000^2, 0, function () error("[expected] periodic") end)
 
 b:loop()

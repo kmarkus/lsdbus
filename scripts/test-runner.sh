@@ -14,7 +14,7 @@ fi
 
 # Start the peer test server in the background and save its PID
 echo 'Launching peer test server...'
-lua test/peer-testserver.lua > peer-testserver.log 2>&1 &
+lua${LUA_VERSION} test/peer-testserver.lua > peer-testserver.log 2>&1 &
 PEER_SERVER_PID=$!
 
 # Set up a trap to stop the peer test server when the script exits
