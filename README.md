@@ -152,6 +152,9 @@ that is emitted when the `Greeting` property is set.
 $ lsdb-mon
 :1.270, /, org.freedesktop.DBus.Properties, PropertiesChanged, {"lsdbus.demo.demoif0",{Greeting="Howdy"},{}}
 ```
+
+**examples**: [micro-server.lua](examples/micro-server.lua) + [micro-client.lua](examples/micro-client.lua), [mini-server.lua](examples/mini-server.lua) + [mini-client.lua](examples/mini-client.lua)
+
 ## Usage
 
 ### Bus connection
@@ -268,6 +271,8 @@ name as the first argument:
 Unlike with the low-level `bus:call`, no D-Bus types need to be
 provided.
 
+**examples**: [micro-client.lua](examples/micro-client.lua), [mini-client.lua](examples/mini-client.lua), [maxi-client.lua](examples/maxi-client.lua), [maxi-client-async.lua](examples/maxi-client-async.lua)
+
 #### plumbing API
 
 **Syntax**
@@ -298,6 +303,8 @@ true, {"Africa/Abidjan","Africa/Accra","Africa/Addis_Ababa", ...
 u.pp(b:call('org.freedesktop.timedate1', '/org/freedesktop/timedate1', 'org.freedesktop.timedate1', 'NoMethod'))
 false, {"org.freedesktop.DBus.Error.UnknownMethod","Unknown method NoMethod or interface org.freedesktop.timedate1."}
 ```
+
+**examples**: [call-basic.lua](examples/call-basic.lua), [call-basic-async.lua](examples/call-basic-async.lua)
 
 #### Emitting signals
 
@@ -404,9 +411,7 @@ conveniently via `vt:emit('Signal1', arg0, ...)` instead of the longer
 `bus:emit_signal(path, intf, member, ...)`. See the the API section
 for the available methods.
 
-For further information, take a look at the minimal example
-`examples/tiny-server.lua` and the more extensive one
-`examples/server.lua`.
+**examples**: [micro-server.lua](examples/micro-server.lua), [mini-server.lua](examples/mini-server.lua), [maxi-server.lua](examples/maxi-server.lua), [middleclass-server.lua](examples/middleclass-server.lua)
 
 #### D-Bus signal matching and callbacks
 
@@ -435,6 +440,8 @@ local slot = b:match_signal(nil, nil, nil, nil, function (b,...) u.pp(...) end)
 b:loop()
 ```
 
+**examples**: [mon-signal.lua](examples/mon-signal.lua), [properties-changed.lua](examples/properties-changed.lua), [mini-client.lua](examples/mini-client.lua)
+
 #### Periodic callbacks
 
 ```lua
@@ -455,7 +462,7 @@ The returned `event_src` object supports methods `set_enabled(int)`
 that allows enabling and disabling the event source, and `int get_enabled()`,
 that returns event's current mode.
 
-See `examples/periodic.lua` for an example.
+**example**: [periodic.lua](examples/periodic.lua)
 
 #### Unix Signal callbacks
 
@@ -468,6 +475,8 @@ local sig = b:add_signal(lsdb.SIGINT, callback)
 
 The lsdbus module defines the following constants `SIGINT`, `SIGTERM`,
 `SIGUSR1`, `SIGUSR2`.
+
+**examples**: [mini-server.lua](examples/mini-server.lua), [maxi-server.lua](examples/maxi-server.lua), [periodic.lua](examples/periodic.lua)
 
 #### I/O event callback
 
@@ -487,8 +496,7 @@ local io_src = b:add_io(fd, lsdb.EPOLLIN|lsdb.EPOLLOUT, callback)
 `events` are any `EPOLLIN`, `EPOLLOUT`, `EPOLLRDHUP`, `EPOLLPRI` or
 `EPOLLET`.
 
-An example of using this together with the `linotify` [3] library can
-be found under `examples/inotify-io.lua`.
+**example**: [inotify-io.lua](examples/inotify-io.lua) (uses `linotify` [3])
 
 #### Child pid callback
 
@@ -509,6 +517,8 @@ local child_src = b:add_child(pid, lsdb.WEXITED|lsdb.WSTOPPED|lsdb.WCONTINUED, c
   `lsdb.CLD_DUMPED`, `lsdb.CLD_STOPPED`, `lsdb.CLD_TRAPPED`,
   `lsdb.CLD_CONTINUED` (see `si_code` in `waitid(2)` manpage)
 
+**example**: [wait-child.lua](examples/wait-child.lua)
+
 #### Returning D-Bus errors
 
 D-Bus errors can be returned by raising a Lua error of the following
@@ -519,6 +529,8 @@ error("org.freedesktop.DBus.Error.InvalidArgs|Something is wrong")
 -- or using the standard errors lsdbus.errors
 error(string.format("%s|%s", lsdbus.error.INVALID_ARGS, "Something is wrong"))
 ```
+
+**examples**: [mini-server.lua](examples/mini-server.lua), [maxi-server.lua](examples/maxi-server.lua)
 
 ## Error Handling
 
@@ -576,6 +588,8 @@ end
 
 Note that this will affect all process users.
 
+**examples**: [mini-client.lua](examples/mini-client.lua), [maxi-client.lua](examples/maxi-client.lua)
+
 ### Server side
 
 By default, errors raised in server method handlers or property
@@ -630,7 +644,7 @@ end
 local vt = lsdb.server.new(b, "/my/path", interface, vt_errhdl)
 ```
 
-
+**examples**: [mini-server.lua](examples/mini-server.lua), [maxi-server.lua](examples/maxi-server.lua)
 
 ## API
 
