@@ -572,8 +572,10 @@ static int lsdbus_bus_gc(lua_State *L)
 
 static const luaL_Reg lsdbus_f [] = {
 	{ "open", lsdbus_open },
+#ifdef HAVE_XML_MXML
 	{ "xml_fromfile", lsdbus_xml_fromfile },
 	{ "xml_fromstr", lsdbus_xml_fromstr },
+#endif
 	/* { "testmsg_tolua", lsdbus_testmsg_tolua }, */
 	{ NULL, NULL },
 };

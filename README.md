@@ -75,6 +75,25 @@ If you have multiple Lua versions installed, you can force the one to
 be used by setting `CONFIG_LUA_VER` (or pass `-DCONFIG_LUA_VER=X` to
 cmake) to one of `5.5`, `5.4`, `5.3`, `5.2`, `5.1` or `jit`.
 
+**XML backend options**
+
+`lsdbus` can parse D-Bus introspection XML using one of two backends,
+selected at build time:
+
+| CMake option | Default | Requires | Description |
+|---|---|---|---|
+| `-DUSE_MXML=ON` | ON | `libmxml-dev` | C library (mxml); faster, no runtime dep |
+| `-DUSE_EXPAT=ON` | OFF | `lua-expat` at runtime | Pure Lua via `lxp.lom`; no C dependency |
+
+If both are enabled, mxml takes priority. If neither is enabled,
+`lsdbus.xml_fromstr` and `lsdbus.xml_fromfile` are not available.
+`lsdbus.xml_backend` is `"mxml"`, `"expat"`, or `nil` at runtime.
+
+```sh
+# build with luaexpat instead of mxml:
+$ cmake .. -DUSE_MXML=OFF -DUSE_EXPAT=ON && make
+```
+
 ## Quickstart
 
 **Server** (`demo-server.lua`)

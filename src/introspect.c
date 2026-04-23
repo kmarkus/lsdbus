@@ -73,7 +73,13 @@ static int dbus_xml2lua(lua_State *L, mxml_node_t *root)
 {
 	mxml_node_t *node, *subnode, *intf, *prop, *met, *sig, *arg;
 
-	node = mxmlFindElement(root, root, "node", NULL, NULL, MXML_DESCEND);
+	/* mxml returns <node> as root when parsing plain XML (no DOCTYPE wrapper) */
+	const char *root_tag = mxmlGetElement(root);
+	if (root_tag && strcmp(root_tag, "node") == 0) {
+		node = root;
+	} else {
+		node = mxmlFindElement(root, root, "node", NULL, NULL, MXML_DESCEND);
+	}
 
 	if (!node) {
 		mxmlDelete(root);
@@ -81,6 +87,14 @@ static int dbus_xml2lua(lua_State *L, mxml_node_t *root)
 	}
 
 	lua_newtable(L); /* result */
+
+	const char *node_name = mxmlElementGetAttr(node, "name");
+	if (node_name) {
+		lua_pushstring(L, "name");
+		lua_pushstring(L, node_name);
+		lua_rawset(L, -3);
+	}
+
 	lua_pushstring(L, "interfaces");
 	lua_newtable(L); /* interfaces */
 

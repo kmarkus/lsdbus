@@ -10,6 +10,18 @@ lsdbus.proxy = require("lsdbus.proxy")
 lsdbus.server = require("lsdbus.server")
 lsdbus.error = require("lsdbus.error")
 
+-- luaexpat fallback: load lsdbus.expat when mxml is not compiled in
+if lsdbus.xml_fromstr then
+   lsdbus.xml_backend = "mxml"
+else
+   local ok, expat = pcall(require, "lsdbus.expat")
+   if ok then
+      lsdbus.xml_fromfile = expat.xml_fromfile
+      lsdbus.xml_fromstr  = expat.xml_fromstr
+      lsdbus.xml_backend  = "expat"
+   end
+end
+
 lsdbus.PropIntf = 'org.freedesktop.DBus.Properties'
 
 local fmt = string.format

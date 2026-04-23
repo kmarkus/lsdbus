@@ -93,8 +93,10 @@ struct lsdbus_slot* __lsdbus_slot_push(lua_State *L, sd_bus_slot *slot, uint32_t
 int lsdbus_slot_push(lua_State *L, sd_bus_slot *slot, uint32_t flags);
 void init_reg_vtab_user(lua_State *L);
 
+#ifdef HAVE_XML_MXML
 int lsdbus_xml_fromfile(lua_State *L);
 int lsdbus_xml_fromstr(lua_State *L);
+#endif
 
 void regtab_store(lua_State *L, const char* regtab, void *k, int funidx);
 int regtab_get(lua_State *L, const char* regtab, void *k);

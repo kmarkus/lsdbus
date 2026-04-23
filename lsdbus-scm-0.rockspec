@@ -16,7 +16,8 @@ source = {
 
 dependencies = {
    "lua >= 5.1",
-   "compat53 >= 0.5", -- only for lua < 5.3
+   "compat53 >= 0.5",   -- only for lua < 5.3
+   -- optional: "luaexpat >= 1.3.0",  -- XML backend when built without mxml (-DUSE_MXML=OFF -DUSE_EXPAT=ON)
 }
 
 build = {

@@ -8,7 +8,8 @@ r['lsdbus.testconfig'] = {
    bus = os.getenv('LSDBUS_BUS') or 'default'
 }
 
-print(string.format("using bus: %s", r['lsdbus.testconfig'].bus))
+local lsdbus = require("lsdbus")
+print(string.format("using bus: %s, xml_backend: %s", r['lsdbus.testconfig'].bus, lsdbus.xml_backend or "none"))
 
 TestMsg = require("message")
 TestProxy  = require("proxy")

@@ -3,21 +3,32 @@
 VERSIONS=(5.1 5.3 5.4 5.5 jit)
 GRN='\e[0;32m'; RED='\e[0;31m'; CYA='\e[0;36m'; WHT='\e[0;37m'; RST='\e[0m'
 
+USE_MXML="${USE_MXML:-1}"
+USE_EXPAT="${USE_EXPAT:-0}"
+
 usage() {
     echo -e "usage: $(basename $0) <command> [versions...]"
     echo
     echo -e "commands:"
-    echo -e "  build    configure (if needed) and build"
+    echo -e "  build    configure and build (cmake flags re-applied on every run)"
     echo -e "  install  sudo make install"
-    echo -e "  test     run test suite  (env: BUS=default, REPEAT=10)"
+    echo -e "  test     run test suite"
     echo -e "  help     show this message"
     echo
     echo -e "known versions: ${GRN}${VERSIONS[*]}${RST}"
     echo -e "default: all versions"
     echo
+    echo -e "env vars (build):"
+    echo -e "  USE_MXML=1|0   mxml C backend       (current: ${CYA}${USE_MXML}${RST})"
+    echo -e "  USE_EXPAT=1|0  luaexpat Lua backend  (current: ${CYA}${USE_EXPAT}${RST})"
+    echo -e "env vars (test):"
+    echo -e "  BUS=default    D-Bus bus to use      (current: ${CYA}${BUS:-default}${RST})"
+    echo -e "  REPEAT=10      luaunit repeat count  (current: ${CYA}${REPEAT:-10}${RST})"
+    echo
     echo -e "examples:"
     echo -e "  $(basename $0) build"
     echo -e "  $(basename $0) build 5.4 jit"
+    echo -e "  USE_MXML=0 USE_EXPAT=1 $(basename $0) build 5.4"
     echo -e "  $(basename $0) test jit"
     echo -e "  BUS=user REPEAT=1 $(basename $0) test"
 }
@@ -41,11 +52,13 @@ resolve_versions() {
 cmd_build() {
     local vers
     read -ra vers <<< "$(resolve_versions "$@")"
+    local xml_info="USE_MXML=${CYA}${USE_MXML}${RST} USE_EXPAT=${CYA}${USE_EXPAT}${RST}"
     for v in "${vers[@]}"; do
-        echo -e "${GRN}==> build $v${RST}"
+        echo -e "${GRN}==> build $v${RST} ($xml_info)"
         mkdir -p "build-$v"
         pushd "build-$v" > /dev/null
-        [[ ! -f CMakeCache.txt ]] && cmake ../ -DCONFIG_LUA_VER=$v -DCMAKE_BUILD_TYPE=Debug
+        cmake ../ -DCONFIG_LUA_VER=$v -DCMAKE_BUILD_TYPE=Debug \
+              -DUSE_MXML=${USE_MXML} -DUSE_EXPAT=${USE_EXPAT}
         make -j$(nproc)
         popd > /dev/null
     done

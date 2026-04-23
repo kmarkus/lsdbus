@@ -7,12 +7,24 @@ include(GNUInstallDirs)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SYSTEMD REQUIRED libsystemd>=242)
-pkg_check_modules(MXML mxml4)
-if(MXML_FOUND)
-  set(MXML_COMPILE_DEFS HAVE_MXML4)
+
+option(USE_MXML  "Build with mxml XML parsing support (C library)" ON)
+option(USE_EXPAT "Build with luaexpat XML parsing fallback (pure Lua)" OFF)
+
+set(MXML_COMPILE_DEFS "")
+if(USE_MXML)
+  pkg_check_modules(MXML mxml4)
+  if(MXML_FOUND)
+    set(MXML_COMPILE_DEFS HAVE_MXML4)
+  else()
+    pkg_check_modules(MXML REQUIRED mxml)
+  endif()
+  list(APPEND MXML_COMPILE_DEFS HAVE_XML_MXML)
+  message(STATUS "XML backend: mxml")
+elseif(USE_EXPAT)
+  message(STATUS "XML backend: luaexpat (pure Lua fallback)")
 else()
-  pkg_check_modules(MXML REQUIRED mxml)
-  set(MXML_COMPILE_DEFS "")
+  message(STATUS "XML backend: none (xml_fromstr/xml_fromfile unavailable)")
 endif()
 
 set(CONFIG_LUA_VER "" CACHE STRING "build for exact Lua version")
@@ -47,11 +59,13 @@ endif()
 set(LSDBUS_SRCS
   src/errparse.c
   src/evl.c
-  src/introspect.c
   src/lsdbus.c
   src/message.c
   src/vtab.c
 )
+if(USE_MXML)
+  list(APPEND LSDBUS_SRCS src/introspect.c)
+endif()
 
 set(CONFIG_LUADIR "${CMAKE_INSTALL_PREFIX}/share/lua/${LUA_VER}" CACHE STRING "lua script dir")
 set(CONFIG_LIBDIR "${CMAKE_INSTALL_PREFIX}/lib/lua/${LUA_VER}" CACHE STRING "lua lib dir")
@@ -63,7 +77,7 @@ add_library(core SHARED ${LSDBUS_SRCS})
 target_compile_options(core PRIVATE -Wall -Wextra)
 target_compile_definitions(core PRIVATE LIBSYSTEMD_VERSION=${SYSTEMD_VERSION} ${MXML_COMPILE_DEFS})
 target_include_directories(core PRIVATE ${LUA_INCLUDE_DIRS} ${COMPAT53_DIR} ${MXML_INCLUDE_DIRS})
-target_link_libraries(core ${SYSTEMD_LIBRARIES} ${MXML_LIBRARIES} )
+target_link_libraries(core ${SYSTEMD_LIBRARIES} ${MXML_LIBRARIES})
 set_target_properties(core PROPERTIES PREFIX "")
 install(TARGETS core LIBRARY DESTINATION ${LSDBUS_INST_DIR})
 
@@ -73,6 +87,7 @@ install(FILES
   src/lsdbus/server.lua
   src/lsdbus/common.lua
   src/lsdbus/error.lua
+  src/lsdbus/expat.lua
   DESTINATION ${CONFIG_LUADIR}/lsdbus/
   )
 
