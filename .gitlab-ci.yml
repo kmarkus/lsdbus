@@ -28,6 +28,20 @@ build:
     paths:
       - ./build-$LUA_VERSION/
 
+build-expat:
+  stage: build
+  before_script:
+    - apt update
+    - apt -y install libsystemd0 libsystemd-dev
+    - apt -y install cmake lua-unit lua-expat
+    - apt -y install lua5.4 liblua5.4-dev
+  script:
+    - mkdir build-5.4-expat && cd build-5.4-expat && cmake -DCONFIG_LUA_VER=5.4 -DUSE_MXML=OFF -DUSE_EXPAT=ON -DCMAKE_BUILD_TYPE=Debug .. && make && make install && cd ..
+    - lua5.4 -v -l lsdbus -e "print(require('lsdbus').xml_backend)"
+  artifacts:
+    paths:
+      - ./build-5.4-expat/
+
 test:
   stage: test
   needs: ["build"]
@@ -56,3 +70,20 @@ test:
   parallel:
     matrix:
       - LUA_VERSION: ['5.1', '5.2', '5.3', '5.4', 'jit']
+
+test-expat:
+  stage: test
+  needs: ["build-expat"]
+  before_script:
+    - apt update
+    - apt -y install dbus default-dbus-session-bus default-dbus-system-bus libsystemd0 libsystemd-dev
+    - apt -y install cmake lua-unit lua-posix lua-expat
+    - apt -y install lua5.4 liblua5.4-dev
+    - cd build-5.4-expat && make install && cd ..
+  script:
+    - dbus-run-session --config-file scripts/dbus-test.conf -- scripts/test-runner.sh -r 3 -o junit -n test-output-5.4-expat
+  artifacts:
+    paths:
+      - test/test-output-5.4-expat.xml
+    reports:
+      junit: test/test-output-5.4-expat.xml
