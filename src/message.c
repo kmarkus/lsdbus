@@ -519,7 +519,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 
 			dbg("appending container %c of size %u", t[1], n_array);
 
-			stpos =	lua_absindex(L,	-r);
+			stpos = lua_gettop(L) - r + 1;
                         break;
                 }
 
@@ -615,7 +615,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 				if (r<0) {
 					return r;
 				}
-				stpos =	lua_absindex(L,	-r);
+				stpos = lua_gettop(L) - r + 1;
 			}
 
                         break;
