@@ -107,6 +107,16 @@ out:
 	return ret;
 }
 
+/* write-only properties cannot be read */
+static int prop_writeonly_get_handler(sd_bus *bus,
+				      const char *path, const char *interface, const char *property,
+				      sd_bus_message *reply, void *userdata, sd_bus_error *ret_error)
+{
+	(void) bus; (void) path; (void) interface; (void) property;
+	(void) reply; (void) userdata;
+	return sd_bus_error_set(ret_error, SD_BUS_ERROR_NOT_SUPPORTED, "write-only property");
+}
+
 /**
  * Note: sd-bus is very picky about the state of the message after
  * calling the getter. Make sure only the value is read and nothing
@@ -433,6 +443,7 @@ static int vtable_add_property(lua_State *L, sd_bus_vtable *vt, int slotref)
 
 	sd_bus_property_get_t getter = NULL;
 	sd_bus_property_set_t setter = NULL;
+	int has_lua_getter = 0;
 
 	top = lua_gettop(L);
 
@@ -451,11 +462,14 @@ static int vtable_add_property(lua_State *L, sd_bus_vtable *vt, int slotref)
 
 	if(!strcmp(access, "read")) {
 		getter = prop_get_handler;
+		has_lua_getter = 1;
 	} else if (!strcmp(access, "write")) {
+		getter = prop_writeonly_get_handler;
 		setter = prop_set_handler;
 	} else if (!strcmp(access, "readwrite")) {
 		getter = prop_get_handler;
 		setter = prop_set_handler;
+		has_lua_getter = 1;
 	} else {
 		lua_pushfstring(L, "%s: invalid access %s", member, access);
 		goto fail;
@@ -473,7 +487,7 @@ static int vtable_add_property(lua_State *L, sd_bus_vtable *vt, int slotref)
 	lua_pushstring(L, type);
 	lua_rawseti(L, -2, 1);                   /* ptab[1] = type */
 
-	if(getter) {
+	if(has_lua_getter) {
 		typ = lua_getfield(L, 6, "get");
 
 		if (typ != LUA_TFUNCTION) {

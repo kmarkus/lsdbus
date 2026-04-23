@@ -175,10 +175,7 @@ local interface = {
       Wronly={
 	 access="write",
 	 type="s",
-	 set=function(vt, x)
-	    dbg("Wronly: setting to %s", x)
-	    vt:emitPropertiesChanged("Wronly")
-	 end,
+	 set=function(vt, x) dbg("Wronly: setting to %s", x) end,
       },
       Fail={
 	 access="readwrite",
