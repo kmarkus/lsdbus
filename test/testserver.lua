@@ -212,12 +212,11 @@ function TestServer:TestProps()
    p2.Wronly = "write-only-string-2"
    p3.Wronly = "write-only-string-3"
 
-   -- this is a little unexpected: reading a read-only property
-   -- returns "" (or 0 for a number), but busctl treats it the same:
-   -- busctl --user get-property lsdbus.test /1 lsdbus.test.testintf0 Wronly
-   lu.assert_equals(p1.Wronly, "")
-   lu.assert_equals(p2.Wronly, "")
-   lu.assert_equals(p3.Wronly, "")
+   -- reading a write-only property returns NotSupported
+   local pwr = ".*NotSupported.*write%-only property.*"
+   lu.assert_error_msg_matches(pwr, function() return p1.Wronly end)
+   lu.assert_error_msg_matches(pwr, function() return p2.Wronly end)
+   lu.assert_error_msg_matches(pwr, function() return p3.Wronly end)
 
    local patt
    patt = ".*lsdbus%.test%.testintf0%.BOOM.*it exploded %(lsdbus%.test, /1, lsdbus%.test%.testintf0%)"
