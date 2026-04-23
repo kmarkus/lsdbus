@@ -1,6 +1,9 @@
 --
--- Some basic examples of calling dbus methods using the low-level
--- call(dest,path,intf,member) method.
+-- call-basic: low-level synchronous D-Bus method calls
+--
+-- Demonstrates: the raw b:call(dest, path, intf, member, ...) API
+-- against well-known system services. Requires UPower, timedate1 and
+-- BlueZ to be running (adjust or comment out calls as needed).
 --
 
 local u = require("utils")

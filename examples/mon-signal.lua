@@ -1,20 +1,15 @@
+--
+-- mon-signal: monitor and print all D-Bus signals on the user bus
+--
+-- Demonstrates: match_signal with a wildcard subscription (all senders,
+-- paths, interfaces and members). Useful for debugging signal traffic.
+--
+--   lua mon-signal.lua
+
 local u = require("utils")
-local lsdb = require("lsdbus.core")
-
-local function exit(b, sig)
-   print("exiting on", sig)
-   b:exit_loop()
-end
-
-local function nothrow(func, log)
-   return function(...)
-      local res, ret = pcall(func, ...)
-      if not res then log(ret); return 0 end
-      return ret
-   end
-end
+local lsdb = require("lsdbus")
 
 local b = lsdb.open('user')
-local sig = b:add_signal(lsdb.SIGINT, exit)
-local slot = b:match_signal(nil, nil, nil, nil, nothrow(function(_, ...) u.pp(...) end, print))
+local sig   = b:add_signal(lsdb.SIGINT, function() b:exit_loop() end)
+local match = b:match_signal(nil, nil, nil, nil, function(_, ...) u.pp(...) end)
 b:loop()

@@ -1,3 +1,10 @@
+--
+-- call-basic-async: low-level async D-Bus method calls
+--
+-- Demonstrates: b:call_async(cb, dest, path, intf, member, ...) firing
+-- callbacks on reply. Keeps call slots alive until the callback fires.
+-- Requires UPower and timedate1 to be running on the system bus.
+
 local u = require("utils")
 local lsdb = require("lsdbus.core")
 

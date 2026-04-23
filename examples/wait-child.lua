@@ -1,48 +1,39 @@
--- tiny example to illustrate use of child pid event source
+--
+-- wait-child: monitor a child process with add_child
+--
+-- Demonstrates: fork/exec a child, use add_child to receive an event
+-- when the child exits, stops, or continues (equivalent to waitpid
+-- with SIGCHLD). The child runs "sleep 30"; send it signals to test.
+--
+--   kill -SIGSTOP <child-pid>
+--   kill -SIGCONT <child-pid>
+--   kill -SIGKILL <child-pid>
 
 local lsdb = require("lsdbus.core")
 local unistd = require("posix.unistd")
-local utils = require("utils")
 
 local si_code_tostr = {
-   [lsdb.CLD_EXITED] = "CLD_EXITED",
-   [lsdb.CLD_KILLED] = "CLD_KILLED",
-   [lsdb.CLD_DUMPED] = "CLD_DUMPED",
-   [lsdb.CLD_STOPPED] = "CLD_STOPPED",
-   [lsdb.CLD_TRAPPED] = "CLD_TRAPPED",
+   [lsdb.CLD_EXITED]    = "CLD_EXITED",
+   [lsdb.CLD_KILLED]    = "CLD_KILLED",
+   [lsdb.CLD_DUMPED]    = "CLD_DUMPED",
+   [lsdb.CLD_STOPPED]   = "CLD_STOPPED",
+   [lsdb.CLD_TRAPPED]   = "CLD_TRAPPED",
    [lsdb.CLD_CONTINUED] = "CLD_CONTINUED",
 }
 
-local function callback(b, si)
-   utils.pp(b, si, si_code_tostr[si.code])
-end
-
-local function do_fork()
-   local pid = unistd.fork()
-   if pid == 0 then
-      unistd.exec("/usr/bin/sleep", {30})
-      unistd._exit(1)
-   else
-      return pid
-   end
-end
-
 local b = lsdb.open()
-local pid = do_fork()
 
-local info = utils.expand([[
-Child process with pid $PID exit in 60s
-Send it signals like
+local pid = unistd.fork()
+if pid == 0 then
+   unistd.exec("/usr/bin/sleep", {"30"})
+   unistd._exit(1)
+end
 
-$ kill -SIGSTOP $PID
-$ kill -SIGCONT $PID
-$ kill -SIGKILL $PID
+print(string.format("child pid=%d  (send SIGSTOP/SIGCONT/SIGKILL to test)", pid))
 
-to test the wait callback.
-]], {PID=pid})
-
-print(info)
-
-local child_src = b:add_child(pid, lsdb.WEXITED|lsdb.WSTOPPED|lsdb.WCONTINUED, callback)
-
+local sig   = b:add_signal(lsdb.SIGINT, function() b:exit_loop() end)
+local child = b:add_child(pid, lsdb.WEXITED|lsdb.WSTOPPED|lsdb.WCONTINUED,
+   function(_, si)
+      print(string.format("child event: %s", si_code_tostr[si.code] or si.code))
+   end)
 b:loop()
