@@ -15,6 +15,6 @@ local function nothrow(func, log)
 end
 
 local b = lsdb.open('user')
-b:add_signal(lsdb.SIGINT, exit)
-b:match_signal(nil, nil, nil, nil, nothrow(function(_, ...) u.pp(...) end, print))
+local sig = b:add_signal(lsdb.SIGINT, exit)
+local slot = b:match_signal(nil, nil, nil, nil, nothrow(function(_, ...) u.pp(...) end, print))
 b:loop()

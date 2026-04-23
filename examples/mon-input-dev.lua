@@ -41,7 +41,7 @@ local dev = arg[1]
 local b = lsdb.open()
 local fd = assert(fcntl.open(dev, fcntl.O_RDONLY|fcntl.O_NONBLOCK))
 
-b:add_io(fd, lsdb.EPOLLIN, handle_input)
-b:add_signal(lsdb.SIGINT, function() print("bye"); b:exit_loop() end)
+local io_src = b:add_io(fd, lsdb.EPOLLIN, handle_input)
+local sig_int = b:add_signal(lsdb.SIGINT, function() print("bye"); b:exit_loop() end)
 
 b:loop()

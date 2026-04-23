@@ -38,7 +38,7 @@ local function mask_to_events(mask)
 end
 
 
-b:add_io(handle:getfd(), lsdb.EPOLLIN,
+local io_src = b:add_io(handle:getfd(), lsdb.EPOLLIN,
 	 function ()
 	    for _,e in ipairs(handle:read()) do
 	       print(e.wd, e.cookie, e.name, mask_to_events(e.mask))

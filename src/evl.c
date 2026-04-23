@@ -55,33 +55,36 @@ static int evsrc_get_enabled(lua_State *L)
 	return 1;
 }
 
-/* just set it to floating */
-static int evsrc_gc(lua_State *L)
+static void evsrc_destroy(lua_State *L, sd_event_source *evsrc)
 {
-	sd_event_source *evsrc = *((sd_event_source**) luaL_checkudata(L, 1, EVSRC_MT));
-	int ret = sd_event_source_set_floating(evsrc, 1);
-	assert(ret >= 0);
-	(void) ret;
-	return 0;
-}
-
-static int evsrc_unref(lua_State *L)
-{
-	int ret;
-	sd_event_source *evsrc = *((sd_event_source**) luaL_checkudata(L, 1, EVSRC_MT));
-
-	/* signal evsrc ? */
-	ret = sd_event_source_get_signal(evsrc);
-	if (ret>0) {
+	int ret = sd_event_source_get_signal(evsrc);
+	if (ret > 0) {
 		sigset_t ss;
 		sigemptyset(&ss);
 		sigaddset(&ss, ret);
 		sigprocmask(SIG_UNBLOCK, &ss, NULL);
 	}
-
-	regtab_clear(L,	REG_EVSRC_TABLE, evsrc);
+	regtab_clear(L, REG_EVSRC_TABLE, evsrc);
 	sd_event_source_unref(evsrc);
+}
 
+static int evsrc_gc(lua_State *L)
+{
+	sd_event_source **evsrc_ptr = (sd_event_source**) luaL_checkudata(L, 1, EVSRC_MT);
+	if (*evsrc_ptr) {
+		evsrc_destroy(L, *evsrc_ptr);
+		*evsrc_ptr = NULL;
+	}
+	return 0;
+}
+
+static int evsrc_unref(lua_State *L)
+{
+	sd_event_source **evsrc_ptr = (sd_event_source**) luaL_checkudata(L, 1, EVSRC_MT);
+	if (*evsrc_ptr) {
+		evsrc_destroy(L, *evsrc_ptr);
+		*evsrc_ptr = NULL;
+	}
 	lua_pushnil(L);
 	lua_setmetatable(L, 1);
 	return 0;
@@ -94,7 +97,7 @@ const luaL_Reg lsdbus_evsrc_m [] = {
 	{ "__tostring", evsrc_tostring },
 	{ "__gc", evsrc_gc },
 #if LUA_VERSION_NUM >= 504
-	{ "__close", evsrc_gc },
+	{ "__close", evsrc_unref },
 #endif
 	{ NULL, NULL }
 };

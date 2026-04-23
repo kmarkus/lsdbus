@@ -916,9 +916,9 @@ int lsdbus_slot_gc(lua_State *L)
 		s->vt = NULL;
 		break;
 	case LSDBUS_SLOT_TYPE_MATCH:
-		int ret = sd_bus_slot_set_floating(s->slot, 1);
-		assert(ret >= 0);
-		(void) ret;
+		regtab_clear(L, REG_SLOT_TABLE, s->slot);
+		sd_bus_slot_unref(s->slot);
+		s->slot = NULL;
 		break;
 	default:
 		dbg("invalid slot type (flags 0x%x)", s->flags);
@@ -992,7 +992,7 @@ const luaL_Reg lsdbus_slot_m [] = {
 	{ "__tostring", lsdbus_slot_tostring },
 	{ "__gc", lsdbus_slot_gc },
 #if LUA_VERSION_NUM >= 504
-	{ "__close", lsdbus_slot_gc },
+	{ "__close", lsdbus_slot_unref },
 #endif
 	{ NULL, NULL }
 };

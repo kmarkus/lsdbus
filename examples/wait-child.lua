@@ -43,6 +43,6 @@ to test the wait callback.
 
 print(info)
 
-b:add_child(pid, lsdb.WEXITED|lsdb.WSTOPPED|lsdb.WCONTINUED, callback)
+local child_src = b:add_child(pid, lsdb.WEXITED|lsdb.WSTOPPED|lsdb.WCONTINUED, callback)
 
 b:loop()

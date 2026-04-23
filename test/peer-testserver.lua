@@ -216,6 +216,7 @@ end
 
 local b
 local vt1, vt2, vt3
+local evsrcs = {}
 
 local function reload()
    local function filter_props(p, _)
@@ -239,12 +240,12 @@ b = lsdb.open(os.getenv('LSDBUS_BUS') or 'default')
 b:request_name(S.srv)
 reload()
 
-b:add_signal(lsdb.SIGINT, function () b:exit_loop() end)
-b:add_signal(lsdb.SIGUSR1, function () vt1.var=0 end)
-b:add_signal(lsdb.SIGUSR2, function () error("SIGUSR1 caught, deliberately failing") end)
-b:add_signal(lsdb.SIGHUP, reload)
+evsrcs[#evsrcs+1] = b:add_signal(lsdb.SIGINT, function () b:exit_loop() end)
+evsrcs[#evsrcs+1] = b:add_signal(lsdb.SIGUSR1, function () vt1.var=0 end)
+evsrcs[#evsrcs+1] = b:add_signal(lsdb.SIGUSR2, function () error("SIGUSR1 caught, deliberately failing") end)
+evsrcs[#evsrcs+1] = b:add_signal(lsdb.SIGHUP, reload)
 
-b:add_periodic(1*1000^2, 0, emit_time)
-b:add_periodic(10*1000^2, 0, function () error("test failure in periodic callback") end)
+evsrcs[#evsrcs+1] = b:add_periodic(1*1000^2, 0, emit_time)
+evsrcs[#evsrcs+1] = b:add_periodic(10*1000^2, 0, function () error("test failure in periodic callback") end)
 
 b:loop()

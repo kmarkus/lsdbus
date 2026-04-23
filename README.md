@@ -431,7 +431,7 @@ respectively.
 local u = require("utils")
 local lsdb = require("lsdbus")
 local b = lsdb.open('system')
-b:match_signal(nil, nil, nil, nil, function (b,...) u.pp(...) end)
+local slot = b:match_signal(nil, nil, nil, nil, function (b,...) u.pp(...) end)
 b:loop()
 ```
 
@@ -463,7 +463,7 @@ See `examples/periodic.lua` for an example.
 local function callback(bus, signal)
   print("received signal:", signal)
 end
-b:add_signal(lsdb.SIGINT, callback)
+local sig = b:add_signal(lsdb.SIGINT, callback)
 ```
 
 The lsdbus module defines the following constants `SIGINT`, `SIGTERM`,
@@ -481,7 +481,7 @@ local function callback(bus, fd, revents)
   print("activity on fd", fd)
 end
 
-b:add_io(fd, lsdb.EPOLLIN|lsdb.EPOLLOUT, callback)
+local io_src = b:add_io(fd, lsdb.EPOLLIN|lsdb.EPOLLOUT, callback)
 ```
 
 `events` are any `EPOLLIN`, `EPOLLOUT`, `EPOLLRDHUP`, `EPOLLPRI` or
@@ -500,7 +500,7 @@ local function callback(b, si)
 	utils.pp(si) -- prints {uid=1000,pid=33236,code=2,status=9}
 end
 
-b:add_child(pid, lsdb.WEXITED|lsdb.WSTOPPED|lsdb.WCONTINUED, callback)
+local child_src = b:add_child(pid, lsdb.WEXITED|lsdb.WSTOPPED|lsdb.WCONTINUED, callback)
 ```
 
 - `status` is either exit code (if code is `CLD_EXITED`) or signal
@@ -707,10 +707,11 @@ The `proxy:SetAV` uses the tovariant functions internally.
 
   If not given, default is `new`
 
-- `evsrc` (event source) objects are **not** cleaned up (`unref`ed)
-  when garbage collected but set to *floating*, which means they will
-  live until the event loop is destroyed. To explicitly disable and
-  destroy an event source, call its `unref` method.
+- `evsrc` (event source) objects are garbage collected: when the Lua
+  object is collected, the underlying event source is unreferenced and
+  destroyed. To explicitly remove an event source before it goes out of
+  scope, call its `unref` method. On Lua 5.4+, event sources support
+  the `<close>` attribute for deterministic cleanup.
 
 > **Note**: upon being collected the `default_*` type bus objects are
 > only `flush`ed and `unref`ed, whereas on non default (`new`,
@@ -808,16 +809,13 @@ The `proxy:SetAV` uses the tovariant functions internally.
 |-----------|-------------------------------------------|
 | `unref()` | remove slot. calls `sd_bus_slot_unref(3)` |
 
-The behavior upon garbage collection depends on the slot type:
+All slot types are garbage collected: when the Lua object is collected,
+the underlying slot is unreferenced and destroyed. On Lua 5.4+, slots
+support the `<close>` attribute for deterministic cleanup.
 
-- `vtable`: `unref`ed, resources freed
-- `match*`: set to floating (i.e. will continue to exist as long as
-  bus does).
-- `call_async`: `unref`ed, resources freed
-
-> **Note**: you must hold a reference to a `vtable` slot to prevent it
-> from being garbage collected and removed. Typically one just stores a
-> reference to the `srv` object returned by `server.new`.
+> **Note**: you must hold a reference to a `vtable` or `match*` slot to
+> prevent it from being garbage collected and removed. Typically one just
+> stores a reference to the `srv` object returned by `server.new`.
 
 
 ### event sources
@@ -831,14 +829,17 @@ The behavior upon garbage collection depends on the slot type:
 | `get_enabled()`        | returns `lsdbus.SD_EVENT_[ON\|OFF\|ONESHOT]`. see `sd_event_source_get_enabled(3)`    |
 | `unref()`              | remove event source. calls `sd_event_source_unref(3)`                                 |
 
-> **Note**: `evsrc` (event source) objects are **not** released
-> (`unref`ed) when they go out of scope (i.e. are garbage collected)
-> but are set to *floating*. This means they will live until the event
-> loop is destroyed. To explicitly destroy an event source, call its
-> `unref` method.
+`evsrc` objects are garbage collected: when the Lua object is collected,
+the underlying event source is unreferenced and destroyed. To explicitly
+remove an event source before it goes out of scope, call `unref()`. On
+Lua 5.4+, `<close>` is supported for deterministic cleanup:
 
-Thus, there is no need to store a reference to an `evsrc` object
-*unless* you intend to remove it before the program ends.
+```lua
+local evsrc <close> = b:add_io(fd, lsdbus.EPOLLIN, cb)
+```
+
+> **Note**: you must hold a reference to an `evsrc` object to prevent it
+> from being garbage collected and removed.
 
 
 ## Internals
@@ -951,6 +952,11 @@ the loop.
 
 (only API changes)
 
+- **all handles are now garbage collected**. `match*` slots and `evsrc`
+  objects are no longer set to *floating* on GC — they are unreferenced
+  and destroyed like all other handle types. Make sure to hold a
+  reference to any handle you want to keep alive. On Lua 5.4+, handles
+  support the `<close>` attribute for deterministic cleanup.
 - `proxy:error` now throws an error object (table with fields `name`,
   `msg`, `srv`, `obj`, `intf`) instead of a plain string. The object
   has a `__tostring` metamethod that produces the same format as

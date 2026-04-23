@@ -85,6 +85,36 @@ function TestSig:TestEmitMatch()
    lu.assert_true(cb_ok)
 end
 
+function TestSig:TestMatchSlotGC()
+   collectgarbage()
+   local mem1 = collectgarbage('count')
+
+   for _=1,100 do
+      b:match_signal(nil, nil, nil, nil, function() end)
+      -- no explicit unref - rely on GC
+   end
+
+   collectgarbage()
+   collectgarbage()
+
+   lu.assert_equals(debug.getregistry()['lsdbus.slot_table'], {})
+
+   local mem2 = collectgarbage('count') - MEM_USAGE_MARGIN_KB
+   lu.assert_false(mem2 > mem1, string.format("mem2 > mem1 (%s>%s)", mem2, mem1))
+end
+
+function TestSig:TestMatchSlotClose()
+   local code = [[
+      local b = ...
+      local slot <close> = b:match_signal(nil, nil, nil, nil, function() end)
+   ]]
+   local f, err = load(code)
+   if not f then lu.skip("requires Lua 5.4+: " .. tostring(err)); return end
+   f(b)
+   collectgarbage()
+   lu.assert_equals(debug.getregistry()['lsdbus.slot_table'], {})
+end
+
 function TestSig:TestMatchSlotMemUsage()
    local function make_matches(num)
       for _=1,num do
