@@ -1,7 +1,20 @@
 # lsdbus: Lua D-Bus bindings
 
 `lsdbus` is a simple to use D-Bus binding for Lua 5.x and LuaJIT based
-on the sd-bus and sd-event APIs.
+on the
+[sd-bus](https://www.freedesktop.org/software/systemd/man/latest/sd-bus.html)
+and
+[sd-event](https://www.freedesktop.org/software/systemd/man/latest/sd-event.html)
+APIs:
+
+- full **client** and **server** support
+- **automatic** client proxies from introspection data
+- **synchronous** and **asynchronous** method invocation
+- seamless **type mapping** between **D-Bus** and **Lua**
+- callbacks for **Unix signals**, D-Bus **signal matching**, **IO**
+  (fd), **periodic timers**, **child pid**
+- robust **error handling** and resource management
+- **command-line** tools: `lsdb-mon`, `lsdb-info`, `lsdb-call` and `lsdb-prop`
 
 <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
 **Table of Contents**
@@ -57,11 +70,10 @@ First, ensure that the correct packages are installed. For example:
 $ sudo apt-get install cmake lua5.4 liblua5.4-dev libsystemd-dev libmxml-dev
 ```
 
-Lua versions <5.2 (incl. `luajit`) additionally require `lua-compat53`
-and `lua-compat53-dev`.
+Lua versions <5.2 (incl. `luajit`) require `lua-compat53` and
+`lua-compat53-dev`.
 
-To run the tests, install `lua-unit` or install it directly from here
-[1]. Then build via CMake:
+Build via CMake:
 
 ```sh
 $ cd lsdbus
@@ -74,6 +86,13 @@ $ sudo make install
 If you have multiple Lua versions installed, you can force the one to
 be used by setting `CONFIG_LUA_VER` (or pass `-DCONFIG_LUA_VER=X` to
 cmake) to one of `5.5`, `5.4`, `5.3`, `5.2`, `5.1` or `jit`.
+
+To run the tests, install `lua-unit` (debian package, luarocks) or
+directly from source
+[`luaunit`](https://github.com/bluebird75/luaunit.git)
+
+Not required by the lsdbus core, but used by tools and examples
+[uutils](https://github.com/kmarkus/uutils.git)
 
 **XML backend options**
 
@@ -229,20 +248,22 @@ it and converts it back to Lua (the example below uses the small
 
 - More examples can be found in the unit tests: `test/message.lua`
 - *Variant* is the only type whose conversion is *asymmetrical*,
-  i.e. the input arguments are not equal to the result. This is because
-  the variant is unpacked automatically. However, in some cases it is
-  desirable to get the variant in its raw table form (e.g. when the
-  identical value needs to be returned). For that case, the "raw"
+  i.e. the input arguments are not equal to the result. This is
+  because variants are unpacked automatically. However, in some cases
+  it is desirable to get the variant in its raw table form (e.g. when
+  the *identical* value needs to be returned). For that, the "raw"
   methods `callr` (and `testmsgr`) can be used.
 - the tables of deserialized arrays, stucts and variants each have a
   metatable with the `__name` field set to the respective type. This
-  permits identifying the original type after the conversion to Lua.
+  permits identifying the original type after the conversion to
+  Lua. This can be useful in corner cases where the Lua representation
+  is not unique (empty arrays vs. dictionaries).
 
 ### Client API
 
 There are two client APIs: the high level `lsdbus.proxy` API uses
 introspection to create a proxy object, that can be used to
-conveniently call methods or get/set properties. The plumbing API
+conveniently call methods or get and set properties. The plumbing API
 allows the same, however more arguments (destination, path, interface,
 member, typestring and args) need to be provided.
 
@@ -254,7 +275,7 @@ member, typestring and args) need to be provided.
 > lsdb = require("lsdbus")
 > b = lsdb.open("system")
 > td = lsdb.proxy.new(b, 'org.freedesktop.timedate1', '/org/freedesktop/timedate1', 'org.freedesktop.timedate1')
-> print(td)
+> td
 srv: org.freedesktop.timedate1, obj: /org/freedesktop/timedate1, intf: org.freedesktop.timedate1
 Methods:
   SetLocalRTC (bbb) ->
@@ -285,16 +306,24 @@ name as the first argument:
 
 ```lua
 > td('ListTimezones')
+lsdbus.array: 0x55ecc7152e90
+> for i,v in ipairs(td('ListTimezones')) do print(i,v) end
+1	Africa/Abidjan
+2	Africa/Accra
+3	Africa/Addis_Ababa
+4	Africa/Algiers
+5	Africa/Asmara
+...
 ```
 
 Unlike with the low-level `bus:call`, no D-Bus types need to be
 provided.
 
-**examples**: [micro-client.lua](examples/micro-client.lua), [mini-client.lua](examples/mini-client.lua), [maxi-client.lua](examples/maxi-client.lua), [maxi-client-async.lua](examples/maxi-client-async.lua)
+**examples**: ␇[micro-client.lua](examples/micro-client.lua), [mini-client.lua](examples/mini-client.lua), [maxi-client.lua](examples/maxi-client.lua), [maxi-client-async.lua](examples/maxi-client-async.lua)
 
-#### plumbing API
+#### Plumbing API
 
-**Syntax**
+*Syntax*
 
 ```lua
 ret, res0, ... = bus:call(dest, path, intf, member, typestr, arg0...)
@@ -307,7 +336,7 @@ In case of failure `ret` is `false` and `res0` is a table of the form
 `{ error, message }`.
 
 
-**Example**
+*Example*
 
 ```lua
 lsdb = require("lsdbus.core")
@@ -515,7 +544,8 @@ local io_src = b:add_io(fd, lsdb.EPOLLIN|lsdb.EPOLLOUT, callback)
 `events` are any `EPOLLIN`, `EPOLLOUT`, `EPOLLRDHUP`, `EPOLLPRI` or
 `EPOLLET`.
 
-**example**: [inotify-io.lua](examples/inotify-io.lua) (uses `linotify` [3])
+**example**: [inotify-io.lua](examples/inotify-io.lua) (uses
+[linotify](https://github.com/hoelzro/linotify))
 
 #### Child pid callback
 
@@ -1030,9 +1060,3 @@ the loop.
   this avoids the need to pass the `bus` object in via the scope and
   moreover provides a table that can be freely used to store state
   such as property values.
-
-## References
-
-[1] https://github.com/bluebird75/luaunit.git  
-[2] https://github.com/kmarkus/uutils.git  
-[3] https://github.com/hoelzro/linotify  
