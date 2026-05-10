@@ -148,7 +148,7 @@ local demo_if = {
 
 local b = lsdb.open()
 b:request_name("lsdbus.demo")
-lsdb.server.new(b, "/", demo_if)
+local vt = lsdb.server.new(b, "/", demo_if)  -- must be held; GC'd if discarded
 b:loop()
 ```
 
