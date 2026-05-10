@@ -675,19 +675,17 @@ format `"ERROR_NAME|MESSAGE"` or allow the error to propagate.
 ```lua
 local function vt_errhdl(e, bt, ctx)
    local estr = tostring(e)
-   
-   -- If already in D-Bus error format, pass through
-   if estr:match("^[%w_.]+%s*|") then
-      error(estr)
-   end
-   
-   -- Log unexpected errors with context
+
+   -- lsdb.throw uses error(..., 2) which prepends "file:line: " to the
+   -- string; lsdb.parse_err has no ^ anchor so it finds the name anywhere.
+   if lsdb.parse_err(estr) then error(estr) end
+
+   -- Unexpected Lua error: log with context and return as D-Bus Failed
    io.stderr:write(string.format(
       "Error in %s '%s': %s\nBacktrace:\n%s\n",
       ctx.type, ctx.name, estr, bt))
-   
-   -- Return generic D-Bus error
-   error(lsdb.error.FAILED .. "|Internal server error")
+
+   error(lsdb.error.FAILED .. "|" .. estr)
 end
 
 local vt = lsdb.server.new(b, "/my/path", interface, vt_errhdl)

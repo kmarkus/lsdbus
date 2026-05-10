@@ -55,22 +55,24 @@ elseif opttab['-u'] then bus='default_user' end
 log("using %s bus", bus or 'default')
 b = lsdb.open(bus)
 
+local msrc
+
 if not cmd then
    log('matching all signals')
-   b:match_signal(nil, nil, nil, nil, pp)
+   msrc = b:match_signal(nil, nil, nil, nil, pp)
 elseif cmd == 'sig' then
    local s,p,i,m = string.match(opttab[0][2], "([^,]*),([^,]*),([^,]*),(.*)")
    if s == nil then printf("invalid signal spec"); os.exit(1) end
    log("matching sender=%s, path=%s, interf=%s, member=%s", s, p, i, m)
-   b:match_signal(_n(s), _n(p), _n(i), _n(m), pp)
+   msrc = b:match_signal(_n(s), _n(p), _n(i), _n(m), pp)
 elseif cmd == 'expr' then
    log("matching expression %s", opttab[0][2])
    for i=2,#opttab[0] do
-      b:match(opttab[0][i],
-	      function(...)
-		 io.write("expr #"..(i-1)..": ")
-		 pp(...)
-	      end
+      msrc = b:match(opttab[0][i],
+		     function(...)
+			io.write("expr #"..(i-1)..": ")
+			pp(...)
+		     end
       )
    end
 elseif cmd == 'help' then
@@ -81,5 +83,5 @@ else
    os.exit(1)
 end
 
-b:add_signal(lsdb.SIGINT, exit)
+local sigint = b:add_signal(lsdb.SIGINT, exit)
 b:loop()
