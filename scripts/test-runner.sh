@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Run the tests for the Lua version specified in LUA_VERSION
-# This will
 
 # Set defaults for LUA_VERSION and REPEAT
 LUA_VERSION="${LUA_VERSION:-5.4}"
@@ -12,14 +11,16 @@ if ! command -v lua${LUA_VERSION} &> /dev/null; then
   exit 1
 fi
 
+# Unique log file per run so failed runs can be examined later
+LOG_FILE="peer-testserver-${LUA_VERSION}-$(date +%Y%m%d-%H%M%S)-$$.log"
+
 # Start the peer test server in the background and save its PID
 echo 'Launching peer test server...'
-lua${LUA_VERSION} test/peer-testserver.lua > peer-testserver.log 2>&1 &
+lua${LUA_VERSION} test/peer-testserver.lua > "$LOG_FILE" 2>&1 &
 PEER_SERVER_PID=$!
 
 # Set up a trap to stop the peer test server when the script exits
 cleanup() {
-    echo "Stopping peer test server with PID " $PEER_SERVER_PID
     kill $PEER_SERVER_PID 2>/dev/null
     wait $PEER_SERVER_PID 2>/dev/null
 }
@@ -29,8 +30,8 @@ trap cleanup EXIT
 sleep 0.1
 
 if ! kill -0 $PEER_SERVER_PID 2>/dev/null; then
-    echo "error: peer-testserver failed to start. peer-testserver.log follows:"
-    cat peer-testserver.log
+    echo "error: peer-testserver failed to start. Log: $LOG_FILE"
+    cat "$LOG_FILE"
     exit 1
 fi
 
@@ -41,14 +42,10 @@ lua${LUA_VERSION} run.lua "$@"
 TEST_EXIT_CODE=$?
 popd &> /dev/null
 
-echo "tests completed with exit code " $TEST_EXIT_CODE
-
-# if the exit code is not 0, print the log
 if [ $TEST_EXIT_CODE -ne 0 ]; then
-    echo 'printing peer-testserver log...'
-    cat peer-testserver.log
+    printf '\033[31mFAIL\033[0m  peer-testserver log: %s\n' "$LOG_FILE"
+else
+    rm -f "$LOG_FILE"
 fi
 
-
-# Exit with the test script's exit code
 exit $TEST_EXIT_CODE
