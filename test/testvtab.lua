@@ -154,6 +154,104 @@ function TestVtab:TestVtabExplicitCleanup()
    for _=1,1000 do create_destroy() end
 end
 
+-- Read VmRSS in kB from /proc/self/status (Linux only), returns nil if unavailable
+local function get_rss_kb()
+   local f = io.open("/proc/self/status", "r")
+   if not f then return nil end
+   local rss
+   for line in f:lines() do
+      rss = line:match("^VmRSS:%s+(%d+)")
+      if rss then break end
+   end
+   f:close()
+   return tonumber(rss)
+end
+
+-- Create N vtab objects via lsdb.server.new and immediately unref them explicitly.
+-- Returns the raw slot pointers so callers can verify cleanup.
+local function make_and_unref_vtabs(num, base_cnt)
+   local slots = {}
+   for i = 1, num do
+      local vt = lsdb.server.new(b, string.format("/leak_test/%i", base_cnt + i), test_intf)
+      slots[i] = vt._slot:rawslot()
+      vt:unref()
+   end
+   return slots
+end
+
+-- GC-based lifecycle: create vtabs inside a scope and let them be collected.
+-- Wrapping in a function ensures locals go out of scope after the call.
+local function make_vtabs_gc(num, base_cnt)
+   for i = 1, num do
+      lsdb.server.new(b, string.format("/leak_gc/%i", base_cnt + i), test_intf)
+   end
+end
+
+function TestVtab:TestVtabUnrefMemUsage()
+   local MEM_MARGIN_KB = 64
+   local N = 1000
+   local cnt = 0
+
+   -- warm-up with full batch size to pre-expand malloc arena
+   make_and_unref_vtabs(N, cnt); cnt = cnt + N
+   collectgarbage(); collectgarbage()
+
+   local rss1 = get_rss_kb()
+   local lua1 = collectgarbage('count')
+
+   make_and_unref_vtabs(N, cnt); cnt = cnt + N
+
+   collectgarbage(); collectgarbage()
+
+   local rss2 = get_rss_kb()
+   local lua2 = collectgarbage('count')
+
+   -- slot_table and vtab_user_arg must both be empty after explicit unref
+   lu.assert_equals(debug.getregistry()['lsdbus.slot_table'], {})
+   lu.assert_equals(debug.getregistry()['lsdbus.vtab_user_arg'], {})
+
+   -- Lua heap should not have grown appreciably
+   lu.assert_false(lua2 - lua1 > MEM_MARGIN_KB,
+      string.format("Lua heap grew by %.1f kB after %d unref'd vtabs", lua2 - lua1, N))
+
+   -- C heap (RSS) should not have grown appreciably
+   if rss1 and rss2 then
+      lu.assert_false(rss2 - rss1 > MEM_MARGIN_KB,
+         string.format("RSS grew by %d kB after %d unref'd vtabs (possible C leak)", rss2 - rss1, N))
+   end
+end
+
+function TestVtab:TestVtabGcMemUsage()
+   local MEM_MARGIN_KB = 64
+   local N = 1000
+   local cnt = 0
+
+   -- warm-up with full batch size to pre-expand malloc arena
+   make_vtabs_gc(N, cnt); cnt = cnt + N
+   collectgarbage(); collectgarbage()
+
+   local rss1 = get_rss_kb()
+   local lua1 = collectgarbage('count')
+
+   make_vtabs_gc(N, cnt); cnt = cnt + N
+
+   collectgarbage(); collectgarbage()
+
+   local rss2 = get_rss_kb()
+   local lua2 = collectgarbage('count')
+
+   lu.assert_equals(debug.getregistry()['lsdbus.slot_table'], {})
+   lu.assert_equals(debug.getregistry()['lsdbus.vtab_user_arg'], {})
+
+   lu.assert_false(lua2 - lua1 > MEM_MARGIN_KB,
+      string.format("Lua heap grew by %.1f kB after %d GC'd vtabs", lua2 - lua1, N))
+
+   if rss1 and rss2 then
+      lu.assert_false(rss2 - rss1 > MEM_MARGIN_KB,
+         string.format("RSS grew by %d kB after %d GC'd vtabs (possible C leak)", rss2 - rss1, N))
+   end
+end
+
 function TestVtab:TestVtabMemUsage()
 
    local cnt=0
