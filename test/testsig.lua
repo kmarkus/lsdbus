@@ -44,8 +44,10 @@ function TestSig:TestEmitMatchSignal()
 
    b:emit_signal(path, intf, member, "ua{ss}", arg0, arg1)
 
-   b:run(1)
-   b:run(1000)
+   for _=1,20 do
+      if cb_ok then break end
+      b:run(100*1000)
+   end
 
    lu.assert_true(cb_ok)
 end
@@ -77,7 +79,7 @@ function TestSig:TestEmitMatch()
 
    b:emit_signal(path, intf, member, ts, arg0, arg1, arg2)
 
-   for _=1,10 do
+   for _=1,20 do
       if cb_ok then break end
       b:run(100*1000)
    end

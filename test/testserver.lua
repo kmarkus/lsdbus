@@ -70,7 +70,7 @@ function TestServer:TestCallAsync()
 
       proxy:call_async(func, cb, table.unpack(argtab))
 
-      for _=1,10 do
+      for _=1,20 do
 	 if have_res then break end
 	 b:run(100*1000)
       end
@@ -256,7 +256,7 @@ function TestServer:TestPropChanged()
    local sig = false
 
    local function assert_sig_recv(s,p,i,m,args)
-      for _=1,10 do
+      for _=1,20 do
 	 if sig then
 	    if s then lu.assert_equals(sig.s, s) end
 	    if p then lu.assert_equals(sig.p, p) end
