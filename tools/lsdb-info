@@ -46,6 +46,7 @@ flags
  -C     disable colors
  -v     verbose
  -h     show this help
+ -V     show version
 ]=])
 end
 
@@ -188,6 +189,7 @@ verbose = opttab['-v']
 if opttab['-C'] then color = false end
 if opttab['-i'] then show_stdif = true end
 if opttab['-h'] then cmd = 'help' end
+if opttab['-V'] then print(lsdb.version()); os.exit(0) end
 if opttab['-s'] then bus='default_system'
 elseif opttab['-u'] then bus='default_user' end
 

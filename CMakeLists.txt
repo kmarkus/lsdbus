@@ -56,6 +56,25 @@ if( "${LUA_VER}" STREQUAL "5.1" OR "${LUA_VER}" STREQUAL "5.2" )
   cmake_path(GET COMPAT53 PARENT_PATH COMPAT53_DIR)
 endif()
 
+find_package(Git QUIET)
+if(Git_FOUND)
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE LSDBUS_VERSION
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+    RESULT_VARIABLE GIT_RESULT
+  )
+  if(NOT GIT_RESULT EQUAL 0)
+    set(LSDBUS_VERSION "unknown")
+  endif()
+else()
+  set(LSDBUS_VERSION "unknown")
+endif()
+message(STATUS "lsdbus version: ${LSDBUS_VERSION}")
+configure_file(src/lsdbus_version.h.in ${CMAKE_CURRENT_BINARY_DIR}/lsdbus_version.h)
+
 set(LSDBUS_SRCS
   src/errparse.c
   src/evl.c
@@ -76,7 +95,7 @@ set(LSDBUS_INST_DIR
 add_library(core SHARED ${LSDBUS_SRCS})
 target_compile_options(core PRIVATE -Wall -Wextra)
 target_compile_definitions(core PRIVATE LIBSYSTEMD_VERSION=${SYSTEMD_VERSION} ${MXML_COMPILE_DEFS})
-target_include_directories(core PRIVATE ${LUA_INCLUDE_DIRS} ${COMPAT53_DIR} ${MXML_INCLUDE_DIRS})
+target_include_directories(core PRIVATE ${LUA_INCLUDE_DIRS} ${COMPAT53_DIR} ${MXML_INCLUDE_DIRS} ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(core ${SYSTEMD_LIBRARIES} ${MXML_LIBRARIES})
 set_target_properties(core PROPERTIES PREFIX "")
 install(TARGETS core LIBRARY DESTINATION ${LSDBUS_INST_DIR})

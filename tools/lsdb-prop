@@ -76,6 +76,7 @@ flags
  -C     disable colors
  -v     verbose
  -h     show this help
+ -V     show version
 
 *examples*
 
@@ -105,6 +106,7 @@ local opttab = u.proc_args(arg)
 verbose = opttab['-v']
 if opttab['-C'] then color = false end
 if opttab['-h'] then help(); os.exit(0) end
+if opttab['-V'] then print(lsdb.version()); os.exit(0) end
 if opttab['-s'] then bus = 'default_system'
 elseif opttab['-u'] then bus = 'default_user' end
 

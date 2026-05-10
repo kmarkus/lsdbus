@@ -1,5 +1,6 @@
 #include <signal.h>
 #include "lsdbus.h"
+#include "lsdbus_version.h"
 
 static const char *const open_opts_lst [] = {
 	"new",
@@ -570,8 +571,15 @@ static int lsdbus_bus_gc(lua_State *L)
 	return 0;
 }
 
+static int lsdbus_version(lua_State *L)
+{
+	lua_pushstring(L, LSDBUS_VERSION);
+	return 1;
+}
+
 static const luaL_Reg lsdbus_f [] = {
 	{ "open", lsdbus_open },
+	{ "version", lsdbus_version },
 #ifdef HAVE_XML_MXML
 	{ "xml_fromfile", lsdbus_xml_fromfile },
 	{ "xml_fromstr", lsdbus_xml_fromstr },

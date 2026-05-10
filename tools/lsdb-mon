@@ -39,6 +39,7 @@ global flags
  -u	session bus
  -C 	disable colors
  -v     verbose
+ -V     show version
 ]=])
 end
 
@@ -49,6 +50,7 @@ local pp = colorpp
 verbose = opttab['-v']
 if opttab['-C'] then pp = plainpp end
 if opttab['-h'] then cmd = 'help' end
+if opttab['-V'] then print(lsdb.version()); os.exit(0) end
 if opttab['-s'] then bus='default_system'
 elseif opttab['-u'] then bus='default_user' end
 
