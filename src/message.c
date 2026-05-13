@@ -1,4 +1,162 @@
+#include <string.h>
 #include "lsdbus.h"
+
+/* LuaJIT cdata support: runtime-detected. All refs live in the Lua
+ * registry; the active flag mirrors whether init succeeded so the hot
+ * paths can branch cheaply. Vanilla Lua leaves everything at the
+ * defaults and the cdata paths are dead code.
+ *
+ * tcdata is the cdata type tag, discovered at init from ffi.typeof()
+ * itself (a ctype is cdata), so we don't hard-code LuaJIT internals. */
+static struct {
+	int active;
+	int tcdata;
+	int ffi_istype_ref;
+	int ctype_u64_ref;
+	int ctype_i64_ref;
+	int make_u64_ref;
+	int make_i64_ref;
+} lj = {
+	.active         = 0,
+	.tcdata         = 0,
+	.ffi_istype_ref = LUA_NOREF,
+	.ctype_u64_ref  = LUA_NOREF,
+	.ctype_i64_ref  = LUA_NOREF,
+	.make_u64_ref   = LUA_NOREF,
+	.make_i64_ref   = LUA_NOREF,
+};
+
+void init_luajit_support(lua_State *L)
+{
+	int top = lua_gettop(L);
+
+	lua_getglobal(L, "jit");
+	if (lua_isnil(L, -1)) {
+		lua_pop(L, 1);
+		return;
+	}
+	lua_pop(L, 1);
+
+	/* LuaJIT may be built without FFI; pcall the require */
+	lua_getglobal(L, "require");
+	lua_pushstring(L, "ffi");
+	if (lua_pcall(L, 1, 1, 0) != LUA_OK) {
+		lua_pop(L, 1);
+		return;
+	}
+	/* stack: ffi */
+
+	lua_getfield(L, -1, "istype");
+	lj.ffi_istype_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+	lua_getfield(L, -1, "typeof");
+	lua_pushstring(L, "uint64_t");
+	lua_call(L, 1, 1);
+	/* a ctype is itself cdata, so its lua_type is LuaJIT's TCDATA tag */
+	lj.tcdata = lua_type(L, -1);
+	lj.ctype_u64_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+	lua_getfield(L, -1, "typeof");
+	lua_pushstring(L, "int64_t");
+	lua_call(L, 1, 1);
+	lj.ctype_i64_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+	lua_pop(L, 1); /* pop ffi */
+
+	/* hi/lo constructors for the return path. Each half fits in a
+	 * Lua number losslessly; combining happens in cdata arithmetic */
+	if (luaL_dostring(L,
+		"local ffi = require('ffi')\n"
+		"local u64 = ffi.typeof('uint64_t')\n"
+		"local i64 = ffi.typeof('int64_t')\n"
+		"local SHIFT = u64(0x100000000ULL)\n"
+		"local function mk_u64(hi, lo) return u64(hi) * SHIFT + u64(lo) end\n"
+		"local function mk_i64(hi, lo) return i64(u64(hi) * SHIFT + u64(lo)) end\n"
+		"return mk_u64, mk_i64\n") != LUA_OK) {
+		lua_pop(L, 1);
+		lua_settop(L, top);
+		return;
+	}
+	/* stack: mk_u64, mk_i64 (top) */
+	lj.make_i64_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+	lj.make_u64_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+	lj.active = 1;
+	lua_settop(L, top);
+}
+
+/* ffi.istype(ctype_ref, value@absidx). Returns 1 on match, 0 otherwise. */
+static int lj_istype(lua_State *L, int absidx, int ctype_ref)
+{
+	int match;
+
+	lua_rawgeti(L, LUA_REGISTRYINDEX, lj.ffi_istype_ref);
+	lua_rawgeti(L, LUA_REGISTRYINDEX, ctype_ref);
+	lua_pushvalue(L, absidx);
+	if (lua_pcall(L, 2, 1, 0) != LUA_OK) {
+		lua_pop(L, 1);
+		return 0;
+	}
+	match = lua_toboolean(L, -1);
+	lua_pop(L, 1);
+	return match;
+}
+
+/* Try to extract a 64-bit value from LuaJIT cdata. Validates the C type
+ * via cached ffi.istype to avoid silently reading the wrong bytes from
+ * unrelated ctypes (pointers, structs, doubles, etc.). Returns 1 on
+ * success, 0 if not applicable or type mismatch. */
+static int lj_cdata_to_u64(lua_State *L, int idx, char dbus_type, uint64_t *out)
+{
+	int absidx, ctype_ref;
+	const void *p;
+
+	if (!lj.active)
+		return 0;
+	if (lua_type(L, idx) != lj.tcdata)
+		return 0;
+
+	absidx = lua_absindex(L, idx);
+	ctype_ref = (dbus_type == SD_BUS_TYPE_UINT64) ? lj.ctype_u64_ref : lj.ctype_i64_ref;
+
+	if (!lj_istype(L, absidx, ctype_ref))
+		return 0;
+
+	p = lua_topointer(L, absidx);
+	if (!p)
+		return 0;
+
+	memcpy(out, p, sizeof(uint64_t));
+	return 1;
+}
+
+/* Permissive variant for the sub-64-bit integer slots: accepts either
+ * int64_t or uint64_t cdata, copies out 8 raw bytes for the caller to
+ * truncate. No range check — matches the Lua-number path which also
+ * doesn't validate that the value fits the slot. Returns 1 on success. */
+static int lj_cdata_to_int64(lua_State *L, int idx, int64_t *out)
+{
+	int absidx;
+	const void *p;
+
+	if (!lj.active)
+		return 0;
+	if (lua_type(L, idx) != lj.tcdata)
+		return 0;
+
+	absidx = lua_absindex(L, idx);
+
+	if (!lj_istype(L, absidx, lj.ctype_u64_ref) &&
+	    !lj_istype(L, absidx, lj.ctype_i64_ref))
+		return 0;
+
+	p = lua_topointer(L, absidx);
+	if (!p)
+		return 0;
+
+	memcpy(out, p, sizeof(int64_t));
+	return 1;
+}
 
 /**
  * table_explode - unpack the table at src onto the top of the stack
@@ -347,7 +505,12 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 case SD_BUS_TYPE_BYTE: {
 			uint8_t x;
 			int ok;
+			int64_t x64;
 			x = lua_tointegerx(L, stpos, &ok);
+			if (!ok && lj_cdata_to_int64(L, stpos, &x64)) {
+				x = (uint8_t)x64;
+				ok = 1;
+			}
 			if (!ok) {
 				lua_pushfstring(L, "failed to convert arg #%d (integer expected, got %s)",
 						stpos, lua_typename(L, lua_type(L, stpos)));
@@ -378,10 +541,16 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 case SD_BUS_TYPE_UNIX_FD: {
                         uint32_t x;
 			int ok;
+			int64_t x64;
 
 			static_assert(sizeof(int32_t) == sizeof(int), "int != int32_t");
 
 			x = lua_tointegerx(L, stpos, &ok);
+
+			if (!ok && lj_cdata_to_int64(L, stpos, &x64)) {
+				x = (uint32_t)x64;
+				ok = 1;
+			}
 
 			if (!ok) {
 				lua_pushfstring(L, "failed to convert arg #%d (integer expected, got %s)",
@@ -399,7 +568,13 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 case SD_BUS_TYPE_UINT16: {
 			int ok;
                         uint16_t x;
+			int64_t x64;
 			x = lua_tointegerx(L, stpos, &ok);
+
+			if (!ok && lj_cdata_to_int64(L, stpos, &x64)) {
+				x = (uint16_t)x64;
+				ok = 1;
+			}
 
 			if (!ok) {
 				lua_pushfstring(L, "failed to convert arg #%d (integer expected, got %s)",
@@ -419,6 +594,9 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                         uint64_t x;
 
 			x = lua_tointegerx(L, stpos, &ok);
+
+			if (!ok)
+				ok = lj_cdata_to_u64(L, stpos, *t, &x);
 
 			if (!ok) {
 				lua_pushfstring(L, "failed to convert arg #%d (integer expected, got %s)",
@@ -760,12 +938,26 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 
                 case SD_BUS_TYPE_INT64:
 			dbg("push INT64");
-			lua_pushinteger(L, basic.s64);
+			if (lj.active) {
+				lua_rawgeti(L, LUA_REGISTRYINDEX, lj.make_i64_ref);
+				lua_pushinteger(L, (lua_Integer)(uint32_t)((uint64_t)basic.s64 >> 32));
+				lua_pushinteger(L, (lua_Integer)(uint32_t)((uint64_t)basic.s64 & 0xFFFFFFFFu));
+				lua_call(L, 2, 1);
+			} else {
+				lua_pushinteger(L, basic.s64);
+			}
 			break;
 
                 case SD_BUS_TYPE_UINT64:
 			dbg("push UINT64");
-			lua_pushinteger(L, basic.u64);
+			if (lj.active) {
+				lua_rawgeti(L, LUA_REGISTRYINDEX, lj.make_u64_ref);
+				lua_pushinteger(L, (lua_Integer)(uint32_t)(basic.u64 >> 32));
+				lua_pushinteger(L, (lua_Integer)(uint32_t)(basic.u64 & 0xFFFFFFFFu));
+				lua_call(L, 2, 1);
+			} else {
+				lua_pushinteger(L, basic.u64);
+			}
                         break;
 
                 case SD_BUS_TYPE_DOUBLE:

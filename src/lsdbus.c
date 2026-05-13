@@ -632,6 +632,7 @@ static const luaL_Reg lsdbus_bus_m [] = {
 int luaopen_lsdbus_core(lua_State *L)
 {
 	errparse_init();
+	init_luajit_support(L);
 
 	luaL_newmetatable(L, BUS_MT);
 	lua_pushvalue(L, -1);

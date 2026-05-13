@@ -61,12 +61,12 @@ function TestEvSrc:TestGC()
 end
 
 function TestEvSrc:TestClose()
+   if _VERSION < "Lua 5.4" then lu.skip("requires Lua 5.4+"); return end
    local code = [[
       local b, x, lsdb = ...
       local evsrc <close> = b:add_io(x, lsdb.EPOLLIN, function() end)
    ]]
-   local f, err = load(code)
-   if not f then lu.skip("requires Lua 5.4+: " .. tostring(err)); return end
+   local f = assert(load(code))
 
    local x,y = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM, 0)
    assert(x)

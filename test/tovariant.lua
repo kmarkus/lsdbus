@@ -1,5 +1,6 @@
 local lu=require("luaunit")
 local lsdb = require("lsdbus")
+local teq = require("teq")
 
 local testconf = debug.getregistry()['lsdbus.testconfig']
 
@@ -24,7 +25,10 @@ local cases = {
 
 function TestToVariant.Test()
    for _,c in pairs(cases) do
-      lu.assertEquals(c, b:testmsg('v', lsdb.tovariant(c)))
+      local r = b:testmsg('v', lsdb.tovariant(c))
+      lu.assert_true(teq(c, r),
+                     string.format("roundtrip mismatch: %s vs %s",
+                                   tostring(c), tostring(r)))
    end
 end
 

@@ -1,5 +1,6 @@
 local lu=require("luaunit")
 local lsdb = require("lsdbus")
+local teq = require("teq")
 local fmt = string.format
 local proxy = lsdb.proxy
 
@@ -105,8 +106,9 @@ function TestServer:TestCallVariant()
 
    a1, a2 = p1('varroundtrip', i1, i2)
 
-   lu.assert_equals(a1, e1)
-   lu.assert_equals(a2, e2)
+   -- variant integers come back as cdata on LuaJIT; use teq's leaf-level ==
+   lu.assert_true(teq(a1, e1), fmt("a1 mismatch: %s vs %s", tostring(a1), tostring(e1)))
+   lu.assert_true(teq(a2, e2), fmt("a2 mismatch: %s vs %s", tostring(a2), tostring(e2)))
 end
 
 function TestServer:TestCallWithInOut()
@@ -204,9 +206,11 @@ function TestServer:TestProps()
    lu.assert_equals(p2.Bar, 1000)
    lu.assert_equals(p3.Bar, 9999999)
 
-   lu.assert_almost_equals(p1.Time, os.time(), 1)
-   lu.assert_almost_equals(p2.Time, os.time(), 1)
-   lu.assert_almost_equals(p3.Time, os.time(), 1)
+   -- Time is 'x' (int64): cdata under LuaJIT, plain number on vanilla.
+   -- tonumber() normalises both for assert_almost_equals.
+   lu.assert_almost_equals(tonumber(p1.Time), os.time(), 1)
+   lu.assert_almost_equals(tonumber(p2.Time), os.time(), 1)
+   lu.assert_almost_equals(tonumber(p3.Time), os.time(), 1)
 
    p1.Wronly = "write-only-string-1"
    p2.Wronly = "write-only-string-2"
@@ -450,63 +454,68 @@ function TestServer:TestSetAV()
    local t_asv2 = {a=1,b={c={d={1,2,3,4},x='ha',frib="9",flop="8"}}}
    local t_asv3 = {}
 
+   local function eq(actual, expected, name)
+      lu.assert_true(teq(actual, expected),
+                     fmt("%s: roundtrip mismatch", name))
+   end
+
    -- a{sv}
-   p1:SetAV("DictOfStrVar", t_asv1); lu.assert_equals(p1.DictOfStrVar, t_asv1)
-   p1:SetAV("DictOfStrVar", t_asv2); lu.assert_equals(p1.DictOfStrVar, t_asv2)
-   p1:SetAV("DictOfStrVar", t_asv3); lu.assert_equals(p1.DictOfStrVar, t_asv3)
+   p1:SetAV("DictOfStrVar", t_asv1); eq(p1.DictOfStrVar, t_asv1, "asv1")
+   p1:SetAV("DictOfStrVar", t_asv2); eq(p1.DictOfStrVar, t_asv2, "asv2")
+   p1:SetAV("DictOfStrVar", t_asv3); eq(p1.DictOfStrVar, t_asv3, "asv3")
 
    -- v
    local t_v1 = { x=2, a={["1"]="foo",["2"]="bar", a1={y={1,2,3}}}}
    local t_v2 = 1
    local t_v3 = {}
-   p1:SetAV("Var", t_v1); lu.assert_equals(p1.Var, t_v1)
-   p1:SetAV("Var", t_v2); lu.assert_equals(p1.Var, t_v2)
-   p1:SetAV("Var", t_v3); lu.assert_equals(p1.Var, t_v3)
+   p1:SetAV("Var", t_v1); eq(p1.Var, t_v1, "v1")
+   p1:SetAV("Var", t_v2); eq(p1.Var, t_v2, "v2")
+   p1:SetAV("Var", t_v3); eq(p1.Var, t_v3, "v3")
 
    -- av
    local t_av1 = { {a=1}, {b=2}, {c={d={e=1}}}}
    local t_av2 = { {}, {}, {}, }
    local t_av3 = {}
-   p1:SetAV("ArrOfVar", t_av1); lu.assert_equals(p1.ArrOfVar, t_av1)
-   p1:SetAV("ArrOfVar", t_av2); lu.assert_equals(p1.ArrOfVar, t_av2)
-   p1:SetAV("ArrOfVar", t_av3); lu.assert_equals(p1.ArrOfVar, t_av3)
+   p1:SetAV("ArrOfVar", t_av1); eq(p1.ArrOfVar, t_av1, "av1")
+   p1:SetAV("ArrOfVar", t_av2); eq(p1.ArrOfVar, t_av2, "av2")
+   p1:SetAV("ArrOfVar", t_av3); eq(p1.ArrOfVar, t_av3, "av3")
 
    -- a{iv}
    local t_aiv1 = { {a=1}, {b=2}, {c={d={e=1}}}}
    local t_aiv2 = { 1, 2, 3 }
    local t_aiv3 = { 1, 2, 3, {x='foo'}}
    local t_aiv4 = {}
-   p1:SetAV("DictOfIntVar", t_aiv1); lu.assert_equals(p1.DictOfIntVar, t_aiv1)
-   p1:SetAV("DictOfIntVar", t_aiv2); lu.assert_equals(p1.DictOfIntVar, t_aiv2)
-   p1:SetAV("DictOfIntVar", t_aiv3); lu.assert_equals(p1.DictOfIntVar, t_aiv3)
-   p1:SetAV("DictOfIntVar", t_aiv4); lu.assert_equals(p1.DictOfIntVar, t_aiv4)
+   p1:SetAV("DictOfIntVar", t_aiv1); eq(p1.DictOfIntVar, t_aiv1, "aiv1")
+   p1:SetAV("DictOfIntVar", t_aiv2); eq(p1.DictOfIntVar, t_aiv2, "aiv2")
+   p1:SetAV("DictOfIntVar", t_aiv3); eq(p1.DictOfIntVar, t_aiv3, "aiv3")
+   p1:SetAV("DictOfIntVar", t_aiv4); eq(p1.DictOfIntVar, t_aiv4, "aiv4")
 
 end
 
 function TestServer:TestCallAV()
+   local function eq(expected, actual, name)
+      lu.assert_true(teq(actual, expected), fmt("%s: roundtrip mismatch", name))
+   end
+
    local t
 
    t = {
       v1 = {1,2,3,4},
       v2 = {foo=1,bar='hi'}
    }
-
-   lu.assert_equals(p1:callttAV('varroundtrip', t), t)
+   eq(t, p1:callttAV('varroundtrip', t), "case1")
 
    t = {
       v1 = {a=2,b={x={}, kar='xyz'}},
       v2 = {foo={1,2,3,4},bar='hi', baz={a=1,b=2,c=3}, koo=true}
    }
-
-   lu.assert_equals(p1:callttAV('varroundtrip', t), t)
+   eq(t, p1:callttAV('varroundtrip', t), "case2")
 
    t = {
       v1 = 999,
       v2 = {}
    }
-
-   lu.assert_equals(p1:callttAV('varroundtrip', t), t)
-
+   eq(t, p1:callttAV('varroundtrip', t), "case3")
 end
 
 return TestServer

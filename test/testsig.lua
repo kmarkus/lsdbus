@@ -106,13 +106,12 @@ function TestSig:TestMatchSlotGC()
 end
 
 function TestSig:TestMatchSlotClose()
+   if _VERSION < "Lua 5.4" then lu.skip("requires Lua 5.4+"); return end
    local code = [[
       local b = ...
       local slot <close> = b:match_signal(nil, nil, nil, nil, function() end)
    ]]
-   local f, err = load(code)
-   if not f then lu.skip("requires Lua 5.4+: " .. tostring(err)); return end
-   f(b)
+   assert(load(code))(b)
    collectgarbage()
    lu.assert_equals(debug.getregistry()['lsdbus.slot_table'], {})
 end

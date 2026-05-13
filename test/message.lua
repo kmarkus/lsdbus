@@ -23,16 +23,28 @@ function TestMsg:TestMultiBasic()
    lu.assert_equals(ret, args)
 end
 
+-- LuaJIT returns 't' and 'x' values as cdata; lu.assert_equals's deep
+-- compare treats cdata vs number as unequal, so for tests that mix 64-bit
+-- ints with other types we compare element-wise via ==.
+local function assert_seq_eq(actual, expected)
+   lu.assert_equals(#actual, #expected)
+   for i = 1, #expected do
+      lu.assert_true(actual[i] == expected[i],
+                     string.format("at index %d: expected %s, got %s",
+                                   i, tostring(expected[i]), tostring(actual[i])))
+   end
+end
+
 function TestMsg:TestInts()
    local args = { 1, 2, 3, 4, 5, 6, 7, 8.001 }
    local ret = { b:testmsg("ynqiuxtd", unpack(args)) }
-   lu.assert_equals(ret, args)
+   assert_seq_eq(ret, args)
 end
 
 function TestMsg:TestNegInts()
    local args = { -1, -22, -33, -44.444 }
    local ret = { b:testmsg("nixd", unpack(args)) }
-   lu.assert_equals(ret, args)
+   assert_seq_eq(ret, args)
 end
 
 function TestMsg:TestArray()

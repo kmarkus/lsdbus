@@ -4,6 +4,14 @@ local lsdb = require("lsdbus.core")
 local concat = table.concat
 local fmt = string.format
 
+-- LuaJIT-only: cache ffi handles for cdata→variant detection.
+local ffi, ctype_u64, ctype_i64
+if jit then
+   ffi = require("ffi")
+   ctype_u64 = ffi.typeof("uint64_t")
+   ctype_i64 = ffi.typeof("int64_t")
+end
+
 --- recursively enumerate all object paths and their interfaces
 -- the result is of the following form
 -- { { path=PATH, node=NODE }, ... }
@@ -264,6 +272,10 @@ function M.tovariant(val)
 	 for k,v in pairs(val) do res[k] = M.tovariant(v) end
 	 return { 'a{sv}', res }
       end
+   elseif ffi and typ == 'cdata' then
+      if ffi.istype(ctype_u64, val) then return { 't', val }
+      elseif ffi.istype(ctype_i64, val) then return { 'x', val }
+      else error(string.format("unsupported cdata type %s", tostring(ffi.typeof(val)))) end
    else
       error(string.format("unsupported type %s", typ))
    end
