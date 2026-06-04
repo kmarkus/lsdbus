@@ -175,8 +175,17 @@ function TestJob:TestNoLeak()
    lu.assert_false(lua2 - lua1 > MEM_MARGIN_KB,
       string.format("Lua heap grew by %.1f kB after %d jobs", lua2 - lua1, N))
 
-   -- C heap (RSS) should not have grown appreciably
+   -- the C heap (RSS) may still see one-time allocator arena growth
+   -- despite the warm-up. a real leak grows with every batch, so
+   -- re-baseline and retry before declaring failure
    if rss1 and rss2 then
+      for _=1,3 do
+	 if rss2 - rss1 <= MEM_MARGIN_KB then break end
+	 rss1 = rss2
+	 run_jobs(N)
+	 collectgarbage(); collectgarbage()
+	 rss2 = get_rss_kb()
+      end
       lu.assert_false(rss2 - rss1 > MEM_MARGIN_KB,
 	 string.format("RSS grew by %d kB after %d jobs (possible C leak)", rss2 - rss1, N))
    end
