@@ -9,6 +9,7 @@ local common = require("lsdbus.common")
 lsdbus.proxy = require("lsdbus.proxy")
 lsdbus.server = require("lsdbus.server")
 lsdbus.error = require("lsdbus.error")
+lsdbus.job = require("lsdbus.job")
 
 -- luaexpat fallback: load lsdbus.expat when mxml is not compiled in
 if lsdbus.xml_fromstr then

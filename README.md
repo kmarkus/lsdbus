@@ -34,6 +34,7 @@ APIs:
         - [Registering Interfaces: Properties, Methods and Signal](#registering-interfaces-properties-methods-and-signal)
         - [D-Bus signal matching and callbacks](#d-bus-signal-matching-and-callbacks)
         - [Periodic callbacks](#periodic-callbacks)
+        - [Long running jobs](#long-running-jobs)
         - [Unix Signal callbacks](#unix-signal-callbacks)
         - [I/O event callback](#io-event-callback)
         - [Child pid callback](#child-pid-callback)
@@ -46,6 +47,7 @@ APIs:
     - [Bus connection object](#bus-connection-object)
     - [lsdbus.proxy](#lsdbusproxy)
     - [lsdbus.server](#lsdbusserver)
+    - [lsdbus.job](#lsdbusjob)
     - [slots](#slots)
     - [event sources](#event-sources)
 - [Internals](#internals)
@@ -99,10 +101,10 @@ Not required by the lsdbus core, but used by tools and examples
 `lsdbus` can parse D-Bus introspection XML using one of two backends,
 selected at build time:
 
-| CMake option | Default | Requires | Description |
-|---|---|---|---|
-| `-DUSE_MXML=ON` | ON | `libmxml-dev` | C library (mxml); faster, no runtime dep |
-| `-DUSE_EXPAT=ON` | OFF | `lua-expat` at runtime | Pure Lua via `lxp.lom`; no C dependency |
+| CMake option     | Default | Requires               | Description                              |
+|------------------|---------|------------------------|------------------------------------------|
+| `-DUSE_MXML=ON`  | ON      | `libmxml-dev`          | C library (mxml); faster, no runtime dep |
+| `-DUSE_EXPAT=ON` | OFF     | `lua-expat` at runtime | Pure Lua via `lxp.lom`; no C dependency  |
 
 If both are enabled, mxml takes priority. If neither is enabled,
 `lsdbus.xml_fromstr` and `lsdbus.xml_fromfile` are not available.
@@ -512,6 +514,53 @@ that returns event's current mode.
 
 **example**: [periodic.lua](examples/periodic.lua)
 
+#### Long running jobs
+
+A common pattern is a D-Bus method that triggers a long running
+operation: the method shall return immediately and the actual work
+take place afterwards, e.g. emitting progress signals along the
+way. As the event loop is single threaded, the work must be divided
+into short slices to keep the service responsive. The `lsdbus.job`
+module supports this pattern:
+
+```lua
+j = lsdb.job.start(bus, fn, period, errh)
+```
+
+`fn` is run as a coroutine that is resumed every `period` microseconds
+(default 1ms) and must call `coroutine.yield()` between slices of
+work. Once `fn` returns or raises an error, the job cleans up its
+event source automatically. While running, the job is kept alive by
+the event source, so unlike with plain event sources it is *not*
+necessary to keep a reference to the job object (unless one wants to
+stop it early using its `stop` method).
+
+Errors raised by `fn` are passed to the optional `errh(err)` handler
+if provided, otherwise they propagate to the event loop where they are
+printed to stderr.
+
+*Example:*
+
+```lua
+StartJob = {
+   {direction="in", name="steps", type="i"},
+   handler = function(vt, steps)
+      lsdb.job.start(vt._bus, function()
+	 for i=1,steps do
+	    do_chunk_of_work(i)
+	    vt:emit('JobProgress', i)
+	    coroutine.yield()
+	 end
+	 vt:emit('JobDone')
+      end)
+      -- method returns immediately, work starts on the next loop iteration
+   end
+}
+```
+
+Keep in mind that each slice (the code between two yields) blocks the
+event loop while it runs, so keep slices short.
+
 #### Unix Signal callbacks
 
 ```lua
@@ -861,6 +910,16 @@ The `proxy:SetAV` uses the tovariant functions internally.
   the respective D-Bus interface. Call `srv:unref()` to explicitly
   remove the interface.
 
+### lsdbus.job
+
+| Method                                 | Description                                                  |
+|----------------------------------------|--------------------------------------------------------------|
+| `j = job.start(bus, fn, period, errh)` | run `fn` as a coroutine resumed every `period` usec          |
+| `j:stop()`                             | stop (cancel) the job and clean up. Idempotent.              |
+| `j:running()`                          | return `true` while the job is running                       |
+
+See section [Long running jobs](#long-running-jobs) for details.
+
 ### slots
 
 `slot` (`sd_bus_slot`) objects are returned by `match`,
@@ -1013,6 +1072,8 @@ the loop.
 
 (only API changes)
 
+- added `lsdbus.job`: helper for running long running jobs in slices
+  from the event loop (see section [Long running jobs](#long-running-jobs)).
 - **all handles are now garbage collected**. `match*` slots and `evsrc`
   objects are no longer set to *floating* on GC — they are unreferenced
   and destroyed like all other handle types. Make sure to hold a

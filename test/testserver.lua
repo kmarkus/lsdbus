@@ -92,7 +92,7 @@ function TestServer:TestCallAsync()
    -- changes!
    assert_call_async(p1, 'Fail', {},
 		     { "__error__", { "org.freedesktop.DBus.Error.Failed",
-				      "test/peer-testserver.lua:96: Fail method called, throwing error"}})
+				      "test/peer-testserver.lua:110: Fail method called, throwing error"}})
 end
 
 function TestServer:TestCallVariant()

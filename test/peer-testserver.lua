@@ -88,6 +88,20 @@ local interface = {
 	 end
       },
 
+      StartJob={
+	 {direction="in", name="steps", type="i"},
+	 handler=function(vt, steps)
+	    dbg("starting job with %i steps", steps)
+	    lsdb.job.start(vt._bus, function()
+	       for i=1,steps do
+		  vt:emit('JobProgress', i)
+		  coroutine.yield()
+	       end
+	       vt:emit('JobDone')
+	    end)
+	 end
+      },
+
       Shutdown = {
 	 handler=function(vt) dbg("shutting down"); vt._bus:exit_loop() end
       },
@@ -202,6 +216,10 @@ local interface = {
 	 { name="level", type="u" },
 	 { name="state", type="s" }
       },
+      JobProgress={
+	 { name="step", type="i" }
+      },
+      JobDone={},
       Dunk={},
    }
 }

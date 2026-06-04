@@ -296,6 +296,15 @@ static int timer_callback(sd_event_source *evsrc, uint64_t usec, void* userdata)
 		fprintf(stderr, "error in periodic callback: %s\n", err?err:"-");
 	}
 
+	/* the callback may have unref'd its own event source, in which
+	 * case it is detached from the loop and must not be rearmed.
+	 * detect this via the regtab entry that unref clears. */
+	if (regtab_get(L, REG_EVSRC_TABLE, evsrc) == LUA_TNIL) {
+		lua_settop(L, top);
+		return 0;
+	}
+	lua_pop(L, 1);
+
 	/* rearm */
 	loop = sd_event_source_get_event(evsrc);
 

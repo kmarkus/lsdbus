@@ -104,6 +104,7 @@ install(FILES
   src/lsdbus/init.lua
   src/lsdbus/proxy.lua
   src/lsdbus/server.lua
+  src/lsdbus/job.lua
   src/lsdbus/common.lua
   src/lsdbus/error.lua
   src/lsdbus/expat.lua
