@@ -530,10 +530,12 @@ j = lsdb.job.start(bus, fn, period, errh)
 `fn` is run as a coroutine that is resumed every `period` microseconds
 (default 1ms) and must call `coroutine.yield()` between slices of
 work. Once `fn` returns or raises an error, the job cleans up its
-event source automatically. While running, the job is kept alive by
-the event source, so unlike with plain event sources it is *not*
-necessary to keep a reference to the job object (unless one wants to
-stop it early using its `stop` method).
+event source automatically and becomes collectable like any other
+value. While running, the job is kept alive by the event source, so
+unlike with plain event sources it is *not* necessary to keep a
+reference to the job object. Do keep one, however, if the job must be
+stopped early via its `stop` method -- in particular for jobs that
+never return, since a dropped handle leaves no way to stop them.
 
 Errors raised by `fn` are passed to the optional `errh(err)` handler
 if provided, otherwise they propagate to the event loop where they are
