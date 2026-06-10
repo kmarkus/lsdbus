@@ -640,6 +640,10 @@ int luaopen_lsdbus_core(lua_State *L)
 {
 	errparse_init();
 
+	lua_getglobal(L, "jit");
+	lsdbus_vm_is_luajit = lua_istable(L, -1);
+	lua_pop(L, 1);
+
 	luaL_newmetatable(L, BUS_MT);
 	lua_pushvalue(L, -1);
 	lua_setfield(L, -1, "__index");

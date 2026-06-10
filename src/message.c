@@ -1,5 +1,21 @@
 #include "lsdbus.h"
 
+/* set in luaopen_lsdbus_core if the running VM is LuaJIT */
+int lsdbus_vm_is_luajit = 0;
+
+/* lua_checkstack for the table explode functions below.
+ *
+ * LuaJIT's lua_checkstack refuses sizes beyond LUAI_MAXCSTACK (8000)
+ * and any size once more than 8000 slots are in use, although its
+ * stack grows automatically on push, so large tables work
+ * regardless. This cannot be decided at compile time, because a
+ * core.so built against the PUC Lua 5.1 headers is loaded by LuaJIT
+ * too (both share the lua/5.1 module path). */
+static int explode_checkstack(lua_State *L, int n)
+{
+	return lua_checkstack(L, n) || lsdbus_vm_is_luajit;
+}
+
 /**
  * table_explode - unpack the table at src onto the top of the stack
  *
@@ -29,7 +45,7 @@ static int table_explode(lua_State *L, int pos, const char *ctx)
 	len = lua_tointeger(L, -1);
 	lua_pop(L, 1);
 
-	if (!lua_checkstack(L, len+2)) {
+	if (!explode_checkstack(L, len+2)) {
 		lua_pushfstring(L, "msg_fromlua: error at %s: table too large", ctx);
 		return -1;
 	}
@@ -67,7 +83,7 @@ static int dict_explode(lua_State *L, int pos, const char *ctx)
 
 	lua_pushnil(L);  /* first key */
 	while (lua_next(L, pos) != 0) {
-		if (!lua_checkstack(L, 4)) {
+		if (!explode_checkstack(L, 4)) {
 			lua_pushfstring(L, "msg_fromlua: error at %s: table too large", ctx);
 			return -1;
 		}
