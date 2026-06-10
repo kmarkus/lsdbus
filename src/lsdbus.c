@@ -257,8 +257,14 @@ static int signal_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
 
 	nargs = msg_tolua(L, m, 0);
 
-	if(nargs<0)
-		lua_error(L);
+	if(nargs<0) {
+		/* must not raise here, it would longjmp through the
+		 * sd-bus C frames */
+		fprintf(stderr, "signal callback: failed to convert message: %s\n",
+			lua_tostring(L, -1));
+		lua_settop(L, top);
+		return 0;
+	}
 
 	ret = lua_pcall(L, 5+nargs, 1, 0);
 
@@ -356,7 +362,14 @@ static int method_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
 		}
 	} else {
 		nargs = msg_tolua(L, m, 0);
-		if (nargs<0) lua_error(L);
+		if (nargs<0) {
+			/* must not raise here, it would longjmp
+			 * through the sd-bus C frames */
+			fprintf(stderr, "async callback: failed to convert message: %s\n",
+				lua_tostring(L, -1));
+			lua_settop(L, top);
+			return 0;
+		}
 	}
 
 	ret = lua_pcall(L, 1+nargs, 1, 0);

@@ -148,7 +148,8 @@ static int prop_set_handler(sd_bus *bus,
 	nargs = msg_tolua(L, value, 0);
 
 	if(nargs<0) {
-		fprintf(stderr, "property %s set: failed to convert arg to Lua\n", property);
+		fprintf(stderr, "property %s set: failed to convert arg to Lua: %s\n",
+			property, lua_tostring(L, -1));
 		ret = sd_bus_error_set(ret_error, SD_BUS_ERROR_FAILED, "invalid arg");
 		goto out;
 	}
@@ -218,7 +219,8 @@ static int method_handler(sd_bus_message *call, void *userdata, sd_bus_error *re
 	nargs = msg_tolua(L, call, 0);
 
 	if(nargs<0) {
-		fprintf(stderr, "method %s: failed to convert arg to Lua\n", mem);
+		fprintf(stderr, "method %s: failed to convert arg to Lua: %s\n",
+			mem, lua_tostring(L, -1));
 		sd_bus_error_set(ret_error, SD_BUS_ERROR_FAILED, "invalid arg");
 		goto out;
         }

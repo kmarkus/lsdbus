@@ -13,11 +13,10 @@
  */
 static int table_explode(lua_State *L, int pos, const char *ctx)
 {
-	int len, type, top;
+	int len, type;
 
 	pos = lua_absindex(L, pos);
 	type = lua_type(L, pos);
-	top = lua_gettop(L);
 
 	if (type != LUA_TTABLE) {
 		lua_pushfstring(
@@ -30,7 +29,10 @@ static int table_explode(lua_State *L, int pos, const char *ctx)
 	len = lua_tointeger(L, -1);
 	lua_pop(L, 1);
 
-	lua_checkstack(L, top+len);
+	if (!lua_checkstack(L, len+2)) {
+		lua_pushfstring(L, "msg_fromlua: error at %s: table too large", ctx);
+		return -1;
+	}
 
 	for (int i=1; i<=len; i++) {
 		lua_geti(L, pos, i);
@@ -51,11 +53,10 @@ static int table_explode(lua_State *L, int pos, const char *ctx)
  */
 static int dict_explode(lua_State *L, int pos, const char *ctx)
 {
-	int len=0, type, top;
+	int len=0, type;
 
 	pos = lua_absindex(L, pos);
 	type = lua_type(L, pos);
-	top = lua_gettop(L);
 
 	if (type != LUA_TTABLE) {
 		lua_pushfstring(
@@ -66,7 +67,10 @@ static int dict_explode(lua_State *L, int pos, const char *ctx)
 
 	lua_pushnil(L);  /* first key */
 	while (lua_next(L, pos) != 0) {
-		lua_checkstack(L, top+len*2);
+		if (!lua_checkstack(L, 4)) {
+			lua_pushfstring(L, "msg_fromlua: error at %s: table too large", ctx);
+			return -1;
+		}
 
 		dbg("pushed %s - %s to pos %i",
 		    lua_typename(L, lua_type(L, -2)),
@@ -170,7 +174,7 @@ static int type_stack_pop(TypeStack *stack,
         return 1;
 }
 
-bool bus_type_is_basic(char c) {
+static bool bus_type_is_basic(char c) {
         static const char valid[] = {
                 SD_BUS_TYPE_BYTE,
                 SD_BUS_TYPE_BOOLEAN,
@@ -280,7 +284,7 @@ static int signature_element_length_internal(
         return -EINVAL;
 }
 
-int signature_element_length(const char *s, size_t *l) {
+static int signature_element_length(const char *s, size_t *l) {
         return signature_element_length_internal(s, true, 0, 0, l);
 }
 
@@ -541,8 +545,18 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 				return -EINVAL;
 			}
 
-			s = luaL_checkstring(L, -2);
-			lua_remove(L, -2);
+			if (lua_type(L, -2) != LUA_TSTRING) {
+				lua_pushfstring(L, "variant: bad typestring (string expected, got %s)",
+						luaL_typename(L, -2));
+				return -EINVAL;
+			}
+
+			/* the typestring is parsed in the following
+			 * iterations, so it must stay on the stack to
+			 * keep the Lua string anchored. it is dropped
+			 * with everything else when msg_fromlua's
+			 * caller resets the stack */
+			s = lua_tostring(L, -2);
 
 			dbg("pushing variant of type %s", s);
 
@@ -656,16 +670,20 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 
                 r = sd_bus_message_peek_type(m, &type, &contents);
 
-                if (r < 0)
-                        luaL_error(L, "msg_tolua: peek_type failed: %s", strerror(-r));
+                if (r < 0) {
+                        lua_pushfstring(L, "msg_tolua: peek_type failed: %s", strerror(-r));
+                        return r;
+                }
 
                 if (r == 0) {
 			if(ctype==0)
 				return 0;
 
                         r = sd_bus_message_exit_container(m);
-                        if (r < 0)
-				luaL_error(L, "msg_tolua: failed to exit container: %s", strerror(-r));
+                        if (r < 0) {
+				lua_pushfstring(L, "msg_tolua: failed to exit container: %s", strerror(-r));
+				return r;
+			}
 
 			dbg("exit container ctype %c", ctype);
                         return 0;
@@ -676,8 +694,10 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 
                         r = sd_bus_message_enter_container(m, type, contents);
 
-                        if (r < 0)
-				luaL_error(L, "msg_tolua: failed to enter container: %s", strerror(-r));
+                        if (r < 0) {
+				lua_pushfstring(L, "msg_tolua: failed to enter container: %s", strerror(-r));
+				return r;
+			}
 
 			lua_newtable(L);
 
@@ -686,7 +706,9 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 			else
 				luaL_setmetatable(L, STRUCT_MT);
 
-			__msg_tolua(L, m, type, raw);
+			r = __msg_tolua(L, m, type, raw);
+			if (r < 0)
+				return r;
 			goto update_table;
 
 		} else if (type == SD_BUS_TYPE_DICT_ENTRY) {
@@ -694,10 +716,14 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 
                         r = sd_bus_message_enter_container(m, type, contents);
 
-                        if (r < 0)
-				luaL_error(L, "msg_tolua: failed to enter container: %s", strerror(-r));
+                        if (r < 0) {
+				lua_pushfstring(L, "msg_tolua: failed to enter container: %s", strerror(-r));
+				return r;
+			}
 
-			__msg_tolua(L, m, type, raw);
+			r = __msg_tolua(L, m, type, raw);
+			if (r < 0)
+				return r;
 			dbg("rawset into parent at -3");
 			lua_rawset(L, -3);
 			continue;
@@ -707,8 +733,10 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 
 			r = sd_bus_message_enter_container(m, type, contents);
 
-                        if (r < 0)
-				luaL_error(L, "msg_tolua: failed to enter container: %s", strerror(-r));
+                        if (r < 0) {
+				lua_pushfstring(L, "msg_tolua: failed to enter container: %s", strerror(-r));
+				return r;
+			}
 			if (raw) {
 				lua_newtable(L);
 				luaL_setmetatable(L, VARIANT_MT);
@@ -716,13 +744,17 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 				lua_rawseti(L, -2, 1);
 			}
 
-			__msg_tolua(L, m, type, raw);
+			r = __msg_tolua(L, m, type, raw);
+			if (r < 0)
+				return r;
 			goto update_table;
 		}
 
                 r = sd_bus_message_read_basic(m, type, &basic);
-                if (r < 0)
-			luaL_error(L, "msg_tolua: read_basic error: %s", strerror(-r));
+                if (r < 0) {
+			lua_pushfstring(L, "msg_tolua: read_basic error: %s", strerror(-r));
+			return r;
+		}
 
                 assert(r > 0);
 
@@ -781,15 +813,18 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
                         break;
 
                 default:
-                        luaL_error(L, "msg_tolua: unknown basic type: %c", type);
+			lua_pushfstring(L, "msg_tolua: unknown basic type: %c", type);
+			return -EINVAL;
                 }
 
 	update_table:
 		if (ctype == SD_BUS_TYPE_ARRAY ||
 		    ctype == SD_BUS_TYPE_STRUCT ||
 		    (raw && ctype == SD_BUS_TYPE_VARIANT)) {
-			if (lua_type(L, -2) != LUA_TTABLE)
-				luaL_error(L, "%c rawseti: not table at -2", ctype);
+			if (lua_type(L, -2) != LUA_TTABLE) {
+				lua_pushfstring(L, "%c rawseti: not table at -2", ctype);
+				return -EINVAL;
+			}
 
 			dbg("rawseti t[%lu]", lua_rawlen(L, -2) + 1);
 			lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
