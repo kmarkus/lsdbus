@@ -159,7 +159,6 @@ static int lsdbus_open(lua_State *L)
 static int __lsdbus_bus_call(lua_State *L, int raw)
 {
 	int ret;
-	uint64_t timeout;
 	const char *dest, *path, *intf, *memb, *types;
 
 	sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -186,12 +185,6 @@ static int __lsdbus_bus_call(lua_State *L, int raw)
 		if (ret<0)
 			goto out;
 	}
-
-	ret = sd_bus_get_method_call_timeout(b, &timeout);
-
-	if(ret<0)
-		luaL_error(L, "%s: failed to get call timeout: %s",
-			   __func__, strerror(-ret));
 
 	ret = sd_bus_call(b, m, 0, &error, &reply);
 
@@ -319,16 +312,7 @@ static int lsdbus_match(lua_State *L)
 	if (ret<0)
 		luaL_error(L, "failed to install match rule: %s", strerror(-ret));
 
-	/* store the callback in the registry reg.slottab[slot]=callback */
-	if (lua_getfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE) != LUA_TTABLE) {
-		lua_pop(L, 1);
-		lua_newtable(L);
-		lua_setfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE);
-		lua_getfield(L, LUA_REGISTRYINDEX, REG_SLOT_TABLE);
-	}
-
-	lua_pushvalue(L, 3);
-	lua_rawsetp(L, -2, slot);
+	regtab_store(L,	REG_SLOT_TABLE, slot, 3);
 	return lsdbus_slot_push(L, slot, LSDBUS_SLOT_TYPE_MATCH);
 }
 
@@ -414,18 +398,22 @@ static int lsdbus_call_async(lua_State *L)
 	if (types != NULL) {
 		ret = msg_fromlua(L, m, types, 8);
 
-		if (ret<0)
-			goto out;
+		if (ret<0) {
+			/* error message pushed by msg_fromlua */
+			sd_bus_message_unref(m);
+			return lua_error(L);
+		}
 	}
 
 	ret = sd_bus_get_method_call_timeout(b, &timeout);
 
-	if(ret<0)
+	if(ret<0) {
+		sd_bus_message_unref(m);
 		luaL_error(L, "%s: failed to get call timeout: %s", __func__, strerror(-ret));
+	}
 
 	ret = sd_bus_call_async(b, &slot, m, method_callback, L, timeout);
 
-out:
 	sd_bus_message_unref(m);
 
 	if (ret<0)
@@ -539,7 +527,7 @@ static int lsdbus_bus_set_method_call_timeout(lua_State *L)
 {
 	int ret;
 	sd_bus *b = lua_checksdbus(L, 1);
-	uint64_t timeout = lua_tointeger(L, 2);
+	uint64_t timeout = luaL_checkinteger(L, 2);
 
 	ret = sd_bus_set_method_call_timeout(b,	timeout);
 
