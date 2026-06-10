@@ -18,11 +18,11 @@ static int handle_error(lua_State *L,
 	const char *errmsg=NULL, *message=NULL;
 	char name[DBUS_NAME_MAXLEN+1] = {0};
 
-	if (lua_type(L, -1) == LUA_TSTRING) {
-		errmsg = lua_tostring(L, -1);
-		message = errparse(errmsg, name, sizeof(name));
-		lua_pop(L, 1);
-	}
+	/* renders non-string error objects (e.g. tables with a
+	 * __tostring metamethod) too. The result stays on the stack
+	 * until sd_bus_error_set has copied it */
+	errmsg = luaL_tolstring(L, -1, NULL);
+	message = errparse(errmsg, name, sizeof(name));
 
 	dbg("name=%s, message=%s, valid_name=%i, errmsg=%s\n",
 	    name, message, sd_bus_interface_name_is_valid(name),
@@ -41,6 +41,7 @@ static int handle_error(lua_State *L,
 	ret = sd_bus_error_set(ret_error, name, message);
 
 out:
+	lua_pop(L, 2);	/* error obj and its string representation */
 	return ret;
 
 }
