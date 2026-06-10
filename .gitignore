@@ -1,0 +1,7 @@
+build/
+build-*/
+.cache/
+.claudeignore
+peer-testserver*.log
+test/core.*
+core.*
