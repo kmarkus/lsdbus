@@ -102,6 +102,14 @@ static int dbus_xml2lua(lua_State *L, mxml_node_t *root)
 	    intf != NULL;
 	    intf = mxmlFindElement(intf, node, "interface", NULL, NULL, MXML_NO_DESCEND)) {
 
+		/* skip malformed elements without mandatory name
+		 * attribute (here and below). pushing the NULL
+		 * returned by mxmlElementGetAttr would push nil,
+		 * making the subsequent rawset raise (and leak the
+		 * mxml tree) */
+		if (mxmlElementGetAttr(intf, "name") == NULL)
+			continue;
+
 		/* interface */
 		lua_newtable(L);
 
@@ -116,6 +124,8 @@ static int dbus_xml2lua(lua_State *L, mxml_node_t *root)
 		for(met = mxmlFindElement(intf, intf, "method", NULL, NULL, MXML_DESCEND);
 		    met != NULL;
 		    met = mxmlFindElement(met, intf, "method", NULL, NULL, MXML_NO_DESCEND)) {
+			if (mxmlElementGetAttr(met, "name") == NULL)
+				continue;
 			/* method */
 			lua_pushstring(L, mxmlElementGetAttr(met, "name"));
 			lua_newtable(L);
@@ -152,6 +162,8 @@ static int dbus_xml2lua(lua_State *L, mxml_node_t *root)
 		for(prop = mxmlFindElement(intf, intf, "property", NULL, NULL, MXML_DESCEND);
 		    prop != NULL;
 		    prop = mxmlFindElement(prop, intf, "property", NULL, NULL, MXML_NO_DESCEND)) {
+			if (mxmlElementGetAttr(prop, "name") == NULL)
+				continue;
 			lua_pushstring(L, mxmlElementGetAttr(prop, "name"));
 			lua_newtable(L);
 
@@ -175,6 +187,8 @@ static int dbus_xml2lua(lua_State *L, mxml_node_t *root)
 		for(sig = mxmlFindElement(intf, intf, "signal", NULL, NULL, MXML_DESCEND);
 		    sig != NULL;
 		    sig = mxmlFindElement(sig, intf, "signal", NULL, NULL, MXML_NO_DESCEND)) {
+			if (mxmlElementGetAttr(sig, "name") == NULL)
+				continue;
 			lua_pushstring(L,  mxmlElementGetAttr(sig, "name"));
 			lua_newtable(L);
 
@@ -211,6 +225,8 @@ static int dbus_xml2lua(lua_State *L, mxml_node_t *root)
 	for(subnode = mxmlFindElement(node, node, "node", NULL, NULL, MXML_DESCEND);
 	    subnode != NULL;
 	    subnode = mxmlFindElement(subnode, node, "node", NULL, NULL, MXML_NO_DESCEND)) {
+		if (mxmlElementGetAttr(subnode, "name") == NULL)
+			continue;
 		dbg("%s", mxmlElementGetAttr(subnode, "name"));
 		lua_pushstring(L, mxmlElementGetAttr(subnode, "name"));
 		lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
@@ -246,7 +262,7 @@ int lsdbus_xml_fromfile(lua_State *L)
 	return 1;
 }
 
-char* skip_ws(const char* s) {
+static char* skip_ws(const char* s) {
     while (*s && (*s == ' ' || *s == '\t' || *s == '\n')) s++;
     return (char*)s;
 }
