@@ -341,6 +341,11 @@ static void vtable_resize(lua_State *L, sd_bus_vtable **vtp, int i)
 		luaL_error(L, "vtable allocation failed");
 	}
 
+	/* zero the new entry so that vtable_free can safely skip it
+	 * if populating it fails halfway */
+	if (i >= 1)
+		memset(&vt[i], 0, sizeof(struct sd_bus_vtable));
+
 	vt[0] = (sd_bus_vtable)	SD_BUS_VTABLE_START(0);
 	vt[i+1] = (sd_bus_vtable) SD_BUS_VTABLE_END;
 	*vtp = vt;
@@ -350,8 +355,8 @@ static void vtable_resize(lua_State *L, sd_bus_vtable **vtp, int i)
  * copy is returned. The memory must be freed by the caller. In case
  * of error NULL is returned and an error is pushed on the stack.
  */
-char* lua_getstrfield(lua_State *L, int index,
-		      const char* field, size_t* len, const char* member)
+static char* lua_getstrfield(lua_State *L, int index,
+			     const char* field, size_t* len, const char* member)
 {
 	size_t l;
 	char *res;
@@ -424,6 +429,7 @@ static int vtable_add_signal(lua_State *L, sd_bus_vtable *vt, int slotref)
 	return 0;
 
 fail:
+	memset(vt, 0, sizeof(*vt));
 	free(member);
 	free(sig);
 	free(names);
@@ -530,6 +536,7 @@ static int vtable_add_property(lua_State *L, sd_bus_vtable *vt, int slotref)
 	lua_settop(L, top);
 	return 0;
 fail:
+	memset(vt, 0, sizeof(*vt));
 	free(member);
 	free(type);
 	return -1;
@@ -591,6 +598,9 @@ static int vtable_add_method(lua_State *L, sd_bus_vtable *vt, int slotref)
 	return 0;
 
 fail:
+	/* the entry may already reference the strings freed below;
+	 * zero it to prevent vtable_free from double-freeing them */
+	memset(vt, 0, sizeof(*vt));
 	free(member);
 	free(names);
 	free(sig);
@@ -754,6 +764,7 @@ reg_vtab:
 	s->vt = vt;
 	return 1;
 fail:
+	luaL_unref(L, LUA_REGISTRYINDEX, slotref);
 	vtable_free(vt);
 	return lua_error(L);
 }
