@@ -6,8 +6,6 @@
 #include "lua.h"
 #include "string.h"
 
-#define REG_EVSRC_TABLE		"lsdbus.evsrc_table"
-
 static int evsrc_tostring(lua_State *L)
 {
 	int ret, enabled;
@@ -310,14 +308,22 @@ static int timer_callback(sd_event_source *evsrc, uint64_t usec, void* userdata)
 
 	ret = sd_event_now(loop, CLOCK_MONOTONIC, &now);
 
-	if (ret<0)
-		luaL_error(L, "timer_callback: failed to retrieve now: %s", strerror(-ret));
+	if (ret<0) {
+		/* must not raise a Lua error here (it would longjmp
+		 * through the sd-event C frames); also don't return an
+		 * error, as that propagates out of the event loop and
+		 * terminates it. log and keep the loop running. */
+		fprintf(stderr, "timer_callback: failed to retrieve now: %s\n",
+			strerror(-ret));
+		lua_settop(L, top);
+		return 0;
+	}
 
 	/* compute next trigger time, since the event source may have
 	 * been disabled */
 	while(usec <= now)
 		usec += period;
-	
+
 	sd_event_source_set_time(evsrc, usec);
 
 	lua_settop(L, top);
@@ -335,15 +341,17 @@ int evl_add_periodic(lua_State *L)
 	}
 
 	sd_bus *b = lua_checksdbus(L, 1);
-	usec = luaL_checkinteger(L, 2);
+	lua_Integer period = luaL_checkinteger(L, 2);
+	luaL_argcheck(L, period > 0, 2, "period must be > 0");
+	usec = period;
 	accuracy = luaL_optinteger(L, 3, 0);
 	luaL_checktype(L, 4, LUA_TFUNCTION);
 
-	if (lua_isnone(L, 5) == 0) {
+	if (!lua_isnoneornil(L, 5))
 		enabled = lua_toboolean(L, 5) ? SD_EVENT_ON : SD_EVENT_OFF;
-		/* when there was anything pop it, because stack is used further down. */
-		lua_pop(L, 1);
-	}
+
+	/* drop the enabled arg (if any), the stack is used further down */
+	lua_settop(L, 4);
 
 	sd_event *loop = evl_get(L, b);
 
