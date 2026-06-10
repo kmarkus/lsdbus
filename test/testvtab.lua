@@ -286,5 +286,29 @@ function TestVtab:TestVtabMemUsage()
    lu.assert_false(mem2>mem1, string.format("mem2 > mem1 (%s>%s)", mem2, mem1))
 end
 
+--- regression: invalid input to the C-level add_object_vtable used to
+--- corrupt memory in the error paths (double-free of the vtable
+--- strings when the handler is not a function, free of an
+--- uninitialized vtable entry when e.g. 'sig' is missing). these
+--- bypass lsdbus.server, whose check_intf validates beforehand.
+function TestVtab:TestRawVtabInvalidHandler()
+   local function t()
+      b:add_object_vtable("/rawvt1", {
+	 name="a.b.c",
+	 methods={ Foo={ sig="", res="", names="", handler="not-a-function" } }
+      })
+   end
+   lu.assertErrorMsgContains("invalid handler, expected function, got string", t)
+end
+
+function TestVtab:TestRawVtabMissingSig()
+   local function t()
+      b:add_object_vtable("/rawvt2", {
+	 name="a.b.c",
+	 methods={ Foo={ handler=function() end } }
+      })
+   end
+   lu.assertErrorMsgContains("field sig value not a string but nil", t)
+end
 
 return TestVtab

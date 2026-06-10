@@ -218,4 +218,11 @@ function TestJob:TestPeerJob()
    for _,s in ipairs(slots) do s:unref() end
 end
 
+--- regression: a period of 0 used to hang the process in the timer
+--- rearm loop
+function TestJob:TestZeroPeriod()
+   lu.assertErrorMsgContains("period must be > 0",
+      function() job.start(b, function() end, 0) end)
+end
+
 return TestJob

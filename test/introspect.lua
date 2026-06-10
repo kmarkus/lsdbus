@@ -54,4 +54,28 @@ function TestIntrospect:TestParseXMLStr()
    lu.assertEquals(node.interfaces[1].properties.Bar, {type="y", access="readwrite"})
 end
 
+--- regression: elements without a name attribute used to raise
+--- 'table index is nil' (and leak the mxml tree)
+function TestIntrospect:TestMalformedXML()
+   if not lsdb.xml_fromstr then lu.skip("no XML backend (USE_MXML=ON or install lua-expat for USE_EXPAT)") end
+   local xml = [[<node>
+  <interface><method name="x"/></interface>
+  <interface name="a.b">
+    <method/>
+    <method name="M"/>
+    <property type="s" access="read"/>
+    <signal/>
+  </interface>
+  <node/>
+</node>]]
+   local node = lsdb.xml_fromstr(xml)
+   lu.assertIsTable(node)
+   lu.assertEquals(#node.interfaces, 1)
+   lu.assertEquals(node.interfaces[1].name, "a.b")
+   lu.assertNotNil(node.interfaces[1].methods.M)
+   lu.assertNil(next(node.interfaces[1].properties))
+   lu.assertNil(next(node.interfaces[1].signals))
+   lu.assertEquals(#node.nodes, 0)
+end
+
 return TestIntrospect

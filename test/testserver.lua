@@ -319,6 +319,19 @@ function TestServer:TestReload()
 end
 
 
+--- regression: an error with an overlong D-Bus error name used to
+--- smash a fixed-size stack buffer in the server's error handling.
+--- it must be degraded to a generic Failed error and the server must
+--- survive.
+function TestServer:TestRemoteFailOverlongErrorName()
+   local longname = string.rep("a.b", 200) -- far beyond DBUS_NAME_MAXLEN
+   local function f() p1('FailWithCustomDBusError', longname.."|boom") end
+   lu.assert_error_msg_contains("org.freedesktop.DBus.Error.Failed", f)
+
+   local ret, err = p1:Ping()
+   if not ret then lu.assertIsTrue(ret, err[1]..": "..err[2]) end
+end
+
 function TestServer:TestRemoteFail()
    local function f() p1('Fail') end
    local msg = "Fail method called, throwing error (lsdbus.test, /1, lsdbus.test.testintf0)"
@@ -507,6 +520,29 @@ function TestServer:TestCallAV()
 
    lu.assert_equals(p1:callttAV('varroundtrip', t), t)
 
+end
+
+function TestServer:TestFindProxyUnique()
+   local ok, prx = lsdb.find_proxy(b, 'lsdbus.test', '/1', 'lsdbus.test.testintf0')
+   lu.assert_true(ok)
+   lu.assert_equals(prx._obj, '/1')
+   lu.assert_equals(prx._intf.name, 'lsdbus.test.testintf0')
+end
+
+function TestServer:TestFindProxyAmbiguous()
+   local ok, cands = lsdb.find_proxy(b, 'lsdbus.test', '', 'lsdbus.test.testintf0')
+   lu.assert_false(ok)
+   lu.assert_equals(#cands, 3)
+end
+
+function TestServer:TestFindProxyNoMatch()
+   local ok, cands = lsdb.find_proxy(b, 'no.such.service.zzz', '', '')
+   lu.assert_false(ok)
+   lu.assert_equals(cands, {})
+
+   ok, cands = lsdb.find_proxy(b, '', '', '')
+   lu.assert_false(ok)
+   lu.assert_equals(cands, {})
 end
 
 return TestServer

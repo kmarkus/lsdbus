@@ -341,4 +341,13 @@ function TestMsg:TestCompositeMT()
 
 end
 
+--- regression: call_async used to report 'Operation not permitted'
+--- instead of the actual argument conversion error
+function TestMsg:TestCallAsyncConversionError()
+   local function t()
+      b:call_async(function() end, "org.foo.bar", "/", "org.foo.bar", "Baz", "i", {})
+   end
+   lu.assertErrorMsgContains("integer expected, got table", t)
+end
+
 return TestMsg
