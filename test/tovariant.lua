@@ -11,6 +11,7 @@ local cases = {
    1,
    true,
    "harry",
+   {},
    { 1, 2, 3 },
    { "foo", "bar", "yuck" },
    { 1, true, "yack" },
@@ -26,6 +27,11 @@ function TestToVariant.Test()
    for _,c in pairs(cases) do
       lu.assertEquals(c, b:testmsg('v', lsdb.tovariant(c)))
    end
+end
+
+-- an empty table must encode as an empty dict a{sv}, not a{iv}
+function TestToVariant.TestEmptyTable()
+   lu.assertEquals(lsdb.tovariant({}), { 'a{sv}', {} })
 end
 
 return TestToVariant

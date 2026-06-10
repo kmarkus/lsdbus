@@ -236,6 +236,9 @@ end
 -- @return lsdbus variant table
 function M.tovariant(val)
    local function is_array(t)
+      -- an empty table is encoded as an (empty) dict a{sv}, which is
+      -- what the vast majority of D-Bus APIs expect
+      if next(t) == nil then return false end
       for k in pairs(t) do
 	 if math.type(k) ~= 'integer' then return false end
       end
