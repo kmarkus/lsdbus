@@ -503,10 +503,12 @@ evsrc = b:add_periodic(period, accuracy, callback, enabled)
 ```
 
 The `period` and `accuracy` (both in microseconds) correspond to the
-same parameters in `sd_event_add_time(3)`.
+same parameters in `sd_event_add_time(3)`. The `period` must be
+greater than 0.
 
-The `enabled` defines if the periodic event should be enabled after creation.
-The default value is `true`.
+The `enabled` defines if the periodic event should be enabled after
+creation. The default value is `true`. Passing `nil` is equivalent to
+omitting the argument.
 
 The returned `event_src` object supports methods `set_enabled(int)`
 that allows enabling and disabling the event source, and `int get_enabled()`,
@@ -774,6 +776,11 @@ local vt = lsdb.server.new(b, "/my/path", interface, vt_errhdl)
 > e.g `{ 1,2, bar='nope' }` becomes `{"1"=1, "2"=2, bar="nope"}`. This
 > is a limitation of D-Bus which doesn't allow dictionaries with
 > heterogeneous keys.
+
+> **Note**: an empty Lua table is encoded as an empty dict `a{sv}`,
+> which is what most D-Bus APIs expect. To send an empty array of a
+> different type, construct the variant explicitly, e.g.
+> `{ 'a{iv}', {} }` or `{ 'as', {} }`.
 
 The `proxy:SetAV` uses the tovariant functions internally.
 
@@ -1074,6 +1081,26 @@ the loop.
 
 (only API changes)
 
+- **BREAKING**: `lsdbus.tovariant` (and everything built on it such as
+  `tovariant2`, `proxy:SetAV` and `proxy:callttAV`) encodes an empty
+  Lua table as an empty dict `a{sv}` instead of `a{iv}`. Almost all
+  D-Bus APIs that accept variant dictionaries expect `a{sv}`, so
+  empty option tables used to be rejected by the peer with a type
+  mismatch. Code that relies on the old behavior must construct the
+  variant explicitly: `{ 'a{iv}', {} }`.
+- **BREAKING**: `b:add_periodic` rejects a `period` of 0 with an error
+  (it used to hang the process in the timer rearm loop once the
+  callback fired). This also applies to `lsdbus.job.start`.
+- `b:add_periodic`: passing an explicit `nil` for the `enabled`
+  argument now means *default* (enabled), consistent with omitting
+  the argument. Previously `nil` disabled the event source.
+- a Lua error raised in a `match`/`match_signal` or `call_async`
+  callback no longer terminates the event loop. As for the other
+  event callbacks, the error is reported to stderr and the loop keeps
+  running.
+- non-string error values raised in server method/property handlers
+  (e.g. tables with a `__tostring` metamethod) are now rendered into
+  the D-Bus error message instead of being dropped.
 - added `lsdbus.job`: helper for running long running jobs in slices
   from the event loop (see section [Long running jobs](#long-running-jobs)).
 - **all handles are now garbage collected**. `match*` slots and `evsrc`
