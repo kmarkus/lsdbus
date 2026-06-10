@@ -11,12 +11,14 @@ local function lom2node(doc)
    local nodes = {}
    for _, elt1 in ipairs(doc) do
       if type(elt1) == 'table' then
-         if elt1.tag == 'interface' then
+         -- skip malformed elements without mandatory name attribute
+         -- (here and below), like the mxml backend does
+         if elt1.tag == 'interface' and elt1.attr.name then
             local methods = {}
             local properties = {}
             local signals = {}
             for _, elt2 in ipairs(elt1) do
-               if type(elt2) == 'table' then
+               if type(elt2) == 'table' and elt2.attr.name then
                   if elt2.tag == 'method' then
                      local args = {}
                      for _, elt3 in ipairs(elt2) do
@@ -54,7 +56,7 @@ local function lom2node(doc)
                properties = properties,
                signals    = signals,
             }
-         elseif elt1.tag == 'node' then
+         elseif elt1.tag == 'node' and elt1.attr.name then
             nodes[#nodes+1] = elt1.attr.name
          end
       end
