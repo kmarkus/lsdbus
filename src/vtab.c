@@ -16,11 +16,11 @@ static int handle_error(lua_State *L,
 {
 	int ret=0;
 	const char *errmsg=NULL, *message=NULL;
-	char name[DBUS_NAME_MAXLEN] = {0};
+	char name[DBUS_NAME_MAXLEN+1] = {0};
 
 	if (lua_type(L, -1) == LUA_TSTRING) {
 		errmsg = lua_tostring(L, -1);
-		message = errparse(errmsg, name);
+		message = errparse(errmsg, name, sizeof(name));
 		lua_pop(L, 1);
 	}
 

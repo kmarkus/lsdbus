@@ -33,11 +33,12 @@ void errparse_cleanup(void)
 }
 
 /*
- * Parse error message using compiled regex, copy error name into `name`
- * and return pointer to message part in `errmsg`.
- * Return NULL if parsing fails.
+ * Parse error message using compiled regex, copy error name into
+ * `name` (a buffer of `name_size` bytes) and return pointer to
+ * message part in `errmsg`.
+ * Return NULL if parsing fails or the name doesn't fit into `name`.
  */
-const char* errparse(const char* errmsg, char* name)
+const char* errparse(const char* errmsg, char* name, size_t name_size)
 {
 	regmatch_t matches[4]; /* 0: whole, 1: name, 2: subpart, 3: message */
 
@@ -48,11 +49,15 @@ const char* errparse(const char* errmsg, char* name)
 	if (regexec(&regex, errmsg, 4, matches, 0) != 0)
 		return NULL;
 
-	/* copy error name */
-	int n_start = matches[1].rm_so;
-	int n_end   = matches[1].rm_eo;
-	strncpy(name, errmsg + n_start, n_end - n_start);
-	name[n_end - n_start] = '\0';
+	/* copy error name. names longer than the valid D-Bus maximum
+	 * are treated as unparseable */
+	size_t n_len = matches[1].rm_eo - matches[1].rm_so;
+
+	if (n_len >= name_size)
+		return NULL;
+
+	memcpy(name, errmsg + matches[1].rm_so, n_len);
+	name[n_len] = '\0';
 
 	/* return pointer into original string for the message part */
 	return errmsg + matches[3].rm_so;

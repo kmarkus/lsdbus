@@ -105,7 +105,7 @@ void regtab_clear(lua_State *L, const char *regtab, void *k);
 /* error parsing */
 int errparse_init(void);
 void errparse_cleanup(void);
-const char* errparse(const char* errmsg, char* name);
+const char* errparse(const char* errmsg, char* name, size_t name_size);
 
 const char* luaL_checkintf(lua_State *L, int arg);
 const char* luaL_checkpath(lua_State *L, int arg);
