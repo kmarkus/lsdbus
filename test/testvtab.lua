@@ -187,14 +187,33 @@ local function make_vtabs_gc(num, base_cnt)
    end
 end
 
+-- run fn (a full create/destroy batch) repeatedly until the RSS
+-- stops growing by more than margin_kb, so that allocator arena
+-- expansion does not pollute the actual measurement. RSS warm-up
+-- behavior depends on the Lua version, allocation history of
+-- previously run tests etc., so a single warm-up batch is not enough.
+local function warmup_rss(fn, margin_kb)
+   local prev = get_rss_kb()
+   fn()
+   collectgarbage(); collectgarbage()
+   if not prev then return end
+
+   for _ = 1, 5 do
+      local cur = get_rss_kb()
+      if cur - prev <= margin_kb then return end
+      prev = cur
+      fn()
+      collectgarbage(); collectgarbage()
+   end
+end
+
 function TestVtab:TestVtabUnrefMemUsage()
    local MEM_MARGIN_KB = 64
    local N = 1000
    local cnt = 0
 
    -- warm-up with full batch size to pre-expand malloc arena
-   make_and_unref_vtabs(N, cnt); cnt = cnt + N
-   collectgarbage(); collectgarbage()
+   warmup_rss(function() make_and_unref_vtabs(N, cnt); cnt = cnt + N end, MEM_MARGIN_KB)
 
    local rss1 = get_rss_kb()
    local lua1 = collectgarbage('count')
@@ -227,8 +246,7 @@ function TestVtab:TestVtabGcMemUsage()
    local cnt = 0
 
    -- warm-up with full batch size to pre-expand malloc arena
-   make_vtabs_gc(N, cnt); cnt = cnt + N
-   collectgarbage(); collectgarbage()
+   warmup_rss(function() make_vtabs_gc(N, cnt); cnt = cnt + N end, MEM_MARGIN_KB)
 
    local rss1 = get_rss_kb()
    local lua1 = collectgarbage('count')
