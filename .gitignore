@@ -5,3 +5,4 @@ build-*/
 peer-testserver*.log
 test/core.*
 core.*
+build.luarocks/

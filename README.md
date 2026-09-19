@@ -20,6 +20,7 @@ APIs:
 **Table of Contents**
 
 - [Installing](#installing)
+    - [Installing with LuaRocks](#installing-with-luarocks)
 - [Quickstart](#quickstart)
 - [Usage](#usage)
     - [Bus connection](#bus-connection)
@@ -114,6 +115,46 @@ If both are enabled, mxml takes priority. If neither is enabled,
 # build with luaexpat instead of mxml:
 $ cmake .. -DUSE_MXML=OFF -DUSE_EXPAT=ON && make
 ```
+
+### Installing with LuaRocks
+
+CMake as described above is the primary build. LuaRocks is supported as
+an alternative for LuaRocks users. Only the development rock is published
+so far, so `--dev` is required:
+
+```sh
+$ luarocks install --dev lsdbus
+```
+
+Unlike the CMake build, this defaults to the **luaexpat** backend, since
+that needs no `libmxml-dev` at build time (the `luaexpat` rock is pulled
+in as a dependency). The same `USE_MXML`/`USE_EXPAT` switches select the
+backend:
+
+```sh
+$ luarocks install --dev lsdbus USE_MXML=ON USE_EXPAT=OFF
+```
+
+Leaving them unset makes LuaRocks print `Warning: unmatched variable
+USE_MXML`. That is expected and harmless: it is how a rockspec says
+"not specified", and the build then picks its default.
+
+`libsystemd-dev` must be installed, and for Lua < 5.3 also
+`lua-compat53-dev` (the `compat53` rock ships the Lua modules but not
+`compat-5.3.h`).
+
+**LuaJIT**
+
+LuaRocks does not derive the LuaJIT include directory on its own, so
+point it at one:
+
+```sh
+$ luarocks --lua-version=5.1 LUA=/usr/bin/luajit \
+      LUA_INCDIR=/usr/include/luajit-2.1 install --dev lsdbus
+```
+
+Use a separate `--tree` for LuaJIT: it shares the `5.1` rocks directory
+with plain Lua 5.1, and the two are not binary compatible.
 
 ## Quickstart
 

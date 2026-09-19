@@ -11,6 +11,12 @@ pkg_check_modules(SYSTEMD REQUIRED libsystemd>=242)
 option(USE_MXML  "Build with mxml XML parsing support (C library)" ON)
 option(USE_EXPAT "Build with luaexpat XML parsing fallback (pure Lua)" OFF)
 
+# the luarocks build passes both through unset unless overridden there
+if("${USE_MXML}" STREQUAL "" AND "${USE_EXPAT}" STREQUAL "")
+  set(USE_MXML OFF)
+  set(USE_EXPAT ON)
+endif()
+
 set(MXML_COMPILE_DEFS "")
 if(USE_MXML)
   pkg_check_modules(MXML mxml4)
@@ -29,13 +35,25 @@ endif()
 
 set(CONFIG_LUA_VER "" CACHE STRING "build for exact Lua version")
 
-if(NOT "${CONFIG_LUA_VER}" STREQUAL "")
+# set by the luarocks build to the Lua it installs for; pkg-config would just
+# pick the newest lua*.pc and silently build a module that fails to load
+set(CONFIG_LUA_BIN "" CACHE FILEPATH "Lua interpreter to build against")
+set(CONFIG_LUA_INCDIR "" CACHE PATH "Lua include dir to build against")
+
+if(NOT "${CONFIG_LUA_INCDIR}" STREQUAL "")
+  set(LUA_INCLUDE_DIRS "${CONFIG_LUA_INCDIR}")
+  set(LUA_MODULE_NAME "${CONFIG_LUA_BIN}")
+elseif(NOT "${CONFIG_LUA_VER}" STREQUAL "")
   pkg_search_module(LUA "lua${CONFIG_LUA_VER}" REQUIRED)
 else()
   pkg_search_module(LUA lua5.4 lua5.3 luajit lua5.2 lua5.1 lua REQUIRED)
 endif()
 
-if ("${LUA_MODULE_NAME}" STREQUAL "luajit")
+if (NOT "${CONFIG_LUA_INCDIR}" STREQUAL "")
+  # ask the interpreter itself, so luajit reports its 5.1 ABI version
+  execute_process(COMMAND ${CONFIG_LUA_BIN} -e "io.write(_VERSION:match('%d+%.%d+'))"
+    OUTPUT_VARIABLE LUA_VER COMMAND_ERROR_IS_FATAL ANY)
+elseif ("${LUA_MODULE_NAME}" STREQUAL "luajit")
   pkg_get_variable(LUA_VER ${LUA_MODULE_NAME} abiver)
 else()
   # remove minor version (meta-oe pc file has no major_version)
