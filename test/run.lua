@@ -21,6 +21,7 @@ TestServer = require("testserver")
 TestEvSrc = require("testevsrc")
 TestJob = require("testjob")
 TestCredentials = require("testcredentials")
+TestLuaJIT = require("message_luajit")
 
 runner = lu.LuaUnit.new()
 

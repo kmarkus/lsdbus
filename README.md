@@ -302,6 +302,57 @@ it and converts it back to Lua (the example below uses the small
   Lua. This can be useful in corner cases where the Lua representation
   is not unique (empty arrays vs. dictionaries).
 
+#### LuaJIT specifics
+
+Under LuaJIT, Lua numbers are double-precision floats, so values
+beyond 2^53 lose precision when round-tripped through a 64-bit D-Bus
+integer slot (`t` / `x`). lsdbus has explicit FFI cdata support for
+this case.
+
+**Input side (Lua to D-Bus):** 64bit integer cdata is accepted in
+every D-Bus integer slot (`y`, `n`, `q`, `i`, `u`, `x`, `t`, `h`),
+either signedness in any slot. Acceptance is by width rather than by
+ctype name, so `int64_t`, `uint64_t`, `long`, `size_t`, `ptrdiff_t`
+and friends all work. There is no range check -- truncation mirrors
+the plain Lua-number path. This is always on under LuaJIT.
+
+Narrower cdata (`int32_t`, `uint8_t`, ...) is *not* accepted, nor are
+pointers, structs or floats. Narrow integers fit a Lua number exactly,
+so pass them through `tonumber()`.
+
+```lua
+local ffi = require("ffi")
+b:call(svc, path, intf, "Method", "t", ffi.new("uint64_t", 0xdeadbeefULL))
+b:call(svc, path, intf, "Method", "t", 0xdeadbeefULL)        -- LL/ULL literal
+b:call(svc, path, intf, "Method", "i", ffi.new("uint64_t", 42))  -- fits, OK
+```
+
+**Output side (D-Bus to Lua):** automatic and value-dependent. A `t`
+or `x` value whose magnitude is at most 2^53 is returned as a plain
+Lua number, exactly as before. Anything larger -- which a Lua number
+could not have represented correctly anyway -- is returned as
+`uint64_t` / `int64_t` cdata:
+
+```lua
+local small = b:call(svc, path, intf, "GetU64")   --> number, e.g. 42
+local big   = b:call(svc, path, intf, "GetU64")   --> cdata, e.g. 18446744073709551615ULL
+```
+
+Note that `type()` therefore depends on the value. cdata and numbers
+interoperate under `==` and arithmetic, so comparisons and maths keep
+working, but a few things behave differently once a value is cdata:
+
+- `tostring(v)` appends `ULL` / `LL`, and string concatenation (`..`)
+  errors outright.
+- `string.format("%d", v)` accepts cdata but reinterprets it as
+  *signed* 64bit, so a large `t` value prints negative. Format with
+  `%s` instead.
+- `math.floor()` and friends reject cdata; use `tonumber(v)` where the
+  precision loss is acceptable.
+- As a table key, a cdata value does not hash to the equivalent
+  number: `t[1ULL]` is not `t[1]`. This matters for D-Bus dicts keyed
+  by `t` / `x` whose keys exceed 2^53.
+
 ### Client API
 
 There are two client APIs: the high level `lsdbus.proxy` API uses
@@ -1122,6 +1173,20 @@ the loop.
 
 (only API changes)
 
+- **BREAKING** (LuaJIT only): the 64bit integer slots `t` and `x` now
+  decode to `uint64_t` / `int64_t` cdata when the value exceeds 2^53,
+  where a Lua number (a double there) silently lost precision. Values
+  up to 2^53 are still returned as plain Lua numbers, so only the
+  range that used to decode incorrectly is affected. `type()`
+  therefore depends on the value, and cdata does not concatenate, is
+  rejected by `math.*` and does not work as a table key equivalent to
+  the number.
+- (LuaJIT only) 64bit integer cdata is now accepted in every D-Bus
+  integer slot (`y`, `n`, `q`, `i`, `u`, `x`, `t`, `h`) and by
+  `lsdbus.tovariant`, so values beyond 2^53 can be sent too.
+  Acceptance is by width, so `int64_t`, `uint64_t`, `long`, `size_t`
+  and friends all work; narrower cdata does not. See [LuaJIT
+  specifics](#luajit-specifics).
 - **BREAKING**: `lsdbus.tovariant` (and everything built on it such as
   `tovariant2`, `proxy:SetAV` and `proxy:callttAV`) encodes an empty
   Lua table as an empty dict `a{sv}` instead of `a{iv}`. Almost all

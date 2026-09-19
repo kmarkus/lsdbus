@@ -267,6 +267,12 @@ function M.tovariant(val)
 	 for k,v in pairs(val) do res[k] = M.tovariant(v) end
 	 return { 'a{sv}', res }
       end
+   elseif typ == 'cdata' then
+      -- LuaJIT: tostring renders 64bit integers as <digits>ULL / <digits>LL
+      local s = tostring(val)
+      if s:sub(-3) == 'ULL' then return { 't', val }
+      elseif s:sub(-2) == 'LL' then return { 'x', val }
+      else error(fmt("unsupported cdata type %s", s)) end
    else
       error(string.format("unsupported type %s", typ))
    end

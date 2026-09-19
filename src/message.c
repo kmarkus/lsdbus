@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <string.h>
 #include "lsdbus.h"
 
 /* set in luaopen_lsdbus_core if the running VM is LuaJIT */
@@ -15,6 +17,112 @@ static int explode_checkstack(lua_State *L, int n)
 {
 	return lua_checkstack(L, n) || lsdbus_vm_is_luajit;
 }
+
+/* LuaJIT has no 64bit Lua number - it is a double - so 64bit D-Bus
+ * integers are exchanged with Lua as FFI cdata. Both helpers are gated
+ * on LUA_VERSION_NUM < 502, which covers LuaJIT 2.x and plain Lua 5.1;
+ * there lsdbus_vm_is_luajit is 0 and they do nothing. Lua 5.2+ has a
+ * 64bit lua_Integer and needs none of this. */
+
+/* lua_tointegerx widened to 64 bit, plus LuaJIT cdata.
+ *
+ * lua_tointegerx cannot see cdata, but tostring() renders int64_t and
+ * uint64_t as "<digits>LL" / "<digits>ULL", while every other ctype
+ * renders as "cdata<...>: 0x...". Parsing that therefore converts and
+ * type-checks in one step, with no FFI needed on this side. Either
+ * signedness is accepted in any slot; callers truncate to their slot
+ * width, as the plain Lua number path does. Returns 1 on success. */
+static int arg_toint64(lua_State *L, int idx, uint64_t *out)
+{
+	int ok;
+#if LUA_VERSION_NUM < 502
+	int absidx = lua_absindex(L, idx);
+#endif
+
+	*out = (uint64_t)lua_tointegerx(L, idx, &ok);
+
+#if LUA_VERSION_NUM < 502
+	if (!ok && lsdbus_vm_is_luajit) {
+		const char *s;
+		char *end;
+
+		lua_getglobal(L, "tostring");
+		lua_pushvalue(L, absidx);
+		if (lua_pcall(L, 1, 1, 0) != LUA_OK) {
+			lua_pop(L, 1);
+			return 0;
+		}
+
+		s = lua_tostring(L, -1);
+		if (s) {
+			*out = (*s == '-') ? (uint64_t)strtoll(s, &end, 10)
+					   : strtoull(s, &end, 10);
+			ok = end != s && (!strcmp(end, "LL") || !strcmp(end, "ULL"));
+		}
+		lua_pop(L, 1);
+	}
+#endif
+	return ok;
+}
+
+#if LUA_VERSION_NUM < 502
+
+#define REG_CDATA_BOX	"lsdbus.cdata_box"
+
+/* Push a 64bit value as cdata, but only where a Lua number would lose
+ * it: 2^53 is the largest integer a double still holds exactly, so
+ * anything smaller keeps returning a plain Lua number as before.
+ *
+ * LuaJIT has no C API for creating cdata, so the boxing is done by a
+ * Lua closure casting a pointer to the value. It is compiled on first
+ * use and cached in the registry, which keeps it per lua_State; false
+ * is cached instead if this LuaJIT was built without the FFI.
+ *
+ * Returns 0 if nothing was pushed and the caller should push a plain
+ * Lua number. */
+static int push_int64(lua_State *L, uint64_t v, int is_signed)
+{
+	const int64_t exact = 1LL << 53;
+
+	if (!lsdbus_vm_is_luajit)
+		return 0;
+
+	if (is_signed ? ((int64_t)v >= -exact && (int64_t)v <= exact)
+		      : (v <= (uint64_t)exact))
+		return 0;
+
+	lua_getfield(L, LUA_REGISTRYINDEX, REG_CDATA_BOX);
+
+	if (lua_isnil(L, -1)) {
+		lua_pop(L, 1);
+		if (luaL_dostring(L,
+			"local ffi = require('ffi')\n"
+			"local u64p, i64p = ffi.typeof('uint64_t *'), ffi.typeof('int64_t *')\n"
+			"return function(p, signed)\n"
+			"   if signed then return ffi.cast(i64p, p)[0] end\n"
+			"   return ffi.cast(u64p, p)[0]\n"
+			"end\n") != LUA_OK) {
+			lua_pop(L, 1);
+			lua_pushboolean(L, 0);
+		}
+		lua_pushvalue(L, -1);
+		lua_setfield(L, LUA_REGISTRYINDEX, REG_CDATA_BOX);
+	}
+
+	if (!lua_isfunction(L, -1)) {
+		lua_pop(L, 1);
+		return 0;
+	}
+
+	lua_pushlightuserdata(L, &v);
+	lua_pushboolean(L, is_signed);
+	lua_call(L, 2, 1);
+	return 1;
+}
+
+#else
+# define push_int64(L, v, is_signed)	0
+#endif
 
 /**
  * table_explode - unpack the table at src onto the top of the stack
@@ -365,14 +473,14 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 switch (*t) {
 
                 case SD_BUS_TYPE_BYTE: {
+			uint64_t v;
 			uint8_t x;
-			int ok;
-			x = lua_tointegerx(L, stpos, &ok);
-			if (!ok) {
+			if (!arg_toint64(L, stpos, &v)) {
 				lua_pushfstring(L, "failed to convert arg #%d (integer expected, got %s)",
 						stpos, lua_typename(L, lua_type(L, stpos)));
 				return -1;
 			}
+			x = (uint8_t)v;
 			dbg("append BYTE %c", x);
 			r = sd_bus_message_append_basic(m, *t, &x);
 			lua_remove(L, stpos);
@@ -396,19 +504,18 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 case SD_BUS_TYPE_INT32:
                 case SD_BUS_TYPE_UINT32:
                 case SD_BUS_TYPE_UNIX_FD: {
+                        uint64_t v;
                         uint32_t x;
-			int ok;
 
 			static_assert(sizeof(int32_t) == sizeof(int), "int != int32_t");
 
-			x = lua_tointegerx(L, stpos, &ok);
-
-			if (!ok) {
+			if (!arg_toint64(L, stpos, &v)) {
 				lua_pushfstring(L, "failed to convert arg #%d (integer expected, got %s)",
 						stpos, lua_typename(L, lua_type(L, stpos)));
 				return -1;
 			}
 
+			x = (uint32_t)v;
 			dbg("append uint/int/fd %u", x);
 			r = sd_bus_message_append_basic(m, *t, &x);
 			lua_remove(L, stpos);
@@ -417,16 +524,16 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 
                 case SD_BUS_TYPE_INT16:
                 case SD_BUS_TYPE_UINT16: {
-			int ok;
+			uint64_t v;
                         uint16_t x;
-			x = lua_tointegerx(L, stpos, &ok);
 
-			if (!ok) {
+			if (!arg_toint64(L, stpos, &v)) {
 				lua_pushfstring(L, "failed to convert arg #%d (integer expected, got %s)",
 						stpos, lua_typename(L, lua_type(L, stpos)));
 				return -1;
 			}
 
+			x = (uint16_t)v;
 			dbg("append UINT16 %u", x);
                         r = sd_bus_message_append_basic(m, *t, &x);
 			lua_remove(L, stpos);
@@ -435,12 +542,9 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 
                 case SD_BUS_TYPE_INT64:
                 case SD_BUS_TYPE_UINT64: {
-			int ok;
                         uint64_t x;
 
-			x = lua_tointegerx(L, stpos, &ok);
-
-			if (!ok) {
+			if (!arg_toint64(L, stpos, &x)) {
 				lua_pushfstring(L, "failed to convert arg #%d (integer expected, got %s)",
 						stpos, lua_typename(L, lua_type(L, stpos)));
 				return -1;
@@ -808,12 +912,14 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 
                 case SD_BUS_TYPE_INT64:
 			dbg("push INT64");
-			lua_pushinteger(L, basic.s64);
+			if (!push_int64(L, (uint64_t)basic.s64, 1))
+				lua_pushinteger(L, basic.s64);
 			break;
 
                 case SD_BUS_TYPE_UINT64:
 			dbg("push UINT64");
-			lua_pushinteger(L, basic.u64);
+			if (!push_int64(L, basic.u64, 0))
+				lua_pushinteger(L, basic.u64);
                         break;
 
                 case SD_BUS_TYPE_DOUBLE:
