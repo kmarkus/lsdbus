@@ -69,8 +69,9 @@ elseif cmd == 'sig' then
    msrc = b:match_signal(_n(s), _n(p), _n(i), _n(m), pp)
 elseif cmd == 'expr' then
    log("matching expression %s", opttab[0][2])
+   msrc = {}
    for i=2,#opttab[0] do
-      msrc = b:match(opttab[0][i],
+      msrc[i] = b:match(opttab[0][i],
 		     function(...)
 			io.write("expr #"..(i-1)..": ")
 			pp(...)
