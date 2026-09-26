@@ -35,6 +35,17 @@ function TestMsg:TestNegInts()
    lu.assert_equals(ret, args)
 end
 
+-- Values beyond 32 bit but within 2^53 must survive as plain numbers.
+-- Where lua_Integer is 32 bit wide (Lua 5.1 and LuaJIT on 32 bit
+-- targets) these used to be rejected on input and truncated on output.
+function TestMsg:TestWideInts()
+   local ret = { b:testmsg("uuxxxttt", 2147483648, 4294967295, -2147483649,
+                           5000000000, -5000000000, 9007199254740992,
+                           4294967296, 5000000000) }
+   lu.assert_equals(ret, { 2147483648, 4294967295, -2147483649, 5000000000,
+                           -5000000000, 9007199254740992, 4294967296, 5000000000 })
+end
+
 function TestMsg:TestArray()
    local args = { -2, -1, 1, 2, 3, 4, 5, 6, 7, 9 }
    local ret = b:testmsg("ai", args)

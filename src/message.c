@@ -24,6 +24,26 @@ static int explode_checkstack(lua_State *L, int n)
  * there lsdbus_vm_is_luajit is 0 and they do nothing. Lua 5.2+ has a
  * 64bit lua_Integer and needs none of this. */
 
+/* Push an integer wider than 32 bit. lua_pushinteger would truncate it
+ * where lua_Integer is narrower than 64 bit (Lua 5.1 and LuaJIT on 32 bit
+ * targets); a lua_Number holds it exactly up to 2^53, and push_int64
+ * hands out cdata beyond that. */
+static void push_wide_int(lua_State *L, int64_t v)
+{
+	if (sizeof(lua_Integer) < 8)
+		lua_pushnumber(L, (lua_Number)v);
+	else
+		lua_pushinteger(L, (lua_Integer)v);
+}
+
+static void push_wide_uint(lua_State *L, uint64_t v)
+{
+	if (sizeof(lua_Integer) < 8)
+		lua_pushnumber(L, (lua_Number)v);
+	else
+		lua_pushinteger(L, (lua_Integer)v);
+}
+
 /* lua_tointegerx widened to 64 bit, plus LuaJIT cdata.
  *
  * lua_tointegerx cannot see cdata, but tostring() renders int64_t and
@@ -38,6 +58,25 @@ static int arg_toint64(lua_State *L, int idx, uint64_t *out)
 #if LUA_VERSION_NUM < 502
 	int absidx = lua_absindex(L, idx);
 #endif
+
+	/* Where lua_Integer is narrower than 64 bit (Lua 5.1 and LuaJIT on
+	 * 32 bit targets, where it is ptrdiff_t), lua_tointegerx rejects
+	 * every number beyond it. Convert the lua_Number directly instead:
+	 * any integral value in the int64/uint64 range is accepted. */
+	if (sizeof(lua_Integer) < 8 && lua_type(L, idx) == LUA_TNUMBER) {
+		lua_Number d = lua_tonumber(L, idx);
+
+		if (d < 0) {
+			if (d < -9223372036854775808.0 || (lua_Number)(int64_t)d != d)
+				return 0;
+			*out = (uint64_t)(int64_t)d;
+		} else {
+			if (d >= 18446744073709551616.0 || (lua_Number)(uint64_t)d != d)
+				return 0;
+			*out = (uint64_t)d;
+		}
+		return 1;
+	}
 
 	*out = (uint64_t)lua_tointegerx(L, idx, &ok);
 
@@ -907,19 +946,19 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 
                 case SD_BUS_TYPE_UINT32:
 			dbg("push UINT32");
-			lua_pushinteger(L, basic.u32);
+			push_wide_uint(L, basic.u32);
                         break;
 
                 case SD_BUS_TYPE_INT64:
 			dbg("push INT64");
 			if (!push_int64(L, (uint64_t)basic.s64, 1))
-				lua_pushinteger(L, basic.s64);
+				push_wide_int(L, basic.s64);
 			break;
 
                 case SD_BUS_TYPE_UINT64:
 			dbg("push UINT64");
 			if (!push_int64(L, basic.u64, 0))
-				lua_pushinteger(L, basic.u64);
+				push_wide_uint(L, basic.u64);
                         break;
 
                 case SD_BUS_TYPE_DOUBLE:
