@@ -128,11 +128,21 @@ end
 
 function TestLuaJIT:TestOtherWideIntegerCtypes()
    -- acceptance is by width, not by the exact ctype name: anything
-   -- LuaJIT prints as <digits>LL / <digits>ULL is taken
-   lu.assert_equals(b:testmsg('t', ffi.new('size_t', 42)), 42)
-   lu.assert_equals(b:testmsg('t', ffi.new('unsigned long', 42)), 42)
-   lu.assert_equals(b:testmsg('x', ffi.new('long', -42)), -42)
-   lu.assert_equals(b:testmsg('i', ffi.new('ptrdiff_t', 7)), 7)
+   -- LuaJIT prints as <digits>LL / <digits>ULL is taken. These ctypes
+   -- are only 64bit on LP64; on 32bit targets they are narrow and must
+   -- be rejected like int32_t.
+   local function check(sig, ct, v)
+      local cv = ffi.new(ct, v)
+      if ffi.sizeof(ct) == 8 then
+         lu.assert_equals(b:testmsg(sig, cv), v)
+      else
+         lu.assert_error_msg_contains('integer expected', function() b:testmsg(sig, cv) end)
+      end
+   end
+   check('t', 'size_t', 42)
+   check('t', 'unsigned long', 42)
+   check('x', 'long', -42)
+   check('i', 'ptrdiff_t', 7)
 end
 
 function TestLuaJIT:TestRejectNarrowCdata()
