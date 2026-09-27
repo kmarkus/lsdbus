@@ -136,3 +136,10 @@ install(PROGRAMS
   tools/lsdb-mon
   tools/lsdb-prop
   DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+option(INSTALL_TESTS "Install the unit tests to CONFIG_TESTDIR" OFF)
+set(CONFIG_TESTDIR "${CMAKE_INSTALL_DATADIR}/lsdbus/test" CACHE STRING "unit test install dir")
+
+if(INSTALL_TESTS)
+  install(DIRECTORY test/ DESTINATION ${CONFIG_TESTDIR})
+endif()
