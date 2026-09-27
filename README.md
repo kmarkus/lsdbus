@@ -334,8 +334,9 @@ could not have represented correctly anyway -- is returned as
 `uint64_t` / `int64_t` cdata:
 
 ```lua
-local small = b:call(svc, path, intf, "GetU64")   --> number, e.g. 42
-local big   = b:call(svc, path, intf, "GetU64")   --> cdata, e.g. 18446744073709551615ULL
+-- bus:call returns the call status first, then the results
+local ok, small = b:call(svc, path, intf, "GetU64")   --> true, 42 (number)
+local ok, big   = b:call(svc, path, intf, "GetU64")   --> true, 18446744073709551615ULL (cdata)
 ```
 
 Note that `type()` therefore depends on the value. cdata and numbers
