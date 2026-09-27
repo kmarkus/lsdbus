@@ -533,7 +533,7 @@ static int lsdbus_bus_set_method_call_timeout(lua_State *L)
 {
 	int ret;
 	sd_bus *b = lua_checksdbus(L, 1);
-	uint64_t timeout = luaL_checkinteger(L, 2);
+	uint64_t timeout = lsdbus_checkuint64(L, 2);
 
 	ret = sd_bus_set_method_call_timeout(b,	timeout);
 
@@ -554,7 +554,7 @@ static int lsdbus_bus_get_method_call_timeout(lua_State *L)
 	if (ret<0)
 		luaL_error(L, "get_method_call_timeout failed: %s", strerror(-ret));
 
-	lua_pushinteger(L, timeout);
+	lsdbus_push_uint64(L, timeout);
 	return 1;
 }
 

@@ -163,7 +163,7 @@ int evl_run(lua_State *L)
 	sd_bus *b = lua_checksdbus(L, 1);
 	sd_event *loop = evl_get(L, b);
 
-	usec = luaL_optinteger(L, 2, 0);
+	usec = lsdbus_optuint64(L, 2, 0);
 
 	ret = sd_event_run(loop, usec);
 
@@ -281,12 +281,13 @@ static int timer_callback(sd_event_source *evsrc, uint64_t usec, void* userdata)
 	regtab_get(L, REG_EVSRC_TABLE, evsrc);
 
 	lua_rawgeti(L, -1, 2);
-	period = lua_tointeger(L, -1);
+	if (!lsdbus_toint64(L, -1, &period))
+		period = 0;
 	lua_pop(L, 1);
 
 	lua_rawgeti(L, -1, 1);
 	lua_pushvalue(L, 1);		/* bus */
-	lua_pushinteger(L, usec);	/* usec */
+	lsdbus_push_uint64(L, usec);	/* usec */
 	ret = lua_pcall(L, 2, 0, 0);
 
 	if (ret != LUA_OK) {
@@ -341,10 +342,10 @@ int evl_add_periodic(lua_State *L)
 	}
 
 	sd_bus *b = lua_checksdbus(L, 1);
-	lua_Integer period = luaL_checkinteger(L, 2);
+	uint64_t period = lsdbus_checkuint64(L, 2);
 	luaL_argcheck(L, period > 0, 2, "period must be > 0");
 	usec = period;
-	accuracy = luaL_optinteger(L, 3, 0);
+	accuracy = lsdbus_optuint64(L, 3, 0);
 	luaL_checktype(L, 4, LUA_TFUNCTION);
 
 	if (!lua_isnoneornil(L, 5))
@@ -376,7 +377,7 @@ int evl_add_periodic(lua_State *L)
 	lua_newtable(L);
 	lua_pushvalue(L, 4);
 	lua_rawseti(L, 5, 1);
-	lua_pushinteger(L, usec);
+	lsdbus_push_uint64(L, usec);
 	lua_rawseti(L, 5, 2);
 
 	regtab_store(L,	REG_EVSRC_TABLE, evsrc, -1);

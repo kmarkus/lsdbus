@@ -36,12 +36,33 @@ static void push_wide_int(lua_State *L, int64_t v)
 		lua_pushinteger(L, (lua_Integer)v);
 }
 
-static void push_wide_uint(lua_State *L, uint64_t v)
+void lsdbus_push_uint64(lua_State *L, uint64_t v)
 {
 	if (sizeof(lua_Integer) < 8)
 		lua_pushnumber(L, (lua_Number)v);
 	else
 		lua_pushinteger(L, (lua_Integer)v);
+}
+
+/* Check / get an optional unsigned 64bit argument, such as a time in usec.
+ * Unlike luaL_checkinteger this works where lua_Integer is 32 bit, where
+ * a CLOCK_MONOTONIC usec value exceeds it after ~36 minutes of uptime. */
+uint64_t lsdbus_checkuint64(lua_State *L, int idx)
+{
+	uint64_t v;
+
+	if (lua_type(L, idx) == LUA_TNUMBER && lua_tonumber(L, idx) < 0)
+		luaL_argerror(L, idx, "must not be negative");
+
+	if (!lsdbus_toint64(L, idx, &v))
+		luaL_argerror(L, idx, "integer expected");
+
+	return v;
+}
+
+uint64_t lsdbus_optuint64(lua_State *L, int idx, uint64_t def)
+{
+	return lua_isnoneornil(L, idx) ? def : lsdbus_checkuint64(L, idx);
 }
 
 /* lua_tointegerx widened to 64 bit, plus LuaJIT cdata.
@@ -52,7 +73,7 @@ static void push_wide_uint(lua_State *L, uint64_t v)
  * type-checks in one step, with no FFI needed on this side. Either
  * signedness is accepted in any slot; callers truncate to their slot
  * width, as the plain Lua number path does. Returns 1 on success. */
-static int arg_toint64(lua_State *L, int idx, uint64_t *out)
+int lsdbus_toint64(lua_State *L, int idx, uint64_t *out)
 {
 	int ok;
 #if LUA_VERSION_NUM < 502
@@ -514,7 +535,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 case SD_BUS_TYPE_BYTE: {
 			uint64_t v;
 			uint8_t x;
-			if (!arg_toint64(L, stpos, &v)) {
+			if (!lsdbus_toint64(L, stpos, &v)) {
 				lua_pushfstring(L, "failed to convert arg #%d (integer expected, got %s)",
 						stpos, lua_typename(L, lua_type(L, stpos)));
 				return -1;
@@ -548,7 +569,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 
 			static_assert(sizeof(int32_t) == sizeof(int), "int != int32_t");
 
-			if (!arg_toint64(L, stpos, &v)) {
+			if (!lsdbus_toint64(L, stpos, &v)) {
 				lua_pushfstring(L, "failed to convert arg #%d (integer expected, got %s)",
 						stpos, lua_typename(L, lua_type(L, stpos)));
 				return -1;
@@ -566,7 +587,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 			uint64_t v;
                         uint16_t x;
 
-			if (!arg_toint64(L, stpos, &v)) {
+			if (!lsdbus_toint64(L, stpos, &v)) {
 				lua_pushfstring(L, "failed to convert arg #%d (integer expected, got %s)",
 						stpos, lua_typename(L, lua_type(L, stpos)));
 				return -1;
@@ -583,7 +604,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 case SD_BUS_TYPE_UINT64: {
                         uint64_t x;
 
-			if (!arg_toint64(L, stpos, &x)) {
+			if (!lsdbus_toint64(L, stpos, &x)) {
 				lua_pushfstring(L, "failed to convert arg #%d (integer expected, got %s)",
 						stpos, lua_typename(L, lua_type(L, stpos)));
 				return -1;
@@ -946,7 +967,7 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 
                 case SD_BUS_TYPE_UINT32:
 			dbg("push UINT32");
-			push_wide_uint(L, basic.u32);
+			lsdbus_push_uint64(L, basic.u32);
                         break;
 
                 case SD_BUS_TYPE_INT64:
@@ -958,7 +979,7 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
                 case SD_BUS_TYPE_UINT64:
 			dbg("push UINT64");
 			if (!push_int64(L, basic.u64, 0))
-				push_wide_uint(L, basic.u64);
+				lsdbus_push_uint64(L, basic.u64);
                         break;
 
                 case SD_BUS_TYPE_DOUBLE:

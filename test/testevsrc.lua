@@ -118,6 +118,39 @@ function TestEvSrc:TestPeriodicNilEnabled()
    evsrc:unref()
 end
 
+--- regression: where lua_Integer is 32 bit (Lua 5.1, LuaJIT on 32 bit
+--- targets) periods beyond ~36 minutes (2^31 usec) were truncated
+function TestEvSrc:TestPeriodicLongPeriod()
+   local hour = 3600 * 1000 * 1000
+   local evsrc = b:add_periodic(hour, hour / 2, function() end)
+   lu.assert_equals(evsrc:get_enabled(), lsdb.SD_EVENT_ON)
+   evsrc:unref()
+   lu.assertErrorMsgContains("must not be negative",
+      function() b:add_periodic(-1000, 0, function() end) end)
+end
+
+--- regression: the usec argument of the periodic callback is the
+--- absolute CLOCK_MONOTONIC expiry time, which exceeds 2^31 after ~36
+--- minutes of uptime and used to be truncated where lua_Integer is 32 bit
+function TestEvSrc:TestPeriodicCallbackUsec()
+   if not have_ptime then lu.skip("no luaposix") end
+   local ts = ptime.clock_gettime(ptime.CLOCK_MONOTONIC)
+   local now_us = ts.tv_sec * 1e6 + ts.tv_nsec / 1e3
+
+   local got
+   local evsrc = b:add_periodic(1000, 0, function(_, usec) got = usec end)
+   for _=1,100 do
+      if got then break end
+      b:run(10*1000)
+   end
+   evsrc:unref()
+
+   lu.assert_not_nil(got)
+   lu.assert_true(got > 0, "usec " .. tostring(got))
+   lu.assert_true(math.abs(got - now_us) < 10 * 1e6,
+                  string.format("usec %s, now %.0f us", tostring(got), now_us))
+end
+
 function TestEvSrc:TestAddSignal()
    local evsrc = b:add_signal(lsdb.SIGUSR2, function() end)
    lu.assert_str_contains(tostring(evsrc), "unix_signal")
