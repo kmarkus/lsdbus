@@ -312,9 +312,11 @@ this case.
 **Input side (Lua to D-Bus):** 64bit integer cdata is accepted in
 every D-Bus integer slot (`y`, `n`, `q`, `i`, `u`, `x`, `t`, `h`),
 either signedness in any slot. Acceptance is by width rather than by
-ctype name, so `int64_t`, `uint64_t`, `long`, `size_t`, `ptrdiff_t`
-and friends all work. There is no range check -- truncation mirrors
-the plain Lua-number path. This is always on under LuaJIT.
+ctype name, so `int64_t`, `uint64_t` and friends all work, as do
+`long`, `size_t` and `ptrdiff_t` where they are 64 bit wide (LP64; on
+32 bit targets they are narrow cdata and rejected). There is no range
+check -- truncation mirrors the plain Lua-number path. This is always
+on under LuaJIT.
 
 Narrower cdata (`int32_t`, `uint8_t`, ...) is *not* accepted, nor are
 pointers, structs or floats. Narrow integers fit a Lua number exactly,
@@ -1185,9 +1187,9 @@ the loop.
 - (LuaJIT only) 64bit integer cdata is now accepted in every D-Bus
   integer slot (`y`, `n`, `q`, `i`, `u`, `x`, `t`, `h`) and by
   `lsdbus.tovariant`, so values beyond 2^53 can be sent too.
-  Acceptance is by width, so `int64_t`, `uint64_t`, `long`, `size_t`
-  and friends all work; narrower cdata does not. See [LuaJIT
-  specifics](#luajit-specifics).
+  Acceptance is by width, so `int64_t`, `uint64_t` and friends all
+  work, as do `long` and `size_t` where they are 64 bit wide (LP64);
+  narrower cdata does not. See [LuaJIT specifics](#luajit-specifics).
 - **BREAKING**: `lsdbus.tovariant` (and everything built on it such as
   `tovariant2`, `proxy:SetAV` and `proxy:callttAV`) encodes an empty
   Lua table as an empty dict `a{sv}` instead of `a{iv}`. Almost all
