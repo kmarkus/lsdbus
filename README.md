@@ -1212,9 +1212,9 @@ the loop.
   the D-Bus error message instead of being dropped.
 - added `lsdbus.job`: helper for running long running jobs in slices
   from the event loop (see section [Long running jobs](#long-running-jobs)).
-- **all handles are now garbage collected**. `match*` slots and `evsrc`
-  objects are no longer set to *floating* on GC — they are unreferenced
-  and destroyed like all other handle types. Make sure to hold a
+- **BREAKING**: all handles are now garbage collected. `match*` slots
+  and `evsrc` objects are no longer set to *floating* on GC — they are
+  unreferenced and destroyed like all other handle types. Make sure to hold a
   reference to any handle you want to keep alive. On Lua 5.4+, handles
   support the `<close>` attribute for deterministic cleanup.
 - `proxy:error` now throws an error object (table with fields `name`,
