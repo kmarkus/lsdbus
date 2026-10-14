@@ -24,11 +24,18 @@ $ lsdb-call org.freedesktop.DBus,/org/freedesktop/DBus,org.freedesktop.DBus,List
 $ lsdb-call freedesktop,,,ListNames
 $ lsdb-call org.bluez,/org/bluez/hci0,org.freedesktop.DBus.Properties,GetAll "{interface='org.bluez.Adapter1'}"
 
+variant arguments (v, av, a{sv}, a{iv}) are encoded from plain Lua
+values via lsdbus.tovariant, e.g. "{props={a=1,b='x'}}" for a{sv}.
+integers are sent as 'x', floats as 'd'. use -R if the service
+expects other types or for nested variants.
+
 flags
  -s     system bus
  -u     session bus
  -C     disable color
- -r     raw: don't pretty-print the return value
+ -r     don't pretty-print the return value
+ -R     raw variants: don't encode variant arguments, don't
+        decode variant results. variants are {TYPESTR, VALUE}
  -v     verbose
  -h     show this help
  -V     show version
@@ -74,7 +81,12 @@ if not ok then
 end
 local ret,tab = u.eval_sandbox("return "..argtab)
 if ret then
-   local results = table.pack(prxy:callt(m, tab))
+   local results
+   if opttab['-R'] then
+      results = table.pack(prxy:callrt(m, tab))
+   else
+      results = table.pack(prxy:callt(m, tab, true))
+   end
    if opttab['-r'] then
       u.pp(table.unpack(results, 1, results.n))
    else

@@ -5,7 +5,7 @@ local lsdb = require("lsdbus")
 local ac = require("ansicolors")
 local ts = tostring
 
-local b, bus, color, verbose
+local b, bus, color, verbose, raw
 color = true
 
 local function printf(fmt, ...) print(string.format(fmt, ...)) end
@@ -74,9 +74,15 @@ flags
  -s     system bus
  -u     session bus
  -C     disable colors
+ -R     raw variants: don't encode the value to set, don't decode
+        variants in values read. variants are {TYPESTR, VALUE}
  -v     verbose
  -h     show this help
  -V     show version
+
+values of variant properties (v, av, a{sv}, a{iv}) are encoded from
+plain Lua values via lsdbus.tovariant. integers are sent as 'x',
+floats as 'd'. use -R if the service expects other types.
 
 *examples*
 
@@ -95,15 +101,23 @@ $ lsdb-prop foo.bar,/some/path,com.foo.bar,PropX
 # set a property
 $ lsdb-prop foo.bar,/some/path,com.foo.bar,PropX=42
 
+# set a variant property with an explicit type
+$ lsdb-prop foo.bar,/some/path,com.foo.bar,PropV="{'u',42}" -R
+
 # auto-resolve path and interface (must be unique)
 $ lsdb-prop foo.bar,,,PropX
 
 ]=])
 end
 
+local function show_all(prxy)
+   if raw then u.pp(prxy:GetAllr()) else pp_props(prxy:GetAll()) end
+end
+
 -- parse command line arguments
 local opttab = u.proc_args(arg)
 verbose = opttab['-v']
+raw = opttab['-R']
 if opttab['-C'] then color = false end
 if opttab['-h'] then help(); os.exit(0) end
 if opttab['-V'] then print(lsdb.version()); os.exit(0) end
@@ -137,7 +151,7 @@ if not arg2 then
    -- No property specified: list all matching interfaces
    local ok, result = lsdb.find_proxy(b, s, p, i)
    if ok then
-      pp_props(result:GetAll())
+      show_all(result)
    else
       if #result == 0 then
          err(string.format("service '%s' not found", s))
@@ -147,7 +161,7 @@ if not arg2 then
          if idx > 1 then print("") end
          local prxy = lsdb.proxy.new(b, c[1], c[2], c[3])
          printf("%s  %s", green(c[2]), bmagenta(c[3]))
-         pp_props(prxy:GetAll())
+         show_all(prxy)
       end
    end
 else
@@ -170,13 +184,13 @@ else
 	 err(string.format("no property %s", key))
 	 os.exit(1)
       end
-      u.pp(prxy[key])
+      if raw then u.pp(prxy:Getr(key)) else u.pp(prxy:Get(key)) end
    else
       local ok, val = u.eval_sandbox("return " .. value)
       if not ok then
 	 err(string.format("failed to parse value: %s", val))
 	 os.exit(1)
       end
-      prxy[key] = val
+      if raw then prxy:Set(key, val) else prxy:SetAV(key, val) end
    end
 end

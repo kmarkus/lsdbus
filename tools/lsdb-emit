@@ -3,6 +3,7 @@
 local u = require("utils")
 local ac = require("ansicolors")
 local lsdb = require("lsdbus.core")
+local common = require("lsdbus.common")
 
 local b, bus, verbose
 local color = true
@@ -23,13 +24,20 @@ $ lsdb-emit /foo,lsdbus.foo0,WatchOut d 1.8
 $ lsdb-emit /foo,lsdbus.foo0,WatchOut b true
 $ lsdb-emit /foo,lsdbus.foo0,WatchOut 'a{is}' "{'a','b'}"
 $ lsdb-emit /foo,lsdbus.foo0,WatchOut 'a{si}' "{a=1,v=2}"
+$ lsdb-emit /foo,lsdbus.foo0,WatchOut 'a{sv}' "{a=1,v='x'}"
+$ lsdb-emit /foo,lsdbus.foo0,WatchOut v "{'u',42}" -R
 
+variant arguments (v, av, a{sv}, a{iv}) are encoded from plain Lua
+values via lsdbus.tovariant. integers are sent as 'x', floats as
+'d'. use -R if other types are needed.
 
 flags
  -n NUM    emit the given event NUM times (default: 1)
  -s        system bus
  -u        session bus
  -C        disable colors
+ -R        raw variants: don't encode variant arguments.
+           variants are given as {TYPESTR, VALUE}
  -v        verbose
  -V        show version
 ]=])
@@ -73,6 +81,11 @@ local args = {}
 
 if typestr then
    args = proc_args{ table.unpack(opttab[0], 3)}
+   if not opttab['-R'] then
+      for j,t in ipairs(common.split_sig(typestr)) do
+	 if args[j] ~= nil then args[j] = common.encode_variant(t, args[j]) end
+      end
+   end
 end
 
 if p == nil then err("invalid destination spec"); os.exit(1); end

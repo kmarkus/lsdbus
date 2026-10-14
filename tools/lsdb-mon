@@ -38,6 +38,7 @@ global flags
  -s 	system bus
  -u	session bus
  -C 	disable colors
+ -R	raw variants: don't decode variants, show as {TYPESTR, VALUE}
  -v     verbose
  -V     show version
 ]=])
@@ -46,6 +47,7 @@ end
 local opttab = u.proc_args(arg)
 local cmd = opttab[0][1]
 local pp = colorpp
+local raw = opttab['-R'] and true or false
 
 verbose = opttab['-v']
 if opttab['-C'] then pp = plainpp end
@@ -61,12 +63,12 @@ local msrc
 
 if not cmd then
    log('matching all signals')
-   msrc = b:match_signal(nil, nil, nil, nil, pp)
+   msrc = b:match_signal(nil, nil, nil, nil, pp, raw)
 elseif cmd == 'sig' then
    local s,p,i,m = string.match(opttab[0][2], "([^,]*),([^,]*),([^,]*),(.*)")
    if s == nil then printf("invalid signal spec"); os.exit(1) end
    log("matching sender=%s, path=%s, interf=%s, member=%s", s, p, i, m)
-   msrc = b:match_signal(_n(s), _n(p), _n(i), _n(m), pp)
+   msrc = b:match_signal(_n(s), _n(p), _n(i), _n(m), pp, raw)
 elseif cmd == 'expr' then
    log("matching expression %s", opttab[0][2])
    msrc = {}
@@ -75,7 +77,7 @@ elseif cmd == 'expr' then
 		     function(...)
 			io.write("expr #"..(i-1)..": ")
 			pp(...)
-		     end
+		     end, raw
       )
    end
 elseif cmd == 'help' then

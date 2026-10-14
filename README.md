@@ -565,12 +565,13 @@ function callback(bus, sender, path, interface, member, arg0...)
   -- do something
 end
 
-slot = bus:match_signal(sender, path, interface, member, callback)
-slot = bus:match(match_expr, callback)
+slot = bus:match_signal(sender, path, interface, member, callback, raw)
+slot = bus:match(match_expr, callback, raw)
 ```
 
 These correspond to `sd_bus_match_signal(3)` and `sd_bus_add_match(3)`
-respectively.
+respectively. If the optional `raw` is true, variants in the signal
+arguments are not unpacked (like `callr`).
 
 > **Note**: returning `1` will result in no further callbacks matching
 > the same rule to be called (see manpage for details).
@@ -886,8 +887,8 @@ The `proxy:SetAV` uses the tovariant functions internally.
 | `bus:request_name(NAME)`                                                      | see `sd_bus_request_name(3)`                 |
 | `bus:release_name(NAME)`                                                      | see `sd_bus_release_name(3)`                 |
 | `open, ready = bus:state()`                                                   | see `sd_bus_is_open` and `sd_bus_is_ready`   |
-| `slot = bus:match_signal(sender, path, intf, member, callback)`               | see `sd_bus_add_match(3)`                    |
-| `slot = bus:match(match_expr, handler)`                                       | see `sd_bus_add_match(3)`                    |
+| `slot = bus:match_signal(sender, path, intf, member, callback, raw)`          | see `sd_bus_add_match(3)`                    |
+| `slot = bus:match(match_expr, handler, raw)`                                  | see `sd_bus_add_match(3)`                    |
 | `bus:emit_properties_changed(propA, propB...)`                                | see `sd_bus_emit_properties_changed(3)`      |
 | `bus:emit_signal(path, intf, member, typestr, args...)`                       | see `sd_bus_emit_signal(3)`                  |
 | `evsrc = bus:add_signal(SIGNAL)`                                              | see `sd_event_add_signal(3)`                 |
@@ -950,12 +951,15 @@ The `proxy:SetAV` uses the tovariant functions internally.
 | `prxy:callttAV(method, ARGTAB)`                | alias for `calltt(method, ARGTAB, true)`              |
 | `prxy:call_async(method, callback, ARGTAB)`    | call a method asynchronously (returns slot)           |
 | `prxy:callr(method, arg0, ...)`                | raw call, will not unpack variants                    |
+| `prxy:callrt(method, ARGTAB, av)`              | like `callt`, but will not unpack variants            |
 | `prxy:Get(name)`                               | get a properties value                                |
 | `prxy.name`                                    | short form, same as previous                          |
+| `prxy:Getr(name)`                              | like `Get`, but will not unpack the variant           |
 | `prxy:Set(name, value)`                        | set a property                                        |
 | `prxy:SetAV(name, value)`                      | set a property (auto convert variants)                |
 | `prxy.name = value`                            | short form for setting a property to value            |
 | `prxy:GetAll(filter)`                          | get all properties that match the optional filter     |
+| `prxy:GetAllr()`                               | like `GetAll` without filter, raw variants            |
 | `prxy:SetAll(t)`                               | set all properties from a table                       |
 | `prxy:HasProperty(prop)`                       | check if prxy has a property of the given name        |
 | `prxy:Ping`                                    | call the `Ping` method on `org.freedesktop.DBus.Peer` |
@@ -1176,6 +1180,17 @@ the loop.
 
 (only API changes)
 
+- **BREAKING**: the `lsdb-call`, `lsdb-prop` and `lsdb-emit` tools
+  encode variant arguments (`v`, `av`, `a{sv}`, `a{iv}`) from plain
+  Lua values via `lsdbus.tovariant`, e.g. `lsdb-call ...
+  "{opts={a=1}}"`. Hand-encoded variants such as `{'s','x'}` are now
+  encoded a second time; pass them with the new `-R` (raw variants)
+  flag instead. `-R` also disables decoding of variants in the output
+  of `lsdb-call`, `lsdb-prop` and `lsdb-mon`.
+- `bus:match_signal` and `bus:match` accept an optional `raw` argument
+  to receive signal arguments with variants not unpacked.
+- added `proxy:callrt`, `proxy:Getr` and `proxy:GetAllr`, the raw
+  (variants not unpacked) versions of `callt`, `Get` and `GetAll`.
 - **BREAKING** (LuaJIT only): the 64bit integer slots `t` and `x` now
   decode to `uint64_t` / `int64_t` cdata when the value exceeds 2^53,
   where a Lua number (a double there) silently lost precision. Values
