@@ -317,12 +317,12 @@ function M.split_sig(sig)
       elseif c == '(' or c == '{' then
 	 local close = (c == '(') and ')' or '}'
 	 while sig:sub(pos, pos) ~= close do
-	    if pos > #sig then error(fmt("invalid signature %s", sig)) end
+	    if pos > #sig then error(fmt("invalid signature %s", sig), 0) end
 	    complete()
 	 end
 	 pos = pos + 1
       elseif c == '' then
-	 error(fmt("invalid signature %s", sig))
+	 error(fmt("invalid signature %s", sig), 0)
       end
    end
 

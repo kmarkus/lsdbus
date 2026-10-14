@@ -82,7 +82,9 @@ local args = {}
 if typestr then
    args = proc_args{ table.unpack(opttab[0], 3)}
    if not opttab['-R'] then
-      for j,t in ipairs(common.split_sig(typestr)) do
+      local ok, ts = pcall(common.split_sig, typestr)
+      if not ok then err(ts); os.exit(1) end
+      for j,t in ipairs(ts) do
 	 if args[j] ~= nil then args[j] = common.encode_variant(t, args[j]) end
       end
    end
