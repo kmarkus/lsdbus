@@ -192,8 +192,9 @@ static int push_int64(lua_State *L, uint64_t v, int is_signed)
  * @ctx	context to print in case of error
  * @return number of elements unpacked or -1 in case of error.
 
- * The table stays at pos, msg_fromlua drops it with the elements by
- * resetting the stack on container close. In the error case, a
+ * The table stays at pos. msg_fromlua drops the elements by resetting
+ * the stack on container close, the table itself goes with the
+ * enclosing container or the final reset. In the error case, a
  * string with the error message is pushed on top of the stack.
  */
 static int table_explode(lua_State *L, int pos, const char *ctx)
@@ -750,8 +751,8 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 			/* the typestring is parsed in the following
 			 * iterations, so it must stay on the stack to
 			 * keep the Lua string anchored. it is dropped
-			 * with everything else when msg_fromlua's
-			 * caller resets the stack */
+			 * on variant close, when types is restored to
+			 * the parent's */
 			s = lua_tostring(L, -2);
 
 			dbg("pushing variant of type %s", s);
