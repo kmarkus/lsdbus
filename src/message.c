@@ -192,7 +192,8 @@ static int push_int64(lua_State *L, uint64_t v, int is_signed)
  * @ctx	context to print in case of error
  * @return number of elements unpacked or -1 in case of error.
 
- * The table is removed from the given stackpos. In the error case, a
+ * The table stays at pos, msg_fromlua drops it with the elements by
+ * resetting the stack on container close. In the error case, a
  * string with the error message is pushed on top of the stack.
  */
 static int table_explode(lua_State *L, int pos, const char *ctx)
@@ -220,10 +221,9 @@ static int table_explode(lua_State *L, int pos, const char *ctx)
 
 	for (int i=1; i<=len; i++) {
 		lua_geti(L, pos, i);
-		dbg("pushed %s value to pos %i", lua_typename(L, lua_type(L, -1)), pos+i-2);
+		dbg("pushed %s value", lua_typename(L, lua_type(L, -1)));
 	}
 
-	lua_remove(L, pos);
 	return len;
 }
 
@@ -264,7 +264,6 @@ static int dict_explode(lua_State *L, int pos, const char *ctx)
 		len++;
 	}
 
-	lua_remove(L, pos);
 	return len*2;
 }
 
@@ -306,6 +305,7 @@ typedef struct {
         unsigned n_struct;
         unsigned n_array;
 	int stackpos;
+	int top;
 } TypeStack;
 
 static int type_stack_push(TypeStack *stack,
@@ -314,7 +314,8 @@ static int type_stack_push(TypeStack *stack,
 			   const char *types,
 			   unsigned n_struct,
 			   unsigned n_array,
-			   int stackpos) {
+			   int stackpos,
+			   int top) {
         assert(stack);
         assert(max > 0);
 
@@ -325,6 +326,7 @@ static int type_stack_push(TypeStack *stack,
         stack[*i].n_struct = n_struct;
         stack[*i].n_array = n_array;
 	stack[*i].stackpos = stackpos;
+	stack[*i].top = top;
         (*i)++;
 
         return 0;
@@ -336,7 +338,8 @@ static int type_stack_pop(TypeStack *stack,
 			  const char **types,
 			  unsigned *n_struct,
 			  unsigned *n_array,
-			  int *stackpos) {
+			  int *stackpos,
+			  int *top) {
 	(void) max;
 
         assert(stack);
@@ -353,7 +356,10 @@ static int type_stack_pop(TypeStack *stack,
         *types = stack[*i].types;
         *n_struct = stack[*i].n_struct;
         *n_array = stack[*i].n_array;
-	*stackpos = stack[*i].stackpos;
+	/* -1: no own stack value (dict entry), keep the position */
+	if (stack[*i].stackpos >= 0)
+		*stackpos = stack[*i].stackpos;
+	*top = stack[*i].top;
 
         return 1;
 }
@@ -490,13 +496,18 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
         unsigned n_array, n_struct;
         TypeStack stack[BUS_CONTAINER_DEPTH];
         unsigned stack_ptr = 0;
-        int r;
+        int r, top, stpos0;
 
         assert_return(m, -EINVAL);
         assert_return(types, -EINVAL);
         assert_return(!m->sealed, -EPERM);
         assert_return(!m->poisoned, -ESTALE);
 
+        /* consumed values are skipped instead of removed, which
+         * would shift the rest of the stack each time (O(n^2) for
+         * arrays). an exploded container is dropped on close by
+         * resetting the stack to its frame top. */
+        stpos = stpos0 = lua_absindex(L, stpos);
         n_array = (unsigned) -1;
         n_struct = strlen(types);
 
@@ -504,13 +515,17 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                 const char *t;
 
                 if (n_array == 0 || (n_array == (unsigned) -1 && n_struct == 0)) {
-                        r = type_stack_pop(stack, ELEMENTSOF(stack), &stack_ptr, &types, &n_struct, &n_array, &stpos);
+                        r = type_stack_pop(stack, ELEMENTSOF(stack), &stack_ptr, &types, &n_struct, &n_array, &stpos, &top);
                         if (r < 0) {
 				lua_pushfstring(L, "invalid type string %s, no container to close", types);
                                 return r;
 			}
                         if (r == 0)
                                 break;
+
+                        /* exploded container: drop it with its elements */
+                        if (top >= 0)
+                                lua_settop(L, top);
 
                         r = sd_bus_message_close_container(m);
 			dbg("sd_bus_message_close_container");
@@ -543,7 +558,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 			x = (uint8_t)v;
 			dbg("append BYTE %c", x);
 			r = sd_bus_message_append_basic(m, *t, &x);
-			lua_remove(L, stpos);
+			stpos++;
 			break;
                 }
 
@@ -557,7 +572,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 			int x = lua_toboolean(L, stpos);
 			dbg("append bool %i", x);
 			r = sd_bus_message_append_basic(m, *t, &x);
-			lua_remove(L, stpos);
+			stpos++;
                         break;
 		}
 
@@ -578,7 +593,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 			x = (uint32_t)v;
 			dbg("append uint/int/fd %u", x);
 			r = sd_bus_message_append_basic(m, *t, &x);
-			lua_remove(L, stpos);
+			stpos++;
                         break;
                 }
 
@@ -596,7 +611,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 			x = (uint16_t)v;
 			dbg("append UINT16 %u", x);
                         r = sd_bus_message_append_basic(m, *t, &x);
-			lua_remove(L, stpos);
+			stpos++;
                         break;
                 }
 
@@ -612,7 +627,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 
                         dbg("append UINT64 %lu", x);
                         r = sd_bus_message_append_basic(m, *t, &x);
-			lua_remove(L, stpos);
+			stpos++;
                         break;
                 }
 
@@ -630,7 +645,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 
 			dbg("append DOUBLE %f", x);
                         r = sd_bus_message_append_basic(m, *t, &x);
-			lua_remove(L, stpos);
+			stpos++;
                         break;
                 }
 
@@ -647,7 +662,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 
 			dbg("append string %s", x);
                         r = sd_bus_message_append_basic(m, *t, x);
-			lua_remove(L, stpos);
+			stpos++;
                         break;
                 }
 
@@ -677,7 +692,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                                 n_struct -= k;
                         }
 
-                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array, stpos);
+                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array, stpos + 1, lua_gettop(L));
                         if (r < 0) {
 				lua_pushfstring(L, "container depth %u exceeded", BUS_CONTAINER_DEPTH);
                                 return r;
@@ -718,6 +733,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 				return -EINVAL;
 			}
 
+			top = lua_gettop(L);
 			r = table_explode(L, stpos, s);
 
 			if (r != 2) {
@@ -746,7 +762,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                                 return r;
 			}
 
-                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array, stpos);
+                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array, stpos + 1, top);
                         if (r < 0) {
 				lua_pushfstring(L, "container depth %u exceeded", BUS_CONTAINER_DEPTH);
                                 return r;
@@ -793,7 +809,12 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                                 n_struct -= k - 1;
                         }
 
-                        r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array, stpos);
+                        /* a dict entry has no table of its own, its key
+                         * and value follow at stpos */
+                        if (*t == SD_BUS_TYPE_STRUCT_BEGIN)
+                                r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array, stpos + 1, lua_gettop(L));
+                        else
+                                r = type_stack_push(stack, ELEMENTSOF(stack), &stack_ptr, types, n_struct, n_array, -1, -1);
                         if (r < 0) {
 				lua_pushfstring(L, "container depth %u exceeded", BUS_CONTAINER_DEPTH);
                                 return r;
@@ -824,6 +845,7 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
                         return r;
         }
 
+	lua_settop(L, stpos0 - 1);
 	return 1;
 }
 
