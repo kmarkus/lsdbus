@@ -17,6 +17,19 @@ local introspect_if = 'org.freedesktop.DBus.Introspectable'
 
 local proxy = {}
 
+-- in-signature per method table, introspection data is not modified
+-- after proxy creation
+local its_cache = setmetatable({}, { __mode = 'k' })
+
+local function mtab2its(mtab)
+   local its = its_cache[mtab]
+   if not its then
+      its = met2its(mtab)
+      its_cache[mtab] = its
+   end
+   return its
+end
+
 local proxy_err = {}
 proxy_err.__index = proxy_err
 
@@ -58,22 +71,23 @@ function proxy:error(err_, msg)
    error(e)
 end
 
+-- check a bus:call result without packing it into a table
+local function chkres(self, what, m, ts, ok, ...)
+   if not ok then
+      local e = ...
+      self:error(e[1], fmt("%s %s(%s) failed: %s", what, m, ts, e[2]))
+   end
+   return ...
+end
+
 -- lowlevel plumbing method
 function proxy:xcall(i, m, ts, ...)
-   local ret = { self._bus:call(self._srv, self._obj, i, m, ts, ...) }
-   if not ret[1] then
-      self:error(ret[2][1], fmt("calling %s(%s) failed: %s", m, ts, ret[2][2]))
-   end
-   return unpack(ret, 2)
+   return chkres(self, "calling", m, ts, self._bus:call(self._srv, self._obj, i, m, ts, ...))
 end
 
 -- lowlevel plumbing method, raw: variants are not unpacked
 function proxy:xcallr(i, m, ts, ...)
-   local ret = { self._bus:callr(self._srv, self._obj, i, m, ts, ...) }
-   if not ret[1] then
-      self:error(ret[2][1], fmt("callr %s(%s) failed: %s", m, ts, ret[2][2]))
-   end
-   return unpack(ret, 2)
+   return chkres(self, "callr", m, ts, self._bus:callr(self._srv, self._obj, i, m, ts, ...))
 end
 
 function proxy:call(m, ...)
@@ -81,7 +95,7 @@ function proxy:call(m, ...)
    if not mtab then
       self:error(err.UNKNOWN_METHOD, fmt("call: no method %s", m))
    end
-   local its = met2its(mtab)
+   local its = mtab2its(mtab)
    return self:xcall(self._intf.name, m, its, ...)
 end
 
@@ -92,7 +106,7 @@ function proxy:callr(m, ...)
    if not mtab then
       self:error(err.UNKNOWN_METHOD, fmt("callr: no method %s", m))
    end
-   return self:xcallr(self._intf.name, m, met2its(mtab), ...)
+   return self:xcallr(self._intf.name, m, mtab2its(mtab), ...)
 end
 
 function proxy:call_async(m, cb, ...)
@@ -100,7 +114,7 @@ function proxy:call_async(m, cb, ...)
    if not mtab then
       self:error(err.UNKNOWN_METHOD, fmt("call_async: no method %s", m))
    end
-   local its = met2its(mtab)
+   local its = mtab2its(mtab)
    return self._bus:call_async(cb, self._srv, self._obj, self._intf.name, m, its, ...)
 end
 
@@ -124,7 +138,7 @@ local function argtab2args(self, fname, m, argtab, av)
 	 args[#args+1] = av and encode_variant(a.type, argtab[a.name]) or argtab[a.name]
       end
    end
-   return met2its(mtab), args
+   return mtab2its(mtab), args
 end
 
 -- call with argument table
