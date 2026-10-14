@@ -1180,6 +1180,11 @@ the loop.
 
 (only API changes)
 
+- **BREAKING**: `proxy.new` with a Lua interface table raises an
+  error if a method arg has no valid `direction` (`in` or `out`).
+  Such args used to be left out of the call silently. Introspected
+  XML is not affected: there a missing `direction` defaults to `in`,
+  as the D-Bus specification defines.
 - **BREAKING**: the `lsdb-call`, `lsdb-prop` and `lsdb-emit` tools
   encode variant arguments (`v`, `av`, `a{sv}`, `a{iv}`) from plain
   Lua values via `lsdbus.tovariant`, e.g. `lsdb-call ...
