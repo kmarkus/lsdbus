@@ -132,12 +132,8 @@ end
 log("using %s bus", bus or 'default')
 b = lsdb.open(bus)
 
-local fields = {}
-for f in (opttab[0][1] .. ","):gmatch("([^,]*),") do
-   fields[#fields + 1] = f
-end
-local s, p, i = fields[1] or "", fields[2] or "", fields[3] or ""
-local arg2 = fields[4]
+-- only split the first three commas, the value may contain more
+local s, p, i, arg2 = string.match(opttab[0][1], "^([^,]*),?([^,]*),?([^,]*),?(.*)$")
 if arg2 == "" then arg2 = nil end
 
 if s == "" then
