@@ -812,8 +812,11 @@ int lsdbus_emit_signal(lua_State *L)
 	if (sig) {
 		ret = msg_fromlua(L, message, sig, 6);
 
-		if (ret < 0)
-			goto out;
+		if (ret < 0) {
+			/* error message pushed by msg_fromlua */
+			sd_bus_message_unref(message);
+			return lua_error(L);
+		}
 	}
 
 	ret = sd_bus_send(b, message, NULL);

@@ -361,4 +361,13 @@ function TestMsg:TestCallAsyncConversionError()
    lu.assertErrorMsgContains("integer expected, got table", t)
 end
 
+--- regression: emit_signal used to report 'Operation not permitted'
+--- instead of the actual argument conversion error
+function TestMsg:TestEmitSignalConversionError()
+   local function t()
+      b:emit_signal("/", "org.foo.bar", "Baz", "i", "notanumber")
+   end
+   lu.assertErrorMsgContains("integer expected, got string", t)
+end
+
 return TestMsg
