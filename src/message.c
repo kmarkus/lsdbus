@@ -5,15 +5,15 @@
 /* set in luaopen_lsdbus_core if the running VM is LuaJIT */
 int lsdbus_vm_is_luajit = 0;
 
-/* lua_checkstack for the table explode functions below.
+/* lua_checkstack for msg_fromlua and msg_tolua.
  *
  * LuaJIT's lua_checkstack refuses sizes beyond LUAI_MAXCSTACK (8000)
  * and any size once more than 8000 slots are in use, although its
- * stack grows automatically on push, so large tables work
+ * stack grows automatically on push, so large messages work
  * regardless. This cannot be decided at compile time, because a
  * core.so built against the PUC Lua 5.1 headers is loaded by LuaJIT
  * too (both share the lua/5.1 module path). */
-static int explode_checkstack(lua_State *L, int n)
+static int msg_checkstack(lua_State *L, int n)
 {
 	return lua_checkstack(L, n) || lsdbus_vm_is_luajit;
 }
@@ -214,7 +214,7 @@ static int table_explode(lua_State *L, int pos, const char *ctx)
 	len = lua_tointeger(L, -1);
 	lua_pop(L, 1);
 
-	if (!explode_checkstack(L, len+2)) {
+	if (!msg_checkstack(L, len+2)) {
 		lua_pushfstring(L, "msg_fromlua: error at %s: table too large", ctx);
 		return -1;
 	}
@@ -251,7 +251,7 @@ static int dict_explode(lua_State *L, int pos, const char *ctx)
 
 	lua_pushnil(L);  /* first key */
 	while (lua_next(L, pos) != 0) {
-		if (!explode_checkstack(L, 4)) {
+		if (!msg_checkstack(L, 4)) {
 			lua_pushfstring(L, "msg_fromlua: error at %s: table too large", ctx);
 			return -1;
 		}
@@ -875,6 +875,17 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw, int
                         int i;
                 } basic;
 
+                /* each value stays on the stack until its container
+                 * is done: top-level args and one table per nesting
+                 * level. 4 covers the pushes of one iteration, the
+                 * error message included */
+                if (!msg_checkstack(L, 4)) {
+                        /* drop the partial result to make room */
+                        lua_settop(L, mt - 1);
+                        lua_pushliteral(L, "msg_tolua: Lua stack overflow");
+                        return -ENOMEM;
+                }
+
                 r = sd_bus_message_peek_type(m, &type, &contents);
 
                 if (r < 0) {
@@ -1046,6 +1057,12 @@ int msg_tolua(lua_State *L, sd_bus_message* m, int raw)
 {
 	int ret, nargs;
 	nargs = lua_gettop(L);
+	/* 3 metatables plus the error message of __msg_tolua. on
+	 * failure the message takes one slot of the caller's budget */
+	if (!msg_checkstack(L, 4)) {
+		lua_pushliteral(L, "msg_tolua: Lua stack overflow");
+		return -ENOMEM;
+	}
 	luaL_getmetatable(L, ARRAY_MT);
 	luaL_getmetatable(L, STRUCT_MT);
 	luaL_getmetatable(L, VARIANT_MT);

@@ -52,6 +52,32 @@ function TestSig:TestEmitMatchSignal()
    lu.assert_true(cb_ok)
 end
 
+-- more values than the LUA_MINSTACK slots a C callback is given
+-- (overflow only shows on a Lua built with LUA_USE_APICHECK)
+function TestSig:TestEmitMatchManyArgs()
+   local intf = "lsdbus.test.testemit"
+   local path = "/testsig/emitmatchmanyargs"
+   local member = "TestEmitMatchManyArgs"
+   local n = 200
+   local args = {}
+   for i=1,n do args[i] = i end
+
+   local res
+
+   local function cb(_,_,_,_,_,...) res = { ... } end
+
+   slots[#slots+1] = b:match_signal(nil, path, intf, member, cb)
+
+   b:emit_signal(path, intf, member, string.rep("i", n), table.unpack(args))
+
+   for _=1,20 do
+      if res then break end
+      b:run(100*1000)
+   end
+
+   lu.assert_equals(res, args)
+end
+
 function TestSig:TestEmitMatch()
    local intf = "lsdbus.test.testemit"
    local path = "/testsig/emitmatch"
