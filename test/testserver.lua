@@ -522,6 +522,24 @@ function TestServer:TestCallAV()
 
 end
 
+function TestServer:TestCallRawAV()
+   local v1, v2 = p1:callrt('varroundtrip', { v1=7, v2={foo='hi'} }, true)
+   lu.assert_equals(v1, { 'x', 7 })
+   lu.assert_equals(v2, { foo={ 's', 'hi' } })
+
+   -- without av, variants are passed raw (the server re-encodes)
+   v1, v2 = p1:callrt('varroundtrip', { v1={'s', 'hi'}, v2={foo={'b', true}} })
+   lu.assert_equals(v1, { 's', 'hi' })
+   lu.assert_equals(v2, { foo={ 'b', true } })
+end
+
+function TestServer:TestGetRaw()
+   p1:SetAV("Var", 42)
+   p1:SetAV("DictOfStrVar", {a='x'})
+   lu.assert_equals(p1:Getr("Var"), { 'v', { 'x', 42 } })
+   lu.assert_equals(p1:Getr("DictOfStrVar"), { 'a{sv}', { a={ 's', 'x' } } })
+end
+
 function TestServer:TestFindProxyUnique()
    local ok, prx = lsdb.find_proxy(b, 'lsdbus.test', '/1', 'lsdbus.test.testintf0')
    lu.assert_true(ok)

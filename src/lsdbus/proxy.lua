@@ -7,21 +7,13 @@ local err = require("lsdbus.error")
 local common = require("lsdbus.common")
 
 local met2its, met2ots = common.met2its, common.met2ots
+local encode_variant = common.encode_variant
 local fmt = string.format
 local unpack = table.unpack or unpack
 
 local prop_if = 'org.freedesktop.DBus.Properties'
 local peer_if = 'org.freedesktop.DBus.Peer'
 local introspect_if = 'org.freedesktop.DBus.Introspectable'
-
-local function encode_variant(t, v)
-   if t == "a{sv}" or t == "a{iv}" or t == "av" then
-      return common.tovariant2(v)
-   elseif t == "v" then
-      return common.tovariant(v)
-   end
-   return v
-end
 
 local proxy = {}
 
@@ -75,6 +67,15 @@ function proxy:xcall(i, m, ts, ...)
    return unpack(ret, 2)
 end
 
+-- lowlevel plumbing method, raw: variants are not unpacked
+function proxy:xcallr(i, m, ts, ...)
+   local ret = { self._bus:callr(self._srv, self._obj, i, m, ts, ...) }
+   if not ret[1] then
+      self:error(ret[2][1], fmt("callr %s(%s) failed: %s", m, ts, ret[2][2]))
+   end
+   return unpack(ret, 2)
+end
+
 function proxy:call(m, ...)
    local mtab = self._intf.methods[m]
    if not mtab then
@@ -91,13 +92,7 @@ function proxy:callr(m, ...)
    if not mtab then
       self:error(err.UNKNOWN_METHOD, fmt("callr: no method %s", m))
    end
-   local its = met2its(mtab)
-
-   local ret = { self._bus:callr(self._srv, self._obj, self._intf.name, m, its, ...) }
-   if not ret[1] then
-      self:error(ret[2][1], fmt("callr %s(%s) failed: %s", m, its, ret[2][2]))
-   end
-   return unpack(ret, 2)
+   return self:xcallr(self._intf.name, m, met2its(mtab), ...)
 end
 
 function proxy:call_async(m, cb, ...)
@@ -109,30 +104,42 @@ function proxy:call_async(m, cb, ...)
    return self._bus:call_async(cb, self._srv, self._obj, self._intf.name, m, its, ...)
 end
 
--- call with argument table
--- @param method name
--- @param argtab argument table
--- @param av automatically encode variants if true
-function proxy:callt(m, argtab, av)
+-- convert an argument table to the positional in-args of method m
+local function argtab2args(self, fname, m, argtab, av)
    local mtab = self._intf.methods[m]
    local args = {}
    argtab = argtab or {}
 
    if not mtab then
-      self:error(err.UNKNOWN_METHOD, fmt("callt: no method %s", m))
+      self:error(err.UNKNOWN_METHOD, fmt("%s: no method %s", fname, m))
    end
    for _,a in ipairs(mtab) do
       if a.direction ~= 'out' then
 	 if not a.name then
-	    self:error(err.INVALID_ARGS, fmt("callt: unnamed in-arg %i of method %s", #args+1, m))
+	    self:error(err.INVALID_ARGS, fmt("%s: unnamed in-arg %i of method %s", fname, #args+1, m))
 	 end
 	 if argtab[a.name] == nil then
-	    self:error(err.INVALID_ARGS, fmt("callt: argument %s missing", a.name))
+	    self:error(err.INVALID_ARGS, fmt("%s: argument %s missing", fname, a.name))
 	 end
 	 args[#args+1] = av and encode_variant(a.type, argtab[a.name]) or argtab[a.name]
       end
    end
-   return self:xcall(self._intf.name, m, met2its(mtab), unpack(args))
+   return met2its(mtab), args
+end
+
+-- call with argument table
+-- @param method name
+-- @param argtab argument table
+-- @param av automatically encode variants if true
+function proxy:callt(m, argtab, av)
+   local its, args = argtab2args(self, "callt", m, argtab, av)
+   return self:xcall(self._intf.name, m, its, unpack(args))
+end
+
+-- like callt, but raw: variants in the result are not unpacked
+function proxy:callrt(m, argtab, av)
+   local its, args = argtab2args(self, "callrt", m, argtab, av)
+   return self:xcallr(self._intf.name, m, its, unpack(args))
 end
 
 -- like callt, but return results as a table too
@@ -172,6 +179,14 @@ function proxy:Get(k)
       self:error(err.UNKNOWN_PROPERTY, fmt("Get: unknown property %s", k))
    end
    return self:xcall(prop_if, 'Get', 'ss', self._intf.name, k)
+end
+
+-- like Get, but raw: the variant is not unpacked
+function proxy:Getr(k)
+   if not self._intf.properties[k] then
+      self:error(err.UNKNOWN_PROPERTY, fmt("Getr: unknown property %s", k))
+   end
+   return self:xcallr(prop_if, 'Get', 'ss', self._intf.name, k)
 end
 
 function proxy:Set(k, ...)
@@ -225,6 +240,11 @@ function proxy:GetAll(filter)
    end
 
    return pf
+end
+
+-- like GetAll (without filter), but raw: variants are not unpacked
+function proxy:GetAllr()
+   return self:xcallr(prop_if, 'GetAll', 's', self._intf.name)
 end
 
 function proxy:SetAll(t)

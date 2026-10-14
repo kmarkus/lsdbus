@@ -34,4 +34,25 @@ function TestToVariant.TestEmptyTable()
    lu.assertEquals(lsdb.tovariant({}), { 'a{sv}', {} })
 end
 
+function TestToVariant.TestSplitSig()
+   local split_sig = require("lsdbus.common").split_sig
+   lu.assertEquals(split_sig(""), {})
+   lu.assertEquals(split_sig("s"), { "s" })
+   lu.assertEquals(split_sig("sa{sv}v"), { "s", "a{sv}", "v" })
+   lu.assertEquals(split_sig("a(sv)aa{sa{sv}}(i(ss))u"),
+		   { "a(sv)", "aa{sa{sv}}", "(i(ss))", "u" })
+   lu.assertError(split_sig, "a")
+   lu.assertError(split_sig, "(ii")
+   lu.assertError(split_sig, "a{sv")
+end
+
+function TestToVariant.TestEncodeVariant()
+   local encode_variant = require("lsdbus.common").encode_variant
+   lu.assertEquals(encode_variant("v", 1), { 'x', 1 })
+   lu.assertEquals(encode_variant("a{sv}", {a='x'}), { a={ 's', 'x' } })
+   lu.assertEquals(encode_variant("av", {true}), { { 'b', true } })
+   lu.assertEquals(encode_variant("a{iv}", {1.5}), { { 'd', 1.5 } })
+   lu.assertEquals(encode_variant("s", "foo"), "foo")
+end
+
 return TestToVariant

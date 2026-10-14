@@ -87,6 +87,29 @@ function TestSig:TestEmitMatch()
    lu.assert_true(cb_ok)
 end
 
+function TestSig:TestMatchRaw()
+   local intf = "lsdbus.test.testemit"
+   local path = "/testsig/matchraw"
+   local member = "TestMatchRaw"
+   local res_sig, res_expr
+
+   slots[#slots+1] = b:match_signal(nil, path, intf, member,
+				    function(_,_,_,_,_,...) res_sig = {...} end, true)
+   local match_expr = fmt("type='signal',path='%s',interface='%s',member='%s'", path, intf, member);
+   slots[#slots+1] = b:match(match_expr, function(_,_,_,_,_,...) res_expr = {...} end, true)
+
+   b:emit_signal(path, intf, member, "va{sv}", {'u', 3}, { a={'s', 'x'} })
+
+   for _=1,20 do
+      if res_sig and res_expr then break end
+      b:run(100*1000)
+   end
+
+   local exp = { {'u', 3}, { a={'s', 'x'} } }
+   lu.assert_equals(res_sig, exp)
+   lu.assert_equals(res_expr, exp)
+end
+
 function TestSig:TestMatchSlotGC()
    collectgarbage()
    local mem1 = collectgarbage('count')

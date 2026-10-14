@@ -230,9 +230,8 @@ void push_string_or_nil(lua_State *L, const char* s)
 /**
  * generic signal callback
  */
-static int signal_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error)
+static int __signal_callback(sd_bus_message *m, void *userdata, int raw)
 {
-	(void)ret_error;
 	int ret, nargs, top;
 	lua_State *L = (lua_State*) userdata;
 	sd_bus *b = sd_bus_message_get_bus(m);
@@ -248,7 +247,7 @@ static int signal_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
 	push_string_or_nil(L, sd_bus_message_get_interface(m));
 	push_string_or_nil(L, sd_bus_message_get_member(m));
 
-	nargs = msg_tolua(L, m, 0);
+	nargs = msg_tolua(L, m, raw);
 
 	if(nargs<0) {
 		/* must not raise here, it would longjmp through the
@@ -276,6 +275,18 @@ static int signal_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_
 	return ret;
 }
 
+static int signal_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error)
+{
+	(void)ret_error;
+	return __signal_callback(m, userdata, 0);
+}
+
+static int signal_callback_raw(sd_bus_message *m, void *userdata, sd_bus_error *ret_error)
+{
+	(void)ret_error;
+	return __signal_callback(m, userdata, 1);
+}
+
 static int lsdbus_match_signal(lua_State *L)
 {
 	int ret;
@@ -290,7 +301,8 @@ static int lsdbus_match_signal(lua_State *L)
 	if (!lua_isnil(L, 5)) memb = luaL_checkmember(L, 5);
 	luaL_checktype(L, 6, LUA_TFUNCTION);
 
-	ret = sd_bus_match_signal(b, &slot, sender, path, intf, memb, signal_callback, L);
+	ret = sd_bus_match_signal(b, &slot, sender, path, intf, memb,
+				  lua_toboolean(L, 7) ? signal_callback_raw : signal_callback, L);
 
 	if (ret<0)
 		luaL_error(L, "failed to install signal match rule: %s", strerror(-ret));
@@ -310,7 +322,8 @@ static int lsdbus_match(lua_State *L)
 	if (!lua_isnil(L, 2)) match = luaL_checkstring(L, 2);
 	luaL_checktype(L, 3, LUA_TFUNCTION);
 
-	ret = sd_bus_add_match(b, &slot, match, signal_callback, L);
+	ret = sd_bus_add_match(b, &slot, match,
+			       lua_toboolean(L, 4) ? signal_callback_raw : signal_callback, L);
 
 	if (ret<0)
 		luaL_error(L, "failed to install match rule: %s", strerror(-ret));

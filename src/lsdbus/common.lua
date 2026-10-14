@@ -287,4 +287,51 @@ function M.tovariant2(val)
    return r[2]
 end
 
+--- encode a Lua value for the D-Bus type t if t is a variant type
+-- supported are v, av, a{sv} and a{iv}; other types are returned
+-- unchanged.
+-- @param t D-Bus type string of a single complete type
+-- @param v value to encode
+-- @return encoded value
+function M.encode_variant(t, v)
+   if t == "a{sv}" or t == "a{iv}" or t == "av" then
+      return M.tovariant2(v)
+   elseif t == "v" then
+      return M.tovariant(v)
+   end
+   return v
+end
+
+--- split a D-Bus signature into its complete types
+-- example: split_sig("sa{sv}(ii)") -> { "s", "a{sv}", "(ii)" }
+-- @param sig signature string
+-- @return table of complete type strings
+function M.split_sig(sig)
+   local res, pos = {}, 1
+
+   local function complete()
+      local c = sig:sub(pos, pos)
+      pos = pos + 1
+      if c == 'a' then
+	 complete()
+      elseif c == '(' or c == '{' then
+	 local close = (c == '(') and ')' or '}'
+	 while sig:sub(pos, pos) ~= close do
+	    if pos > #sig then error(fmt("invalid signature %s", sig)) end
+	    complete()
+	 end
+	 pos = pos + 1
+      elseif c == '' then
+	 error(fmt("invalid signature %s", sig))
+      end
+   end
+
+   while pos <= #sig do
+      local start = pos
+      complete()
+      res[#res+1] = sig:sub(start, pos-1)
+   end
+   return res
+end
+
 return M
