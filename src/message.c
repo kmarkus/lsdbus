@@ -849,9 +849,14 @@ int msg_fromlua(lua_State *L, sd_bus_message *m, const char *types, int stpos)
 	return 1;
 }
 
-static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
+/* mt: stack index of the ARRAY_MT, STRUCT_MT, VARIANT_MT metatables,
+ * pushed once by msg_tolua to save a registry lookup per table */
+static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw, int mt)
 {
 	int r;
+	/* next index of the table filled by this frame, a raw variant
+	 * table already holds its typestring at 1 */
+	lua_Integer idx = (raw && ctype == SD_BUS_TYPE_VARIANT) ? 2 : 1;
 
         for (;;) {
                 /* _cleanup_free_ char *prefix = NULL; */
@@ -903,12 +908,10 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 
 			lua_newtable(L);
 
-			if (type == SD_BUS_TYPE_ARRAY)
-				luaL_setmetatable(L, ARRAY_MT);
-			else
-				luaL_setmetatable(L, STRUCT_MT);
+			lua_pushvalue(L, type == SD_BUS_TYPE_ARRAY ? mt : mt + 1);
+			lua_setmetatable(L, -2);
 
-			r = __msg_tolua(L, m, type, raw);
+			r = __msg_tolua(L, m, type, raw, mt);
 			if (r < 0)
 				return r;
 			goto update_table;
@@ -923,7 +926,7 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 				return r;
 			}
 
-			r = __msg_tolua(L, m, type, raw);
+			r = __msg_tolua(L, m, type, raw, mt);
 			if (r < 0)
 				return r;
 			dbg("rawset into parent at -3");
@@ -941,12 +944,13 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 			}
 			if (raw) {
 				lua_newtable(L);
-				luaL_setmetatable(L, VARIANT_MT);
+				lua_pushvalue(L, mt + 2);
+				lua_setmetatable(L, -2);
 				lua_pushstring(L, contents);
 				lua_rawseti(L, -2, 1);
 			}
 
-			r = __msg_tolua(L, m, type, raw);
+			r = __msg_tolua(L, m, type, raw, mt);
 			if (r < 0)
 				return r;
 			goto update_table;
@@ -1030,8 +1034,8 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw)
 				return -EINVAL;
 			}
 
-			dbg("rawseti t[%lu]", lua_rawlen(L, -2) + 1);
-			lua_rawseti(L, -2, lua_rawlen(L, -2) + 1);
+			dbg("rawseti t[%lld]", (long long)idx);
+			lua_rawseti(L, -2, idx++);
 		}
         }
 
@@ -1042,8 +1046,14 @@ int msg_tolua(lua_State *L, sd_bus_message* m, int raw)
 {
 	int ret, nargs;
 	nargs = lua_gettop(L);
-	ret = __msg_tolua(L, m, 0, raw);
+	luaL_getmetatable(L, ARRAY_MT);
+	luaL_getmetatable(L, STRUCT_MT);
+	luaL_getmetatable(L, VARIANT_MT);
+	ret = __msg_tolua(L, m, 0, raw, nargs + 1);
 	if (ret < 0)
 		return ret;
+	/* drop the metatables below the results */
+	lua_rotate(L, nargs + 1, -3);
+	lua_pop(L, 3);
 	return lua_gettop(L) - nargs;
 }
