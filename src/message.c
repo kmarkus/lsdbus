@@ -876,17 +876,6 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw, int
                         int i;
                 } basic;
 
-                /* each value stays on the stack until its container
-                 * is done: top-level args and one table per nesting
-                 * level. 4 covers the pushes of one iteration, the
-                 * error message included */
-                if (!msg_checkstack(L, 4)) {
-                        /* drop the partial result to make room */
-                        lua_settop(L, mt - 1);
-                        lua_pushliteral(L, "msg_tolua: Lua stack overflow");
-                        return -ENOMEM;
-                }
-
                 r = sd_bus_message_peek_type(m, &type, &contents);
 
                 if (r < 0) {
@@ -906,6 +895,20 @@ static int __msg_tolua(lua_State *L, sd_bus_message* m, char ctype, int raw, int
 
 			dbg("exit container ctype %c", ctype);
                         return 0;
+                }
+
+                /* only top-level values and containers grow the
+                 * stack: a value inside a container goes into its
+                 * table right away, within the slots reserved on
+                 * container entry. 4 covers the pushes of one
+                 * iteration, the error message included */
+                if ((ctype == 0 || type == SD_BUS_TYPE_ARRAY ||
+                     type == SD_BUS_TYPE_STRUCT || type == SD_BUS_TYPE_VARIANT ||
+                     type == SD_BUS_TYPE_DICT_ENTRY) && !msg_checkstack(L, 4)) {
+                        /* drop the partial result to make room */
+                        lua_settop(L, mt - 1);
+                        lua_pushliteral(L, "msg_tolua: Lua stack overflow");
+                        return -ENOMEM;
                 }
 
 		if (type == SD_BUS_TYPE_ARRAY || type == SD_BUS_TYPE_STRUCT) {
