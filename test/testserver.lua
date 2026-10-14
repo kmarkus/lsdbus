@@ -130,6 +130,24 @@ function TestServer:TestCallt()
    lu.assert_equals(p1:calltt('getarray', {size=3}), {result={"1","2","3"}})
 end
 
+-- a Lua interface table must give each method arg's direction
+function TestServer:TestProxyNoDirection()
+   local function mkproxy(dir)
+      return proxy.new(b, 'lsdbus.test', '/1', {
+	 name = 'lsdbus.test.testintf0',
+	 methods = {
+	    pow = { { name='x', type='i', direction=dir },
+		    { name='result', type='i', direction='out' } },
+	 },
+      })
+   end
+   lu.assertErrorMsgContains("method pow, arg 1: invalid direction nil",
+			     mkproxy, nil)
+   lu.assertErrorMsgContains("method pow, arg 1: invalid direction inout",
+			     mkproxy, 'inout')
+   lu.assert_equals(mkproxy('in')('pow', 3), 9)
+end
+
 function TestServer:TestGetArray()
    local function test_getarray(p)
       local a, size

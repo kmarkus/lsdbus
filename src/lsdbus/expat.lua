@@ -26,7 +26,8 @@ local function lom2node(doc)
                            args[#args+1] = {
                               name      = elt3.attr.name,
                               type      = elt3.attr.type,
-                              direction = elt3.attr.direction,
+                              -- the spec makes "in" the default
+                              direction = elt3.attr.direction or 'in',
                            }
                         end
                      end

@@ -307,6 +307,19 @@ function proxy:__tostring()
    return table.concat(res, "\n")
 end
 
+-- a Lua interface table must give each method arg's direction, else
+-- the arg is silently left out of the call. introspected XML gets the
+-- spec default from the parser.
+local function check_dirs(intf)
+   for m, mtab in pairs(intf.methods) do
+      for i, a in ipairs(mtab) do
+	 if a.direction ~= 'in' and a.direction ~= 'out' then
+	    error(fmt("method %s, arg %i: invalid direction %s", m, i, tostring(a.direction)), 3)
+	 end
+      end
+   end
+end
+
 local function proxy_introspect(o)
    local ret, xml = o._bus:call(o._srv, o._obj, introspect_if, 'Introspect')
    if not ret then
@@ -351,6 +364,8 @@ function proxy.new(bus, srv, obj, intf, opts)
    o._intf.methods = o._intf.methods or {}
    o._intf.properties = o._intf.properties or {}
    o._intf.signals = o._intf.signals or {}
+
+   if type(intf) == 'table' then check_dirs(o._intf) end
 
    return o
 end

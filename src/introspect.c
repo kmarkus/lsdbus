@@ -72,6 +72,7 @@ static mxml_node_t *mxml_load_string_opaque(const char *s)
 static int dbus_xml2lua(lua_State *L, mxml_node_t *root)
 {
 	mxml_node_t *node, *subnode, *intf, *prop, *met, *sig, *arg;
+	const char *dir;
 
 	/* mxml returns <node> as root when parsing plain XML (no DOCTYPE wrapper) */
 	const char *root_tag = mxmlGetElement(root);
@@ -143,8 +144,10 @@ static int dbus_xml2lua(lua_State *L, mxml_node_t *root)
 				lua_pushstring(L, mxmlElementGetAttr(arg, "type"));
 				lua_rawset(L, -3);
 
+				/* the spec makes "in" the default for method args */
+				dir = mxmlElementGetAttr(arg, "direction");
 				lua_pushstring(L, "direction");
-				lua_pushstring(L, mxmlElementGetAttr(arg, "direction"));
+				lua_pushstring(L, dir ? dir : "in");
 				lua_rawset(L, -3);
 
 				/* method[#method+1] = arg */
