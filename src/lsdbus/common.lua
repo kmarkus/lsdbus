@@ -1,3 +1,8 @@
+-- math.type, also when required without lsdbus
+if _VERSION < "Lua 5.3" then
+   require("compat53")
+end
+
 local M = {}
 
 local lsdb = require("lsdbus.core")
