@@ -141,7 +141,7 @@ function TestServer:TestProxyNoDirection()
 	 },
       })
    end
-   lu.assertErrorMsgContains("method pow, arg 1: invalid direction nil",
+   lu.assertErrorMsgContains("method pow, arg 1: invalid direction: expected string, got nil",
 			     mkproxy, nil)
    lu.assertErrorMsgContains("method pow, arg 1: invalid direction inout",
 			     mkproxy, 'inout')

@@ -313,9 +313,8 @@ end
 local function check_dirs(intf)
    for m, mtab in pairs(intf.methods) do
       for i, a in ipairs(mtab) do
-	 if a.direction ~= 'in' and a.direction ~= 'out' then
-	    error(fmt("method %s, arg %i: invalid direction %s", m, i, tostring(a.direction)), 3)
-	 end
+	 local e = common.check_dir(m, i, a.direction)
+	 if e then error(e, 3) end
       end
    end
 end

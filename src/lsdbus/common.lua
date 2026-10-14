@@ -127,6 +127,17 @@ function M.signal2names(stab)
    return concat(names, '\0') .. '\0\0'
 end
 
+--- check the direction of method arg i
+-- @return error message, or nil if valid
+function M.check_dir(name, i, dir)
+   if type(dir) ~= 'string' then
+      return fmt("method %s, arg %i: invalid direction: expected string, got %s", name, i, type(dir))
+   end
+   if dir ~= 'in' and dir ~= 'out' then
+      return fmt("method %s, arg %i: invalid direction %s", name, i, dir)
+   end
+end
+
 function M.check_intf(intf)
    local function err(format, ...) error(fmt(format, ...)) end
 
@@ -139,13 +150,8 @@ function M.check_intf(intf)
       end
 
       for i,arg in ipairs(mtab) do
-	 if type(arg.direction) ~= 'string' then
-	    err("method %s, arg %i: invalid direction: expected string, got %s", name, i, type(arg.direction))
-	 end
-
-	 if not (arg.direction=='in' or arg.direction=='out') then
-	    err("method %s, arg %i: invalid direction %s", name, i, arg.direction)
-	 end
+	 local e = M.check_dir(name, i, arg.direction)
+	 if e then error(e) end
 	 if type(arg.name) ~= 'string' then
 	    err("method %s, arg %i: invalid name: expected string, got %s", name, i, type(arg.name))
 	 end
