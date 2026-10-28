@@ -1,4 +1,14 @@
-# lsdbus: Lua D-Bus bindings
+<div align="center">
+
+<img src="docs/img/lsdbus-banner.png" alt="lsdbus" width="460">
+
+# Lua D-Bus bindings
+
+[![pipeline status](https://gitlab.com/kmarkus/lsdbus/badges/master/pipeline.svg)](https://gitlab.com/kmarkus/lsdbus/-/pipelines)
+
+**[Install](#installing) · [Quickstart](#quickstart) · [Usage](#usage) · [Client API](#client-api) · [Server API](#server-api) · [Error handling](#error-handling) · [API](#api) · [Tests](#tests) · [FAQ](#faq)**
+
+</div>
 
 `lsdbus` is a simple to use D-Bus binding for Lua 5.x and LuaJIT based
 on the
@@ -1149,6 +1159,9 @@ $ dbus-run-session -- ./scripts/test-runner.sh
 
 LGPLv2. A portion of the lsdbus type conversion is based on code from
 systemd.
+
+The Lua logo in the banner is Copyright (c) 1998 [Lua.org](https://www.lua.org),
+graphic design by Alexandre Nakonechnyj.
 
 ## FAQ
 
